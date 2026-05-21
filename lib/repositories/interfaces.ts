@@ -2,7 +2,7 @@ export interface UserData {
   id: string
   name: string
   email: string
-  passwordHash: string
+  passwordHash: string | null
   role: "STUDENT" | "FACULTY" | "ADMIN"
   createdAt: Date
 }
@@ -10,7 +10,7 @@ export interface UserData {
 export interface CreateUserInput {
   name: string
   email: string
-  passwordHash: string
+  passwordHash?: string | null
   role: "STUDENT" | "FACULTY" | "ADMIN"
 }
 

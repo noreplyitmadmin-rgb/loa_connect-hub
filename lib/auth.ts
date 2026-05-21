@@ -25,7 +25,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email as string },
         })
 
-        if (!user) return null
+        if (!user || !user.passwordHash) return null
 
         const isValid = await compare(credentials.password as string, user.passwordHash)
         if (!isValid) return null
@@ -56,8 +56,9 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {
-        token.role = (user as any).role
         token.id = user.id
+        // For OAuth users (e.g. AzureAD), the user from adapter includes DB fields
+        ;(token as any).role = (user as any).role || "STUDENT"
       }
       if (account) {
         token.accessToken = account.access_token

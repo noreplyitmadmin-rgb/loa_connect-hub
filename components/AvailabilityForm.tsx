@@ -24,11 +24,10 @@ export function AvailabilityForm() {
       const data = await res.json()
 
       if (res.ok) {
-        setMessage("Availability slot created successfully!")
+        setMessage("Availability slot created!")
         setDate("")
         setStartTime("")
         setEndTime("")
-        setTimeout(() => window.location.reload(), 1500)
       } else {
         setMessage(data.error || "Failed to create schedule")
       }
@@ -40,11 +39,11 @@ export function AvailabilityForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-            Date
+          <label htmlFor="date" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+            Consultation Date
           </label>
           <input
             id="date"
@@ -53,12 +52,12 @@ export function AvailabilityForm() {
             onChange={(e) => setDate(e.target.value)}
             required
             min={new Date().toISOString().split("T")[0]}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="input text-slate-800"
           />
         </div>
 
         <div>
-          <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="startTime" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
             Start Time
           </label>
           <input
@@ -67,12 +66,12 @@ export function AvailabilityForm() {
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="input text-slate-800"
           />
         </div>
 
         <div>
-          <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="endTime" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
             End Time
           </label>
           <input
@@ -81,24 +80,33 @@ export function AvailabilityForm() {
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="input text-slate-800"
           />
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        {loading ? "Creating..." : "Create Availability Slot"}
-      </button>
-
-      {message && (
-        <p className={`text-sm ${message.includes("successfully") ? "text-green-600" : "text-red-600"}`}>
-          {message}
-        </p>
-      )}
+      <div className="pt-2 flex items-center justify-between gap-4 flex-wrap-reverse">
+        {message && (
+          <p className={`text-xs font-semibold animate-slide-down ${
+            message.includes("successfully") || message.includes("created")
+              ? "text-emerald-600"
+              : "text-rose-600"
+          }`}>
+            {message}
+          </p>
+        )}
+        <button type="submit" disabled={loading} className="btn-success text-xs font-semibold px-5 py-2.5 ml-auto">
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Creating...
+            </span>
+          ) : "Create Availability Slot"}
+        </button>
+      </div>
     </form>
   )
 }
