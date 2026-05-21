@@ -133,9 +133,9 @@ export const appointmentRepository: IAppointmentRepository = {
     })
     return appointment as any
   },
-  async addAttendee(appointmentId, userId) {
+  async addAttendee(appointmentId, userId, isMandatory = true) {
     const attendee = await prisma.appointmentAttendee.create({
-      data: { appointmentId, userId },
+      data: { appointmentId, userId, isMandatory },
     })
     return attendee as AppointmentAttendeeData
   },

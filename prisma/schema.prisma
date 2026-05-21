@@ -35,6 +35,7 @@ model User {
   passwordHash String?
   role         Role     @default(STUDENT)
   departmentId String?
+  course       String?
   hasLoggedInBefore Boolean @default(false)
   lastLoginAt       DateTime?
   createdAt    DateTime @default(now())
@@ -74,6 +75,7 @@ model Appointment {
   id              String            @id @default(cuid())
   studentId       String
   facultyId       String
+  sessionGroupId  String?           // groups staggered/multi-faculty blocks into one consultation
   date            String            // YYYY-MM-DD
   startTime       String            // HH:mm
   endTime         String            // HH:mm
@@ -100,6 +102,7 @@ model AppointmentAttendee {
   appointmentId String
   userId        String
   status        AttendeeStatus @default(INVITED)
+  isMandatory   Boolean        @default(true)
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   user        User        @relation(fields: [userId], references: [id])

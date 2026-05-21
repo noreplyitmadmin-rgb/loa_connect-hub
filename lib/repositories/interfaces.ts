@@ -5,6 +5,7 @@ export interface UserData {
   passwordHash: string | null
   role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN"
   departmentId: string | null
+  course: string | null
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null
   createdAt: Date
@@ -16,12 +17,14 @@ export interface CreateUserInput {
   passwordHash?: string | null
   role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN"
   departmentId?: string | null
+  course?: string | null
 }
 
 export interface AppointmentData {
   id: string
   studentId: string
   facultyId: string
+  sessionGroupId: string | null
   date: string
   startTime: string
   endTime: string
@@ -85,6 +88,7 @@ export interface AppointmentData {
 export interface CreateAppointmentInput {
   studentId: string
   facultyId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -104,6 +108,7 @@ export interface AppointmentAttendeeData {
   appointmentId: string
   userId: string
   status: "INVITED" | "ACCEPTED" | "DECLINED"
+  isMandatory: boolean
 }
 
 export interface IAppointmentRepository {
@@ -114,7 +119,7 @@ export interface IAppointmentRepository {
   listPendingSync(): Promise<AppointmentData[]>
   findById(id: string): Promise<AppointmentData | null>
   update(id: string, data: Partial<AppointmentData>): Promise<AppointmentData>
-  addAttendee(appointmentId: string, userId: string): Promise<AppointmentAttendeeData>
+  addAttendee(appointmentId: string, userId: string, isMandatory?: boolean): Promise<AppointmentAttendeeData>
   listAttendees(appointmentId: string): Promise<AppointmentAttendeeData[]>
   updateAttendeeStatus(appointmentId: string, userId: string, status: "INVITED" | "ACCEPTED" | "DECLINED"): Promise<AppointmentAttendeeData>
 }

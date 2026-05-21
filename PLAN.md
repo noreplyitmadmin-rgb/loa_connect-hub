@@ -17,8 +17,10 @@
 | **Architecture: FacultySchedule removed** | ✅ **Done** |
 | **Architecture: Date range on availability rules** | ✅ **Done** |
 | — | — |
-| **10. Department & Dean Role** | ❌ **Remaining** |
-| **11. ETL — Bulk User Import (CSV)** | ❌ **Remaining** |
+| **10. Department & Dean Role** | ✅ **Done** |
+| **11. ETL — Bulk User Import (CSV)** | ✅ **Done** |
+| **16. Staggered & Multi-Faculty Booking** | ✅ **Done** |
+| — | — |
 | **12. Email-based Auth & Password Setup** | ❌ **Remaining** |
 | **13. Consultation Completion (Action Taken)** | ❌ **Remaining** |
 | **14. Attendee Permissions** | ❌ **Remaining** |
@@ -79,7 +81,9 @@ model FacultyAvailabilityRule {
 | `lib/controllers/availabilityRules.ts` | Controller with `findActiveRule()`, `getEffectiveHours()`, `isSlotAllowed()` |
 | `app/api/availability-rules/route.ts` | GET list, POST upsert |
 | `app/faculty/availability/page.tsx` | UI with date range picker + day cards |
-| `components/BookingCalendar.tsx` | Rules-based calendar with month grid |
+| `components/SingleFacultyBooking.tsx` | Rules-based calendar with month grid |
+| `components/MultiFacultyBooking.tsx` | Multi-faculty common availability finder |
+| `components/StudentBookingTabs.tsx` | Tab toggle (Single / Multiple Faculty) |
 
 ---
 
@@ -178,16 +182,22 @@ The `FacultySchedule` model (manual slot creation) has been removed entirely. Fa
 - `scheduleId` removed from `Appointment` — now has `date`, `startTime`, `endTime` directly
 - All `scheduleRepository.*()` calls removed from controllers
 - `AvailabilityForm` and `ScheduleCard` components deleted
-- Student dashboard `BookingCalendar` now derives slots from availability rules
+- Student dashboard `SingleFacultyBooking` / `MultiFacultyBooking` derive slots from availability rules
 - Faculty dashboard "My Created Slots" table and "Create Availability Window" form removed
 - Faculty dashboard now shows a link to `/faculty/availability` instead
 - Seed script no longer creates schedule records
 
-**Booking flow:**
+**Booking flow (Single Faculty):**
 1. Faculty sets availability rules (day-of-week + time window + date range)
 2. Student picks a faculty, sees a calendar with available days highlighted
 3. Clicking a day generates 1-hour time blocks from the active rule
 4. Student books a block → `Appointment` created with `date`, `startTime`, `endTime`
+5. Student can add staggered blocks to the same consultation (same `sessionGroupId`)
+
+**Booking flow (Multiple Faculty):**
+1. Student selects 2+ faculty
+2. System finds days where ALL selected faculty have overlapping availability
+3. Student picks a common time slot → batch creates one `Appointment` per faculty (same `sessionGroupId`)
 
 ### Date Range on Availability Rules
 
@@ -202,7 +212,7 @@ The `FacultySchedule` model (manual slot creation) has been removed entirely. Fa
 
 ---
 
-## Phase 10: Department & Dean Role ❌
+## Phase 10: Department & Dean Role ✅ *(Implemented)*
 
 ### 10A. Schema
 
@@ -211,7 +221,7 @@ model Department {
   id     String @id @default(cuid())
   name   String // "College of Computer Studies"
   code   String @unique // "CCS"
-  deanId String?
+  deanId String? @unique
   dean   User?  @relation("DeanDepartment")
   users  User[]
 }
@@ -244,31 +254,31 @@ Dean is **Faculty+** — has all faculty capabilities plus additional dean-scope
 ### 10C. Route Protection
 
 Update `proxy.ts` for `DEAN` role:
-- `/dean/*` — Dean and Admin only
-- `/admin/*` — Admin only (Denied for Dean)
-- `/faculty/*` — Faculty only (Dean has separate dashboard)
+- `/dean/*` — Dean only
+- `/admin/*` — Admin only
+- `/faculty/*` — Faculty and Dean
 
 ### 10D. Files
 
 | File | Action |
 |------|--------|
-| `prisma/schema.prisma` | + `DEAN` in Role, + `Department` model, + `departmentId` on User |
+| `prisma/schema.prisma` | + `DEAN` in Role, + `Department` model, + `departmentId` on User, + `deanDepartment` back-relation |
 | `lib/models/index.ts` | + `Department` type |
-| `lib/repositories/interfaces.ts` | + Department repository methods |
+| `lib/repositories/interfaces.ts` | + Department repository methods, + DEAN in UserData role |
 | `lib/repositories/prisma.ts` | + Department Prisma repo |
 | `lib/repositories/factory.ts` | + Department repo export |
-| `proxy.ts` | + DEAN route rules |
-| `app/dean/page.tsx` | New — Dean dashboard |
-| `app/dean/faculty/page.tsx` | New — Department faculty list |
-| `app/dean/appointments/page.tsx` | New — Department appointments |
-| `app/dean/upload/page.tsx` | New — CSV upload page |
-| `app/dean/reports/page.tsx` | New — Reports |
-| `components/Sidebar.tsx` | + Dean sidebar links |
-| `prisma/seed.ts` | + Sample departments + deans |
+| `proxy.ts` | + DEAN route rules, faculty routes open to DEAN |
+| `app/page.tsx` | + DEAN redirect to `/dean` |
+| `app/dean/page.tsx` | New — Dean dashboard with department metrics |
+| `components/Sidebar.tsx` | + Dean role colors + Dean nav links |
+| `lib/auth.ts` | + DEAN role in JWT callback, redirect handler |
+| `lib/controllers/auth.ts` | + DEAN in register function |
+| `app/(auth)/register/page.tsx` | + DEAN + ADMIN in role dropdown |
+| `app/(auth)/login/page.tsx` | + Dean test account button |
 
 ---
 
-## Phase 11: ETL — Bulk User Import (CSV) ❌
+## Phase 11: ETL — Bulk User Import (CSV) ✅ *(Implemented)*
 
 ### 11A. CSV Format
 
@@ -287,31 +297,32 @@ Name | Microsoft Email | Department | Dean (true/false)
 
 | Uploader | Can upload | Dest role |
 |---|---|---|
-| **Dean** | Faculty + Students | FACULTY (with dept), STUDENT (no dept) |
+| **Dean** | Faculty + Students | FACULTY (with dept), STUDENT (no dept), DEAN (dept + isDean=true) |
 | **Faculty** | Students only | STUDENT |
 
 ### 11C. Upload Flow
 
-1. Dean/faculty uploads CSV file via `POST /api/admin/import-users` or `/api/faculty/import-students`
-2. Server-side parsing (no client-side processing)
+1. Dean/faculty uploads CSV file via `POST /api/import/users` or `POST /api/import/students`
+2. Server-side parsing via `csvParser.ts` (pipe-delimited, no header row required)
 3. For each row:
    - Validate email domain (`@itmlyceumalabang.onmicrosoft.com`)
-   - Check for duplicates
+   - Check for duplicates (skips if exists)
+   - Auto-create department if it doesn't exist
    - Create user with `passwordHash: null`, `hasLoggedInBefore: false`
-   - Generate `PasswordResetToken` (15-min expiry, see Phase 12)
-   - Queue email send
+   - (PasswordResetToken + email send deferred to Phase 12)
 4. Return results table: ✅ created, ⏭ skipped, ❌ errors
 
 ### 11D. Files
 
 | File | Action |
 |------|--------|
-| `app/api/admin/import-users/route.ts` | New — Dean CSV upload |
-| `app/api/faculty/import-students/route.ts` | New — Faculty CSV upload |
-| `lib/services/csvParser.ts` | New — CSV parsing + validation |
-| `lib/services/userImport.ts` | New — Import orchestration |
-| `app/dean/upload/page.tsx` | New — Upload UI |
-| `app/faculty/upload/page.tsx` | New — Upload UI (students only) |
+| `lib/services/csvParser.ts` | New — Pipe-delimited CSV parsing + domain validation |
+| `lib/services/userImport.ts` | New — Import orchestration (dedup, dept auto-create, role mapping) |
+| `app/api/import/users/route.ts` | New — Dean CSV upload (DEAN + ADMIN roles) |
+| `app/api/import/students/route.ts` | New — Faculty CSV upload (FACULTY + DEAN roles) |
+| `app/dean/upload/page.tsx` | New — Upload UI with format guide + results table |
+| `app/faculty/upload/page.tsx` | New — Upload UI (students only, simplified) |
+| `components/Sidebar.tsx` | + "Import Users" (Dean) / "Import Students" (Faculty) links |
 
 ---
 
@@ -465,7 +476,66 @@ Enhance the `AppointmentAttendee` system with role-based invitation rules:
 
 ---
 
-## Feature Flagging
+## Phase 16: Staggered & Multi-Faculty Booking ✅ *(Implemented)*
+
+### 16A. Data Model
+
+Added `sessionGroupId` (String?) to `Appointment` — groups related appointments into a single consultation.
+
+**Use cases:**
+- **Staggered blocks**: A single consultation with multiple non-contiguous time blocks in one day (e.g., 8–10am + 3–5pm). Each block is a separate `Appointment` sharing the same `sessionGroupId`.
+- **Multi-faculty booking**: Student books the same time slot with multiple faculty members. Each faculty gets their own `Appointment`, all sharing the same `sessionGroupId`.
+
+### 16B. Booking Modes (Student Dashboard)
+
+Two tabbed modes on the student booking page:
+
+| Mode | Flow |
+|------|------|
+| **Single Faculty** | Select one faculty → calendar shows available days → pick time slot → `BookingForm` modal → after booking, "Add Another Block" button adds staggered blocks to the same session |
+| **Multiple Faculty** | Select 2+ faculty → calendar shows days where ALL have overlapping availability → per-faculty availability table → common time slot picker → inline form with advisory note → batch creates N appointments via `POST /api/appointments/batch` |
+
+### 16C. Common Availability Algorithm
+
+For multi-faculty mode, the system calculates overlapping time windows:
+1. For each selected faculty, get the active availability rule for a given date
+2. Find the intersection of all time windows (latest start time, earliest end time)
+3. Generate 1-hour slots within the overlap
+4. If no overlap exists, show "No common available time slots on this day"
+
+### 16D. Booking Flow (Single Faculty + Staggered)
+
+1. Pick faculty → calendar → pick slot → `BookingForm` creates appointment, returns `sessionGroupId`
+2. After booking, "Current Consultation Blocks" summary shows all booked blocks
+3. Click "Book" on another available slot → `BookingForm` in "Add Block" mode (amber advisory banner)
+4. New block shares the same `sessionGroupId`
+
+### 16E. Booking Flow (Multi-Faculty)
+
+1. Toggle-select faculty members (min 2)
+2. Calendar shows days where all selected faculty have availability
+3. Click a day → table shows per-faculty availability windows
+4. Pick a common time slot → inline form (title + description)
+5. "Book All (N)" → `POST /api/appointments/batch` creates N appointments sequentially
+6. All appointments share a `sessionGroupId`
+7. Result shows success count + any per-faculty errors
+8. Advisory note: "The selected time slot is within each faculty's availability window, but they may have existing appointments at this time."
+
+### 16F. Files
+
+| File | Action |
+|------|--------|
+| `prisma/schema.prisma` | + `sessionGroupId` on Appointment |
+| `lib/models/index.ts` | + `sessionGroupId` in Appointment type |
+| `lib/repositories/interfaces.ts` | + `sessionGroupId` in AppointmentData, CreateAppointmentInput |
+| `lib/controllers/appointments.ts` | + `sessionGroupId` parameter in requestAppointment |
+| `app/api/appointments/route.ts` | + forward sessionGroupId from body |
+| `app/api/appointments/batch/route.ts` | New — Creates N appointments with same sessionGroupId |
+| `components/BookingForm.tsx` | + sessionGroupId prop, "Add Block" mode, returns (appointmentId, groupId) |
+| `components/SingleFacultyBooking.tsx` | New — Replaces BookingCalendar, adds staggered block support |
+| `components/MultiFacultyBooking.tsx` | New — Multi-select faculty + common availability + batch booking |
+| `components/StudentBookingTabs.tsx` | New — Tab toggle (Single / Multiple Faculty) |
+| `app/student/page.tsx` | Uses StudentBookingTabs instead of BookingCalendar |
 
 ### MS Teams Integration
 
@@ -476,18 +546,26 @@ Enhance the `AppointmentAttendee` system with role-based invitation rules:
 
 ---
 
-## Implementation Order
+## Implementation Order (Completed)
 
 ```
-Phase 10 ──> Phase 12 ──> Phase 11 ──> Phase 13 ──> Phase 15 ──> Phase 14
- (Depts)    (Email Auth)  (ETL)       (Action)     (Reports)    (Permissions)
+Phase 10 ──> Phase 11 ──> Phase 16 ──> Phase 12 ──> Phase 13 ──> Phase 15 ──> Phase 14
+ (Depts)     (ETL)       (Staggered)  (Email)    (Action)    (Reports)   (Perms)
+```
+
+### Remaining Order
+
+```
+Phase 12 ──> Phase 13 ──> Phase 15 ──> Phase 14
+(Email)     (Action)    (Reports)   (Perms)
 ```
 
 ### Dependency Map
 
 - **Phase 10 (Departments)** — Foundation. Required by Phases 11, 14, 15.
+- **Phase 11 (ETL)** — Users created via CSV need departments and email setup.
 - **Phase 12 (Email Auth)** — Required by Phase 11 (new users need setup emails).
-- **Phase 11 (ETL)** — Builds on 10 + 12. Users created via CSV need departments and email setup.
+- **Phase 16 (Staggered)** — Independent (data model change only).
 - **Phase 13 (Action Taken)** — Independent. Can be done in parallel with 14.
 - **Phase 15 (Reports)** — Builds on 10 (department filtering) and 13 (action taken data).
 - **Phase 14 (Permissions)** — Builds on 10 (role/department checks).

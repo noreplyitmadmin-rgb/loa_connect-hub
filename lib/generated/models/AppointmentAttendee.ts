@@ -29,6 +29,7 @@ export type AppointmentAttendeeMinAggregateOutputType = {
   appointmentId: string | null
   userId: string | null
   status: $Enums.AttendeeStatus | null
+  isMandatory: boolean | null
 }
 
 export type AppointmentAttendeeMaxAggregateOutputType = {
@@ -36,6 +37,7 @@ export type AppointmentAttendeeMaxAggregateOutputType = {
   appointmentId: string | null
   userId: string | null
   status: $Enums.AttendeeStatus | null
+  isMandatory: boolean | null
 }
 
 export type AppointmentAttendeeCountAggregateOutputType = {
@@ -43,6 +45,7 @@ export type AppointmentAttendeeCountAggregateOutputType = {
   appointmentId: number
   userId: number
   status: number
+  isMandatory: number
   _all: number
 }
 
@@ -52,6 +55,7 @@ export type AppointmentAttendeeMinAggregateInputType = {
   appointmentId?: true
   userId?: true
   status?: true
+  isMandatory?: true
 }
 
 export type AppointmentAttendeeMaxAggregateInputType = {
@@ -59,6 +63,7 @@ export type AppointmentAttendeeMaxAggregateInputType = {
   appointmentId?: true
   userId?: true
   status?: true
+  isMandatory?: true
 }
 
 export type AppointmentAttendeeCountAggregateInputType = {
@@ -66,6 +71,7 @@ export type AppointmentAttendeeCountAggregateInputType = {
   appointmentId?: true
   userId?: true
   status?: true
+  isMandatory?: true
   _all?: true
 }
 
@@ -146,6 +152,7 @@ export type AppointmentAttendeeGroupByOutputType = {
   appointmentId: string
   userId: string
   status: $Enums.AttendeeStatus
+  isMandatory: boolean
   _count: AppointmentAttendeeCountAggregateOutputType | null
   _min: AppointmentAttendeeMinAggregateOutputType | null
   _max: AppointmentAttendeeMaxAggregateOutputType | null
@@ -174,6 +181,7 @@ export type AppointmentAttendeeWhereInput = {
   appointmentId?: Prisma.StringFilter<"AppointmentAttendee"> | string
   userId?: Prisma.StringFilter<"AppointmentAttendee"> | string
   status?: Prisma.EnumAttendeeStatusFilter<"AppointmentAttendee"> | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFilter<"AppointmentAttendee"> | boolean
   appointment?: Prisma.XOR<Prisma.AppointmentScalarRelationFilter, Prisma.AppointmentWhereInput>
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }
@@ -183,6 +191,7 @@ export type AppointmentAttendeeOrderByWithRelationInput = {
   appointmentId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isMandatory?: Prisma.SortOrder
   appointment?: Prisma.AppointmentOrderByWithRelationInput
   user?: Prisma.UserOrderByWithRelationInput
 }
@@ -196,6 +205,7 @@ export type AppointmentAttendeeWhereUniqueInput = Prisma.AtLeast<{
   appointmentId?: Prisma.StringFilter<"AppointmentAttendee"> | string
   userId?: Prisma.StringFilter<"AppointmentAttendee"> | string
   status?: Prisma.EnumAttendeeStatusFilter<"AppointmentAttendee"> | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFilter<"AppointmentAttendee"> | boolean
   appointment?: Prisma.XOR<Prisma.AppointmentScalarRelationFilter, Prisma.AppointmentWhereInput>
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }, "id" | "appointmentId_userId">
@@ -205,6 +215,7 @@ export type AppointmentAttendeeOrderByWithAggregationInput = {
   appointmentId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isMandatory?: Prisma.SortOrder
   _count?: Prisma.AppointmentAttendeeCountOrderByAggregateInput
   _max?: Prisma.AppointmentAttendeeMaxOrderByAggregateInput
   _min?: Prisma.AppointmentAttendeeMinOrderByAggregateInput
@@ -218,11 +229,13 @@ export type AppointmentAttendeeScalarWhereWithAggregatesInput = {
   appointmentId?: Prisma.StringWithAggregatesFilter<"AppointmentAttendee"> | string
   userId?: Prisma.StringWithAggregatesFilter<"AppointmentAttendee"> | string
   status?: Prisma.EnumAttendeeStatusWithAggregatesFilter<"AppointmentAttendee"> | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolWithAggregatesFilter<"AppointmentAttendee"> | boolean
 }
 
 export type AppointmentAttendeeCreateInput = {
   id?: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
   appointment: Prisma.AppointmentCreateNestedOneWithoutAttendeesInput
   user: Prisma.UserCreateNestedOneWithoutAppointmentAttendeesInput
 }
@@ -232,11 +245,13 @@ export type AppointmentAttendeeUncheckedCreateInput = {
   appointmentId: string
   userId: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
 }
 
 export type AppointmentAttendeeUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
   appointment?: Prisma.AppointmentUpdateOneRequiredWithoutAttendeesNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutAppointmentAttendeesNestedInput
 }
@@ -246,6 +261,7 @@ export type AppointmentAttendeeUncheckedUpdateInput = {
   appointmentId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type AppointmentAttendeeCreateManyInput = {
@@ -253,11 +269,13 @@ export type AppointmentAttendeeCreateManyInput = {
   appointmentId: string
   userId: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
 }
 
 export type AppointmentAttendeeUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type AppointmentAttendeeUncheckedUpdateManyInput = {
@@ -265,6 +283,7 @@ export type AppointmentAttendeeUncheckedUpdateManyInput = {
   appointmentId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type AppointmentAttendeeListRelationFilter = {
@@ -287,6 +306,7 @@ export type AppointmentAttendeeCountOrderByAggregateInput = {
   appointmentId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isMandatory?: Prisma.SortOrder
 }
 
 export type AppointmentAttendeeMaxOrderByAggregateInput = {
@@ -294,6 +314,7 @@ export type AppointmentAttendeeMaxOrderByAggregateInput = {
   appointmentId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isMandatory?: Prisma.SortOrder
 }
 
 export type AppointmentAttendeeMinOrderByAggregateInput = {
@@ -301,6 +322,7 @@ export type AppointmentAttendeeMinOrderByAggregateInput = {
   appointmentId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isMandatory?: Prisma.SortOrder
 }
 
 export type AppointmentAttendeeCreateNestedManyWithoutUserInput = {
@@ -394,6 +416,7 @@ export type EnumAttendeeStatusFieldUpdateOperationsInput = {
 export type AppointmentAttendeeCreateWithoutUserInput = {
   id?: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
   appointment: Prisma.AppointmentCreateNestedOneWithoutAttendeesInput
 }
 
@@ -401,6 +424,7 @@ export type AppointmentAttendeeUncheckedCreateWithoutUserInput = {
   id?: string
   appointmentId: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
 }
 
 export type AppointmentAttendeeCreateOrConnectWithoutUserInput = {
@@ -436,11 +460,13 @@ export type AppointmentAttendeeScalarWhereInput = {
   appointmentId?: Prisma.StringFilter<"AppointmentAttendee"> | string
   userId?: Prisma.StringFilter<"AppointmentAttendee"> | string
   status?: Prisma.EnumAttendeeStatusFilter<"AppointmentAttendee"> | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFilter<"AppointmentAttendee"> | boolean
 }
 
 export type AppointmentAttendeeCreateWithoutAppointmentInput = {
   id?: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
   user: Prisma.UserCreateNestedOneWithoutAppointmentAttendeesInput
 }
 
@@ -448,6 +474,7 @@ export type AppointmentAttendeeUncheckedCreateWithoutAppointmentInput = {
   id?: string
   userId: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
 }
 
 export type AppointmentAttendeeCreateOrConnectWithoutAppointmentInput = {
@@ -479,11 +506,13 @@ export type AppointmentAttendeeCreateManyUserInput = {
   id?: string
   appointmentId: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
 }
 
 export type AppointmentAttendeeUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
   appointment?: Prisma.AppointmentUpdateOneRequiredWithoutAttendeesNestedInput
 }
 
@@ -491,23 +520,27 @@ export type AppointmentAttendeeUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   appointmentId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type AppointmentAttendeeUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   appointmentId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type AppointmentAttendeeCreateManyAppointmentInput = {
   id?: string
   userId: string
   status?: $Enums.AttendeeStatus
+  isMandatory?: boolean
 }
 
 export type AppointmentAttendeeUpdateWithoutAppointmentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
   user?: Prisma.UserUpdateOneRequiredWithoutAppointmentAttendeesNestedInput
 }
 
@@ -515,12 +548,14 @@ export type AppointmentAttendeeUncheckedUpdateWithoutAppointmentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type AppointmentAttendeeUncheckedUpdateManyWithoutAppointmentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumAttendeeStatusFieldUpdateOperationsInput | $Enums.AttendeeStatus
+  isMandatory?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 
@@ -530,6 +565,7 @@ export type AppointmentAttendeeSelect<ExtArgs extends runtime.Types.Extensions.I
   appointmentId?: boolean
   userId?: boolean
   status?: boolean
+  isMandatory?: boolean
   appointment?: boolean | Prisma.AppointmentDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appointmentAttendee"]>
@@ -539,6 +575,7 @@ export type AppointmentAttendeeSelectCreateManyAndReturn<ExtArgs extends runtime
   appointmentId?: boolean
   userId?: boolean
   status?: boolean
+  isMandatory?: boolean
   appointment?: boolean | Prisma.AppointmentDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appointmentAttendee"]>
@@ -548,6 +585,7 @@ export type AppointmentAttendeeSelectUpdateManyAndReturn<ExtArgs extends runtime
   appointmentId?: boolean
   userId?: boolean
   status?: boolean
+  isMandatory?: boolean
   appointment?: boolean | Prisma.AppointmentDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appointmentAttendee"]>
@@ -557,9 +595,10 @@ export type AppointmentAttendeeSelectScalar = {
   appointmentId?: boolean
   userId?: boolean
   status?: boolean
+  isMandatory?: boolean
 }
 
-export type AppointmentAttendeeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appointmentId" | "userId" | "status", ExtArgs["result"]["appointmentAttendee"]>
+export type AppointmentAttendeeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appointmentId" | "userId" | "status" | "isMandatory", ExtArgs["result"]["appointmentAttendee"]>
 export type AppointmentAttendeeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   appointment?: boolean | Prisma.AppointmentDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -584,6 +623,7 @@ export type $AppointmentAttendeePayload<ExtArgs extends runtime.Types.Extensions
     appointmentId: string
     userId: string
     status: $Enums.AttendeeStatus
+    isMandatory: boolean
   }, ExtArgs["result"]["appointmentAttendee"]>
   composites: {}
 }
@@ -1013,6 +1053,7 @@ export interface AppointmentAttendeeFieldRefs {
   readonly appointmentId: Prisma.FieldRef<"AppointmentAttendee", 'String'>
   readonly userId: Prisma.FieldRef<"AppointmentAttendee", 'String'>
   readonly status: Prisma.FieldRef<"AppointmentAttendee", 'AttendeeStatus'>
+  readonly isMandatory: Prisma.FieldRef<"AppointmentAttendee", 'Boolean'>
 }
     
 

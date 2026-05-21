@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     const appointment = await requestAppointment({
       studentId: (session.user as any).id,
       facultyId: body.facultyId,
+      sessionGroupId: body.sessionGroupId,
       date: body.date,
       startTime: body.startTime,
       endTime: body.endTime,

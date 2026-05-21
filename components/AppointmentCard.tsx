@@ -21,7 +21,7 @@ interface AppointmentCardProps {
     requestedAt: string
     student?: { name: string; email: string }
     faculty?: { name: string; email: string }
-    attendees?: Array<{ id: string; userId: string; status: string; user?: { name: string; email: string } }>
+    attendees?: Array<{ id: string; userId: string; status: string; isMandatory?: boolean; user?: { name: string; email: string } }>
   }
   role: "STUDENT" | "FACULTY"
 }
@@ -204,16 +204,29 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
               {appointment.attendees.map((att) => (
                 <span
                   key={att.id}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                    att.status === "ACCEPTED"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : att.status === "DECLINED"
-                      ? "bg-red-50 text-red-700 border-red-200"
-                      : "bg-amber-50 text-amber-700 border-amber-200"
-                  }`}
+                  className="inline-flex items-center gap-1"
                   title={`${att.user?.name || "Unknown"} (${att.status})`}
                 >
-                  {att.user?.name || "Unknown"}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      att.status === "ACCEPTED"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : att.status === "DECLINED"
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}
+                  >
+                    {att.user?.name || "Unknown"}
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
+                      att.isMandatory !== false
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {att.isMandatory !== false ? "Required" : "Optional"}
+                  </span>
                 </span>
               ))}
             </div>

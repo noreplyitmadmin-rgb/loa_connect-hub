@@ -84,6 +84,7 @@ export const UserScalarFieldEnum = {
   passwordHash: 'passwordHash',
   role: 'role',
   departmentId: 'departmentId',
+  course: 'course',
   hasLoggedInBefore: 'hasLoggedInBefore',
   lastLoginAt: 'lastLoginAt',
   createdAt: 'createdAt'
@@ -106,6 +107,7 @@ export const AppointmentScalarFieldEnum = {
   id: 'id',
   studentId: 'studentId',
   facultyId: 'facultyId',
+  sessionGroupId: 'sessionGroupId',
   date: 'date',
   startTime: 'startTime',
   endTime: 'endTime',
@@ -130,7 +132,8 @@ export const AppointmentAttendeeScalarFieldEnum = {
   id: 'id',
   appointmentId: 'appointmentId',
   userId: 'userId',
-  status: 'status'
+  status: 'status',
+  isMandatory: 'isMandatory'
 } as const
 
 export type AppointmentAttendeeScalarFieldEnum = (typeof AppointmentAttendeeScalarFieldEnum)[keyof typeof AppointmentAttendeeScalarFieldEnum]

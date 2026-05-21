@@ -2,9 +2,9 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AppointmentCard } from "@/components/AppointmentCard"
 import { CalendarView } from "@/components/CalendarView"
-import BookingCalendar from "@/components/BookingCalendar"
+import StudentBooking from "@/components/StudentBooking"
 import { listStudentAppointments } from "@/lib/controllers/appointments"
-import { userRepository, availabilityRuleRepository } from "@/lib/repositories/factory"
+import { userRepository, availabilityRuleRepository, departmentRepository } from "@/lib/repositories/factory"
 
 export default async function StudentDashboard() {
   const session = await auth()
@@ -13,10 +13,15 @@ export default async function StudentDashboard() {
 
   const appointments = await listStudentAppointments((session.user as any).id)
   const facultyUsers = await userRepository.listByRole("FACULTY")
+  const deanUsers = await userRepository.listByRole("DEAN")
+  const allFaculty = [...facultyUsers, ...deanUsers]
+  const departments = await departmentRepository.listAll()
+  const deptMap = new Map(departments.map((d) => [d.id, d.name]))
+
   const facultyWithRules = await Promise.all(
-    facultyUsers.map(async (f) => {
+    allFaculty.map(async (f) => {
       const rules = await availabilityRuleRepository.listByFaculty(f.id)
-      return { id: f.id, name: f.name, email: f.email, rules }
+      return { id: f.id, name: f.name, email: f.email, department: f.departmentId ? deptMap.get(f.departmentId) || null : null, rules }
     })
   )
 
@@ -41,10 +46,10 @@ export default async function StudentDashboard() {
         </div>
       </div>
 
-      {/* Calendar Booking */}
+      {/* Booking Section */}
       <section className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">Browse Available Slots</h2>
-        <BookingCalendar facultyWithRules={facultyWithRules as any} />
+        <h2 className="text-lg font-bold text-slate-900">Book a Consultation</h2>
+        <StudentBooking facultyWithRules={facultyWithRules as any} />
       </section>
 
       {/* Calendar Timeline */}
@@ -54,7 +59,7 @@ export default async function StudentDashboard() {
         <CalendarView
           events={appointments.map((a: any) => ({
             id: a.id,
-            title: `Consultation with ${a.faculty?.name || "Faculty"}`,
+            title: a.title || `Consultation with ${a.faculty?.name || "Faculty"}`,
             subtitle: a.faculty?.email,
             date: a.date || "",
             startTime: a.startTime || "",

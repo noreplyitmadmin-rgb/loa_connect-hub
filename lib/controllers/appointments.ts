@@ -3,12 +3,14 @@ import { appointmentRepository, userRepository } from "@/lib/repositories/factor
 export async function requestAppointment(input: {
   studentId: string
   facultyId: string
+  sessionGroupId?: string
   date: string
   startTime: string
   endTime: string
   title?: string
   description?: string
   attendeeIds?: string[]
+  attendeeOptions?: { userId: string; isMandatory: boolean }[]
 }) {
   // Check for conflicting appointments
   const existingAppts = await appointmentRepository.listByStudent(input.studentId)
@@ -22,11 +24,12 @@ export async function requestAppointment(input: {
   )
   if (conflicting) throw new Error("You already have an appointment that overlaps with this time")
 
-  // Validate additional attendees are FACULTY role
-  if (input.attendeeIds && input.attendeeIds.length > 0) {
-    for (const attendeeId of input.attendeeIds) {
+  // Validate additional attendees are FACULTY or DEAN role
+  const attendeeIds = input.attendeeIds || input.attendeeOptions?.map(a => a.userId) || []
+  if (attendeeIds.length > 0) {
+    for (const attendeeId of attendeeIds) {
       const user = await userRepository.findById(attendeeId)
-      if (!user || user.role !== "FACULTY") {
+      if (!user || (user.role !== "FACULTY" && user.role !== "DEAN")) {
         throw new Error(`User ${attendeeId} is not a faculty member`)
       }
     }
@@ -35,6 +38,7 @@ export async function requestAppointment(input: {
   const appointment = await appointmentRepository.create({
     studentId: input.studentId,
     facultyId: input.facultyId,
+    sessionGroupId: input.sessionGroupId ?? null,
     date: input.date,
     startTime: input.startTime,
     endTime: input.endTime,
@@ -43,7 +47,13 @@ export async function requestAppointment(input: {
   })
 
   // Add additional faculty attendees
-  if (input.attendeeIds && input.attendeeIds.length > 0) {
+  if (input.attendeeOptions && input.attendeeOptions.length > 0) {
+    for (const opt of input.attendeeOptions) {
+      if (opt.userId !== input.facultyId) {
+        await appointmentRepository.addAttendee(appointment.id, opt.userId, opt.isMandatory)
+      }
+    }
+  } else if (input.attendeeIds && input.attendeeIds.length > 0) {
     for (const attendeeId of input.attendeeIds) {
       if (attendeeId !== input.facultyId) {
         await appointmentRepository.addAttendee(appointment.id, attendeeId)

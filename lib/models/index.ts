@@ -27,6 +27,7 @@ export interface Appointment {
   id: string
   studentId: string
   facultyId: string
+  sessionGroupId: string | null
   date: string
   startTime: string
   endTime: string
@@ -52,6 +53,7 @@ export interface AppointmentAttendee {
   appointmentId: string
   userId: string
   status: AttendeeStatus
+  isMandatory: boolean
   user?: User
 }
 

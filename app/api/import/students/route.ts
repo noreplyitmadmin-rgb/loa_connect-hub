@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { parseCsv } from "@/lib/services/csvParser"
+import { parseCsv, getCsvTemplate } from "@/lib/services/csvParser"
 import { importUsers } from "@/lib/services/userImport"
+
+export async function GET() {
+  const csv = getCsvTemplate("students")
+  return new NextResponse(csv, {
+    headers: {
+      "Content-Type": "text/csv",
+      "Content-Disposition": 'attachment; filename="import_students_template.csv"',
+    },
+  })
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -17,7 +27,10 @@ export async function POST(request: NextRequest) {
   }
 
   const text = await file.text()
-  const { rows, errors: parseErrors } = parseCsv(text)
+  const { rows, errors: parseErrors, headerError } = parseCsv(text, "students")
+  if (headerError) {
+    return NextResponse.json({ error: `Header mismatch: ${headerError}` }, { status: 400 })
+  }
   if (parseErrors.length > 0 && rows.length === 0) {
     return NextResponse.json({ error: "CSV parsing failed", details: parseErrors }, { status: 400 })
   }

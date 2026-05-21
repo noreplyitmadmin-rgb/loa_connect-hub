@@ -38,6 +38,7 @@ export type AppointmentMinAggregateOutputType = {
   id: string | null
   studentId: string | null
   facultyId: string | null
+  sessionGroupId: string | null
   date: string | null
   startTime: string | null
   endTime: string | null
@@ -59,6 +60,7 @@ export type AppointmentMaxAggregateOutputType = {
   id: string | null
   studentId: string | null
   facultyId: string | null
+  sessionGroupId: string | null
   date: string | null
   startTime: string | null
   endTime: string | null
@@ -80,6 +82,7 @@ export type AppointmentCountAggregateOutputType = {
   id: number
   studentId: number
   facultyId: number
+  sessionGroupId: number
   date: number
   startTime: number
   endTime: number
@@ -111,6 +114,7 @@ export type AppointmentMinAggregateInputType = {
   id?: true
   studentId?: true
   facultyId?: true
+  sessionGroupId?: true
   date?: true
   startTime?: true
   endTime?: true
@@ -132,6 +136,7 @@ export type AppointmentMaxAggregateInputType = {
   id?: true
   studentId?: true
   facultyId?: true
+  sessionGroupId?: true
   date?: true
   startTime?: true
   endTime?: true
@@ -153,6 +158,7 @@ export type AppointmentCountAggregateInputType = {
   id?: true
   studentId?: true
   facultyId?: true
+  sessionGroupId?: true
   date?: true
   startTime?: true
   endTime?: true
@@ -261,6 +267,7 @@ export type AppointmentGroupByOutputType = {
   id: string
   studentId: string
   facultyId: string
+  sessionGroupId: string | null
   date: string
   startTime: string
   endTime: string
@@ -305,6 +312,7 @@ export type AppointmentWhereInput = {
   id?: Prisma.StringFilter<"Appointment"> | string
   studentId?: Prisma.StringFilter<"Appointment"> | string
   facultyId?: Prisma.StringFilter<"Appointment"> | string
+  sessionGroupId?: Prisma.StringNullableFilter<"Appointment"> | string | null
   date?: Prisma.StringFilter<"Appointment"> | string
   startTime?: Prisma.StringFilter<"Appointment"> | string
   endTime?: Prisma.StringFilter<"Appointment"> | string
@@ -329,6 +337,7 @@ export type AppointmentOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   studentId?: Prisma.SortOrder
   facultyId?: Prisma.SortOrder
+  sessionGroupId?: Prisma.SortOrderInput | Prisma.SortOrder
   date?: Prisma.SortOrder
   startTime?: Prisma.SortOrder
   endTime?: Prisma.SortOrder
@@ -356,6 +365,7 @@ export type AppointmentWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.AppointmentWhereInput | Prisma.AppointmentWhereInput[]
   studentId?: Prisma.StringFilter<"Appointment"> | string
   facultyId?: Prisma.StringFilter<"Appointment"> | string
+  sessionGroupId?: Prisma.StringNullableFilter<"Appointment"> | string | null
   date?: Prisma.StringFilter<"Appointment"> | string
   startTime?: Prisma.StringFilter<"Appointment"> | string
   endTime?: Prisma.StringFilter<"Appointment"> | string
@@ -380,6 +390,7 @@ export type AppointmentOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   studentId?: Prisma.SortOrder
   facultyId?: Prisma.SortOrder
+  sessionGroupId?: Prisma.SortOrderInput | Prisma.SortOrder
   date?: Prisma.SortOrder
   startTime?: Prisma.SortOrder
   endTime?: Prisma.SortOrder
@@ -409,6 +420,7 @@ export type AppointmentScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"Appointment"> | string
   studentId?: Prisma.StringWithAggregatesFilter<"Appointment"> | string
   facultyId?: Prisma.StringWithAggregatesFilter<"Appointment"> | string
+  sessionGroupId?: Prisma.StringNullableWithAggregatesFilter<"Appointment"> | string | null
   date?: Prisma.StringWithAggregatesFilter<"Appointment"> | string
   startTime?: Prisma.StringWithAggregatesFilter<"Appointment"> | string
   endTime?: Prisma.StringWithAggregatesFilter<"Appointment"> | string
@@ -428,6 +440,7 @@ export type AppointmentScalarWhereWithAggregatesInput = {
 
 export type AppointmentCreateInput = {
   id?: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -452,6 +465,7 @@ export type AppointmentUncheckedCreateInput = {
   id?: string
   studentId: string
   facultyId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -472,6 +486,7 @@ export type AppointmentUncheckedCreateInput = {
 
 export type AppointmentUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -496,6 +511,7 @@ export type AppointmentUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   studentId?: Prisma.StringFieldUpdateOperationsInput | string
   facultyId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -518,6 +534,7 @@ export type AppointmentCreateManyInput = {
   id?: string
   studentId: string
   facultyId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -537,6 +554,7 @@ export type AppointmentCreateManyInput = {
 
 export type AppointmentUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -558,6 +576,7 @@ export type AppointmentUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   studentId?: Prisma.StringFieldUpdateOperationsInput | string
   facultyId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -589,6 +608,7 @@ export type AppointmentCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   studentId?: Prisma.SortOrder
   facultyId?: Prisma.SortOrder
+  sessionGroupId?: Prisma.SortOrder
   date?: Prisma.SortOrder
   startTime?: Prisma.SortOrder
   endTime?: Prisma.SortOrder
@@ -614,6 +634,7 @@ export type AppointmentMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   studentId?: Prisma.SortOrder
   facultyId?: Prisma.SortOrder
+  sessionGroupId?: Prisma.SortOrder
   date?: Prisma.SortOrder
   startTime?: Prisma.SortOrder
   endTime?: Prisma.SortOrder
@@ -635,6 +656,7 @@ export type AppointmentMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   studentId?: Prisma.SortOrder
   facultyId?: Prisma.SortOrder
+  sessionGroupId?: Prisma.SortOrder
   date?: Prisma.SortOrder
   startTime?: Prisma.SortOrder
   endTime?: Prisma.SortOrder
@@ -777,6 +799,7 @@ export type AppointmentUpdateOneRequiredWithoutAttendeesNestedInput = {
 
 export type AppointmentCreateWithoutStudentInput = {
   id?: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -799,6 +822,7 @@ export type AppointmentCreateWithoutStudentInput = {
 export type AppointmentUncheckedCreateWithoutStudentInput = {
   id?: string
   facultyId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -828,6 +852,7 @@ export type AppointmentCreateManyStudentInputEnvelope = {
 
 export type AppointmentCreateWithoutFacultyInput = {
   id?: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -850,6 +875,7 @@ export type AppointmentCreateWithoutFacultyInput = {
 export type AppointmentUncheckedCreateWithoutFacultyInput = {
   id?: string
   studentId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -900,6 +926,7 @@ export type AppointmentScalarWhereInput = {
   id?: Prisma.StringFilter<"Appointment"> | string
   studentId?: Prisma.StringFilter<"Appointment"> | string
   facultyId?: Prisma.StringFilter<"Appointment"> | string
+  sessionGroupId?: Prisma.StringNullableFilter<"Appointment"> | string | null
   date?: Prisma.StringFilter<"Appointment"> | string
   startTime?: Prisma.StringFilter<"Appointment"> | string
   endTime?: Prisma.StringFilter<"Appointment"> | string
@@ -935,6 +962,7 @@ export type AppointmentUpdateManyWithWhereWithoutFacultyInput = {
 
 export type AppointmentCreateWithoutAttendeesInput = {
   id?: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -958,6 +986,7 @@ export type AppointmentUncheckedCreateWithoutAttendeesInput = {
   id?: string
   studentId: string
   facultyId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -993,6 +1022,7 @@ export type AppointmentUpdateToOneWithWhereWithoutAttendeesInput = {
 
 export type AppointmentUpdateWithoutAttendeesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1016,6 +1046,7 @@ export type AppointmentUncheckedUpdateWithoutAttendeesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   studentId?: Prisma.StringFieldUpdateOperationsInput | string
   facultyId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1036,6 +1067,7 @@ export type AppointmentUncheckedUpdateWithoutAttendeesInput = {
 export type AppointmentCreateManyStudentInput = {
   id?: string
   facultyId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -1056,6 +1088,7 @@ export type AppointmentCreateManyStudentInput = {
 export type AppointmentCreateManyFacultyInput = {
   id?: string
   studentId: string
+  sessionGroupId?: string | null
   date: string
   startTime: string
   endTime: string
@@ -1075,6 +1108,7 @@ export type AppointmentCreateManyFacultyInput = {
 
 export type AppointmentUpdateWithoutStudentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1097,6 +1131,7 @@ export type AppointmentUpdateWithoutStudentInput = {
 export type AppointmentUncheckedUpdateWithoutStudentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   facultyId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1118,6 +1153,7 @@ export type AppointmentUncheckedUpdateWithoutStudentInput = {
 export type AppointmentUncheckedUpdateManyWithoutStudentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   facultyId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1137,6 +1173,7 @@ export type AppointmentUncheckedUpdateManyWithoutStudentInput = {
 
 export type AppointmentUpdateWithoutFacultyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1159,6 +1196,7 @@ export type AppointmentUpdateWithoutFacultyInput = {
 export type AppointmentUncheckedUpdateWithoutFacultyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   studentId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1180,6 +1218,7 @@ export type AppointmentUncheckedUpdateWithoutFacultyInput = {
 export type AppointmentUncheckedUpdateManyWithoutFacultyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   studentId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionGroupId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   date?: Prisma.StringFieldUpdateOperationsInput | string
   startTime?: Prisma.StringFieldUpdateOperationsInput | string
   endTime?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1232,6 +1271,7 @@ export type AppointmentSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   id?: boolean
   studentId?: boolean
   facultyId?: boolean
+  sessionGroupId?: boolean
   date?: boolean
   startTime?: boolean
   endTime?: boolean
@@ -1257,6 +1297,7 @@ export type AppointmentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   studentId?: boolean
   facultyId?: boolean
+  sessionGroupId?: boolean
   date?: boolean
   startTime?: boolean
   endTime?: boolean
@@ -1280,6 +1321,7 @@ export type AppointmentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   studentId?: boolean
   facultyId?: boolean
+  sessionGroupId?: boolean
   date?: boolean
   startTime?: boolean
   endTime?: boolean
@@ -1303,6 +1345,7 @@ export type AppointmentSelectScalar = {
   id?: boolean
   studentId?: boolean
   facultyId?: boolean
+  sessionGroupId?: boolean
   date?: boolean
   startTime?: boolean
   endTime?: boolean
@@ -1320,7 +1363,7 @@ export type AppointmentSelectScalar = {
   updatedAt?: boolean
 }
 
-export type AppointmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "studentId" | "facultyId" | "date" | "startTime" | "endTime" | "title" | "description" | "status" | "actionTaken" | "additionalRemarks" | "teamsLink" | "teamsSyncStatus" | "teamsSyncRetries" | "teamsSyncError" | "teamsSyncLastAttempt" | "requestedAt" | "updatedAt", ExtArgs["result"]["appointment"]>
+export type AppointmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "studentId" | "facultyId" | "sessionGroupId" | "date" | "startTime" | "endTime" | "title" | "description" | "status" | "actionTaken" | "additionalRemarks" | "teamsLink" | "teamsSyncStatus" | "teamsSyncRetries" | "teamsSyncError" | "teamsSyncLastAttempt" | "requestedAt" | "updatedAt", ExtArgs["result"]["appointment"]>
 export type AppointmentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   student?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   faculty?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1347,6 +1390,7 @@ export type $AppointmentPayload<ExtArgs extends runtime.Types.Extensions.Interna
     id: string
     studentId: string
     facultyId: string
+    sessionGroupId: string | null
     date: string
     startTime: string
     endTime: string
@@ -1791,6 +1835,7 @@ export interface AppointmentFieldRefs {
   readonly id: Prisma.FieldRef<"Appointment", 'String'>
   readonly studentId: Prisma.FieldRef<"Appointment", 'String'>
   readonly facultyId: Prisma.FieldRef<"Appointment", 'String'>
+  readonly sessionGroupId: Prisma.FieldRef<"Appointment", 'String'>
   readonly date: Prisma.FieldRef<"Appointment", 'String'>
   readonly startTime: Prisma.FieldRef<"Appointment", 'String'>
   readonly endTime: Prisma.FieldRef<"Appointment", 'String'>

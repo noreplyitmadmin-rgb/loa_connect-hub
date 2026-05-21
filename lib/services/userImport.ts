@@ -2,7 +2,7 @@ import { userRepository, departmentRepository } from "@/lib/repositories/factory
 import type { CsvRow } from "./csvParser"
 
 export interface ImportResult {
-  created: { name: string; email: string; role: string; department: string | null }[]
+  created: { name: string; email: string; role: string; department: string | null; course: string | null }[]
   skipped: { row: number; email: string; reason: string }[]
   errors: { row: number; email?: string; message: string }[]
 }
@@ -33,12 +33,23 @@ export async function importUsers(
         if (departmentsCache.has(row.department)) {
           departmentId = departmentsCache.get(row.department) ?? null
         } else {
-          let dept = (await departmentRepository.listAll()).find((d) => d.name === row.department)
+          const allDepts = await departmentRepository.listAll()
+          let dept = allDepts.find((d) => d.name.toLowerCase() === row.department!.toLowerCase())
           if (!dept) {
-            dept = await departmentRepository.create({ name: row.department, code: row.department.toUpperCase().replace(/\s+/g, "_") })
+            dept = allDepts.find((d) => d.code.toLowerCase() === row.department!.toLowerCase())
           }
-          departmentId = dept.id
-          departmentsCache.set(row.department, departmentId)
+          if (!dept) {
+            const code = row.department!.toUpperCase().replace(/\s+/g, "_").substring(0, 50)
+            try {
+              dept = await departmentRepository.create({ name: row.department!, code })
+            } catch {
+              dept = allDepts.find((d) => d.code === code)
+            }
+          }
+          if (dept) {
+            departmentId = dept.id
+            departmentsCache.set(row.department!, departmentId)
+          }
         }
       }
 
@@ -71,6 +82,7 @@ export async function importUsers(
         passwordHash: null,
         role,
         departmentId: deptForCreate,
+        course: row.course,
       })
 
       result.created.push({
@@ -78,6 +90,7 @@ export async function importUsers(
         email: user.email,
         role: user.role,
         department: row.department || null,
+        course: row.course || null,
       })
     } catch (err) {
       result.errors.push({
