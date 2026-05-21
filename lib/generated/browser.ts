@@ -33,6 +33,21 @@ export type FacultySchedule = Prisma.FacultyScheduleModel
  */
 export type Appointment = Prisma.AppointmentModel
 /**
+ * Model InternalMeeting
+ * 
+ */
+export type InternalMeeting = Prisma.InternalMeetingModel
+/**
+ * Model InternalMeetingParticipant
+ * 
+ */
+export type InternalMeetingParticipant = Prisma.InternalMeetingParticipantModel
+/**
+ * Model FacultyAvailabilityRule
+ * 
+ */
+export type FacultyAvailabilityRule = Prisma.FacultyAvailabilityRuleModel
+/**
  * Model Account
  * 
  */

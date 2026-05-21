@@ -1,8 +1,8 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { ScheduleCard } from "@/components/ScheduleCard"
 import { AppointmentCard } from "@/components/AppointmentCard"
 import { CalendarView } from "@/components/CalendarView"
+import BookingCalendar from "@/components/BookingCalendar"
 import { listAvailableSchedules } from "@/lib/controllers/schedules"
 import { listStudentAppointments } from "@/lib/controllers/appointments"
 
@@ -35,27 +35,10 @@ export default async function StudentDashboard() {
         </div>
       </div>
 
-      {/* Available Slots */}
+      {/* Calendar Booking */}
       <section className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">Available Consultation Slots</h2>
-
-        {schedules.length === 0 ? (
-          <div className="card p-12 text-center bg-white">
-            <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4 text-slate-400">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <p className="text-slate-700 font-semibold text-sm">No slots available</p>
-            <p className="text-slate-400 text-xs mt-1">Faculty haven&apos;t posted any availability yet. Check back later.</p>
-          </div>
-        ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {schedules.map((schedule: any) => (
-              <ScheduleCard key={schedule.id} schedule={schedule} />
-            ))}
-          </div>
-        )}
+        <h2 className="text-lg font-bold text-slate-900">Browse Available Slots</h2>
+        <BookingCalendar schedules={schedules as any} />
       </section>
 
       {/* Calendar Timeline */}

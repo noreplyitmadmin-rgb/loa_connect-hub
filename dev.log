@@ -313,3 +313,56 @@ https://next-auth.js.org/warnings#nextauth_url
  GET /student 200 in 1051ms (next.js: 338ms, proxy.ts: 11ms, application-code: 703ms)
  GET /api/auth/session 200 in 70ms (next.js: 26ms, proxy.ts: 5ms, application-code: 39ms)
  POST /api/appointments 201 in 1140ms (next.js: 1005ms, proxy.ts: 8ms, application-code: 127ms)
+ GET /api/auth/session 200 in 73ms (next.js: 41ms, proxy.ts: 7ms, application-code: 24ms)
+ GET /api/auth/session 200 in 68ms (next.js: 37ms, proxy.ts: 10ms, application-code: 21ms)
+ GET /api/auth/session 200 in 151ms (next.js: 118ms, proxy.ts: 5ms, application-code: 29ms)
+ GET /api/auth/session 200 in 153ms (next.js: 108ms, proxy.ts: 22ms, application-code: 23ms)
+ GET /api/auth/session 200 in 75ms (next.js: 44ms, proxy.ts: 12ms, application-code: 19ms)
+ GET /api/auth/session 200 in 36ms (next.js: 22ms, proxy.ts: 4ms, application-code: 11ms)
+ GET /api/auth/session 200 in 47ms (next.js: 31ms, proxy.ts: 4ms, application-code: 13ms)
+ GET /api/auth/csrf 200 in 54ms (next.js: 28ms, proxy.ts: 7ms, application-code: 19ms)
+ POST /api/auth/signout 200 in 47ms (next.js: 18ms, proxy.ts: 5ms, application-code: 24ms)
+ GET /login 200 in 208ms (next.js: 9ms, proxy.ts: 4ms, application-code: 196ms)
+ GET /api/auth/signin?callbackUrl=%2F.well-known%2Fappspecific%2Fcom.chrome.devtools.json 302 in 79ms (next.js: 37ms, proxy.ts: 10ms, application-code: 33ms)
+ GET /api/auth/session 200 in 157ms (next.js: 81ms, proxy.ts: 56ms, application-code: 20ms)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F.well-known%2Fappspecific%2Fcom.chrome.devtools.json 200 in 325ms (next.js: 13ms, proxy.ts: 5ms, application-code: 307ms)
+ GET /api/auth/providers 200 in 59ms (next.js: 35ms, proxy.ts: 6ms, application-code: 18ms)
+ GET /api/auth/csrf 200 in 23ms (next.js: 8ms, proxy.ts: 4ms, application-code: 11ms)
+ POST /api/auth/callback/credentials 200 in 841ms (next.js: 14ms, proxy.ts: 6ms, application-code: 820ms)
+ GET / 307 in 506ms (next.js: 12ms, proxy.ts: 10ms, application-code: 483ms)
+Failed to fetch users from Graph API: {"error":{"code":"Authorization_RequestDenied","message":"Insufficient privileges to complete the operation.","innerError":{"date":"2026-05-21T06:17:12","request-id":"7a12dd66-9a70-47e5-97b8-3924774cdee1","client-request-id":"7a12dd66-9a70-47e5-97b8-3924774cdee1"}}}
+ GET /admin 200 in 1821ms (next.js: 13ms, proxy.ts: 12ms, application-code: 1796ms)
+ GET /api/auth/session 200 in 52ms (next.js: 31ms, proxy.ts: 6ms, application-code: 16ms)
+ GET /api/auth/session 200 in 62ms (next.js: 32ms, proxy.ts: 11ms, application-code: 19ms)
+ GET /api/auth/session 200 in 56ms (next.js: 24ms, proxy.ts: 6ms, application-code: 26ms)
+ GET /api/auth/csrf 200 in 58ms (next.js: 42ms, proxy.ts: 6ms, application-code: 10ms)
+ POST /api/auth/signout 200 in 38ms (next.js: 12ms, proxy.ts: 6ms, application-code: 20ms)
+ GET /login 200 in 266ms (next.js: 12ms, proxy.ts: 9ms, application-code: 245ms)
+ GET /api/auth/signin?callbackUrl=%2F.well-known%2Fappspecific%2Fcom.chrome.devtools.json 302 in 123ms (next.js: 87ms, proxy.ts: 7ms, application-code: 29ms)
+ GET /api/auth/session 200 in 229ms (next.js: 62ms, proxy.ts: 13ms, application-code: 155ms)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F.well-known%2Fappspecific%2Fcom.chrome.devtools.json 200 in 316ms (next.js: 36ms, proxy.ts: 8ms, application-code: 272ms)
+ GET /api/auth/providers 200 in 64ms (next.js: 33ms, proxy.ts: 7ms, application-code: 24ms)
+ GET /api/auth/csrf 200 in 32ms (next.js: 14ms, proxy.ts: 7ms, application-code: 11ms)
+ POST /api/auth/signin/azure-ad 200 in 707ms (next.js: 14ms, proxy.ts: 5ms, application-code: 688ms)
+
+<--- Last few GCs --->
+
+[13968:000002CEBC304000]  4068069 ms: Scavenge 16081.4 (16131.8) -> 16063.1 (16136.3) MB, pooled: 0 MB, 12.86 / 0.00 ms  (average mu = 0.287, current mu = 0.269) allocation failure; 
+[13968:000002CEBC304000]  4071337 ms: Mark-Compact (reduce) 16083.5 (16139.3) -> 16025.2 (16046.6) MB, pooled: 0 MB, 1668.01 / 31.85 ms  (+ 1457.4 ms in 292 steps since start of marking, biggest step 5.4 ms, walltime since start of marking 3268 ms) (avera
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6DC50403F node::OnFatalError+1343
+ 2: 00007FF6DD14FAA7 v8::Function::NewInstance+423
+ 3: 00007FF6DCF504D7 v8::base::AddressSpaceReservation::AddressSpaceReservation+322071
+ 4: 00007FF6DCF541E4 v8::base::AddressSpaceReservation::AddressSpaceReservation+337700
+ 5: 00007FF6DCF6313C v8::internal::StrongRootAllocatorBase::deallocate_impl+16604
+ 6: 00007FF6DCF6297B v8::internal::StrongRootAllocatorBase::deallocate_impl+14619
+ 7: 00007FF6DE3EA2AD v8::base::UnsignedDivisionByConstant<unsigned __int64>+2794653
+ 8: 00007FF6DCF4DFA0 v8::base::AddressSpaceReservation::AddressSpaceReservation+312544
+ 9: 00007FF6DCFD1CD9 v8::Unlocker::~Unlocker+9273
+10: 00007FF6DCB46698 v8::String::Utf8Value::~Utf8Value+143384
+11: 000002CEF4A775FA 
+[?25h
+
+D:\loa\e-consultation>

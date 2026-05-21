@@ -23,6 +23,12 @@ const statusStyles: Record<string, { bg: string; text: string; dot: string; bord
     dot: "bg-indigo-500", 
     border: "border-indigo-200/60" 
   },
+  CANCELLED: { 
+    bg: "bg-slate-50/60", 
+    text: "text-slate-600", 
+    dot: "bg-slate-400", 
+    border: "border-slate-200/60" 
+  },
 }
 
 export function StatusBadge({ status }: { status: string }) {

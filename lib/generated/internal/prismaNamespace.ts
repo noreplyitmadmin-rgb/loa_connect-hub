@@ -387,6 +387,9 @@ export const ModelName = {
   User: 'User',
   FacultySchedule: 'FacultySchedule',
   Appointment: 'Appointment',
+  InternalMeeting: 'InternalMeeting',
+  InternalMeetingParticipant: 'InternalMeetingParticipant',
+  FacultyAvailabilityRule: 'FacultyAvailabilityRule',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -405,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "facultySchedule" | "appointment" | "account" | "session" | "verificationToken"
+    modelProps: "user" | "facultySchedule" | "appointment" | "internalMeeting" | "internalMeetingParticipant" | "facultyAvailabilityRule" | "account" | "session" | "verificationToken"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -628,6 +631,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.AppointmentCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.AppointmentCountAggregateOutputType> | number
+        }
+      }
+    }
+    InternalMeeting: {
+      payload: Prisma.$InternalMeetingPayload<ExtArgs>
+      fields: Prisma.InternalMeetingFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.InternalMeetingFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.InternalMeetingFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>
+        }
+        findFirst: {
+          args: Prisma.InternalMeetingFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.InternalMeetingFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>
+        }
+        findMany: {
+          args: Prisma.InternalMeetingFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>[]
+        }
+        create: {
+          args: Prisma.InternalMeetingCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>
+        }
+        createMany: {
+          args: Prisma.InternalMeetingCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.InternalMeetingCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>[]
+        }
+        delete: {
+          args: Prisma.InternalMeetingDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>
+        }
+        update: {
+          args: Prisma.InternalMeetingUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>
+        }
+        deleteMany: {
+          args: Prisma.InternalMeetingDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.InternalMeetingUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.InternalMeetingUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>[]
+        }
+        upsert: {
+          args: Prisma.InternalMeetingUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingPayload>
+        }
+        aggregate: {
+          args: Prisma.InternalMeetingAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateInternalMeeting>
+        }
+        groupBy: {
+          args: Prisma.InternalMeetingGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InternalMeetingGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.InternalMeetingCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InternalMeetingCountAggregateOutputType> | number
+        }
+      }
+    }
+    InternalMeetingParticipant: {
+      payload: Prisma.$InternalMeetingParticipantPayload<ExtArgs>
+      fields: Prisma.InternalMeetingParticipantFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.InternalMeetingParticipantFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.InternalMeetingParticipantFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>
+        }
+        findFirst: {
+          args: Prisma.InternalMeetingParticipantFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.InternalMeetingParticipantFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>
+        }
+        findMany: {
+          args: Prisma.InternalMeetingParticipantFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>[]
+        }
+        create: {
+          args: Prisma.InternalMeetingParticipantCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>
+        }
+        createMany: {
+          args: Prisma.InternalMeetingParticipantCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.InternalMeetingParticipantCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>[]
+        }
+        delete: {
+          args: Prisma.InternalMeetingParticipantDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>
+        }
+        update: {
+          args: Prisma.InternalMeetingParticipantUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>
+        }
+        deleteMany: {
+          args: Prisma.InternalMeetingParticipantDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.InternalMeetingParticipantUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.InternalMeetingParticipantUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>[]
+        }
+        upsert: {
+          args: Prisma.InternalMeetingParticipantUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InternalMeetingParticipantPayload>
+        }
+        aggregate: {
+          args: Prisma.InternalMeetingParticipantAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateInternalMeetingParticipant>
+        }
+        groupBy: {
+          args: Prisma.InternalMeetingParticipantGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InternalMeetingParticipantGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.InternalMeetingParticipantCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InternalMeetingParticipantCountAggregateOutputType> | number
+        }
+      }
+    }
+    FacultyAvailabilityRule: {
+      payload: Prisma.$FacultyAvailabilityRulePayload<ExtArgs>
+      fields: Prisma.FacultyAvailabilityRuleFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FacultyAvailabilityRuleFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FacultyAvailabilityRuleFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>
+        }
+        findFirst: {
+          args: Prisma.FacultyAvailabilityRuleFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FacultyAvailabilityRuleFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>
+        }
+        findMany: {
+          args: Prisma.FacultyAvailabilityRuleFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>[]
+        }
+        create: {
+          args: Prisma.FacultyAvailabilityRuleCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>
+        }
+        createMany: {
+          args: Prisma.FacultyAvailabilityRuleCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FacultyAvailabilityRuleCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>[]
+        }
+        delete: {
+          args: Prisma.FacultyAvailabilityRuleDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>
+        }
+        update: {
+          args: Prisma.FacultyAvailabilityRuleUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>
+        }
+        deleteMany: {
+          args: Prisma.FacultyAvailabilityRuleDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FacultyAvailabilityRuleUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FacultyAvailabilityRuleUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>[]
+        }
+        upsert: {
+          args: Prisma.FacultyAvailabilityRuleUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FacultyAvailabilityRulePayload>
+        }
+        aggregate: {
+          args: Prisma.FacultyAvailabilityRuleAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFacultyAvailabilityRule>
+        }
+        groupBy: {
+          args: Prisma.FacultyAvailabilityRuleGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FacultyAvailabilityRuleGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FacultyAvailabilityRuleCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FacultyAvailabilityRuleCountAggregateOutputType> | number
         }
       }
     }
@@ -927,6 +1152,45 @@ export const AppointmentScalarFieldEnum = {
 export type AppointmentScalarFieldEnum = (typeof AppointmentScalarFieldEnum)[keyof typeof AppointmentScalarFieldEnum]
 
 
+export const InternalMeetingScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  date: 'date',
+  startTime: 'startTime',
+  endTime: 'endTime',
+  organizerId: 'organizerId',
+  teamsEventId: 'teamsEventId',
+  teamsLink: 'teamsLink',
+  status: 'status',
+  createdAt: 'createdAt'
+} as const
+
+export type InternalMeetingScalarFieldEnum = (typeof InternalMeetingScalarFieldEnum)[keyof typeof InternalMeetingScalarFieldEnum]
+
+
+export const InternalMeetingParticipantScalarFieldEnum = {
+  id: 'id',
+  meetingId: 'meetingId',
+  userId: 'userId',
+  status: 'status'
+} as const
+
+export type InternalMeetingParticipantScalarFieldEnum = (typeof InternalMeetingParticipantScalarFieldEnum)[keyof typeof InternalMeetingParticipantScalarFieldEnum]
+
+
+export const FacultyAvailabilityRuleScalarFieldEnum = {
+  id: 'id',
+  facultyId: 'facultyId',
+  dayOfWeek: 'dayOfWeek',
+  isBlocked: 'isBlocked',
+  startTime: 'startTime',
+  endTime: 'endTime'
+} as const
+
+export type FacultyAvailabilityRuleScalarFieldEnum = (typeof FacultyAvailabilityRuleScalarFieldEnum)[keyof typeof FacultyAvailabilityRuleScalarFieldEnum]
+
+
 export const AccountScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1018,6 +1282,20 @@ export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
  * Reference to a field of type 'AppointmentStatus'
  */
 export type EnumAppointmentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AppointmentStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'MeetingStatus'
+ */
+export type EnumMeetingStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MeetingStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ParticipantStatus'
+ */
+export type EnumParticipantStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ParticipantStatus'>
     
 
 
@@ -1147,6 +1425,9 @@ export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   facultySchedule?: Prisma.FacultyScheduleOmit
   appointment?: Prisma.AppointmentOmit
+  internalMeeting?: Prisma.InternalMeetingOmit
+  internalMeetingParticipant?: Prisma.InternalMeetingParticipantOmit
+  facultyAvailabilityRule?: Prisma.FacultyAvailabilityRuleOmit
   account?: Prisma.AccountOmit
   session?: Prisma.SessionOmit
   verificationToken?: Prisma.VerificationTokenOmit

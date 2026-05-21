@@ -54,6 +54,9 @@ export const ModelName = {
   User: 'User',
   FacultySchedule: 'FacultySchedule',
   Appointment: 'Appointment',
+  InternalMeeting: 'InternalMeeting',
+  InternalMeetingParticipant: 'InternalMeetingParticipant',
+  FacultyAvailabilityRule: 'FacultyAvailabilityRule',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -108,6 +111,45 @@ export const AppointmentScalarFieldEnum = {
 } as const
 
 export type AppointmentScalarFieldEnum = (typeof AppointmentScalarFieldEnum)[keyof typeof AppointmentScalarFieldEnum]
+
+
+export const InternalMeetingScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  date: 'date',
+  startTime: 'startTime',
+  endTime: 'endTime',
+  organizerId: 'organizerId',
+  teamsEventId: 'teamsEventId',
+  teamsLink: 'teamsLink',
+  status: 'status',
+  createdAt: 'createdAt'
+} as const
+
+export type InternalMeetingScalarFieldEnum = (typeof InternalMeetingScalarFieldEnum)[keyof typeof InternalMeetingScalarFieldEnum]
+
+
+export const InternalMeetingParticipantScalarFieldEnum = {
+  id: 'id',
+  meetingId: 'meetingId',
+  userId: 'userId',
+  status: 'status'
+} as const
+
+export type InternalMeetingParticipantScalarFieldEnum = (typeof InternalMeetingParticipantScalarFieldEnum)[keyof typeof InternalMeetingParticipantScalarFieldEnum]
+
+
+export const FacultyAvailabilityRuleScalarFieldEnum = {
+  id: 'id',
+  facultyId: 'facultyId',
+  dayOfWeek: 'dayOfWeek',
+  isBlocked: 'isBlocked',
+  startTime: 'startTime',
+  endTime: 'endTime'
+} as const
+
+export type FacultyAvailabilityRuleScalarFieldEnum = (typeof FacultyAvailabilityRuleScalarFieldEnum)[keyof typeof FacultyAvailabilityRuleScalarFieldEnum]
 
 
 export const AccountScalarFieldEnum = {

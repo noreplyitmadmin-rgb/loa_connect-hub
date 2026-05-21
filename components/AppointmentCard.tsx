@@ -78,6 +78,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
             approve: "APPROVED",
             reject: "REJECTED",
             complete: "COMPLETED",
+            cancel: "CANCELLED",
           }
           setLocalStatus(statusMap[action] || null)
         }
@@ -157,6 +158,36 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
           </p>
         </div>
 
+        {role === "STUDENT" && effectiveStatus === "PENDING" && (
+          <div className="shrink-0 self-end md:self-center">
+            <button
+              onClick={async () => {
+                setLoading("cancel")
+                setMessage("")
+                try {
+                  const res = await fetch(`/api/appointments/${appointment.id}/student-cancel`, { method: "POST" })
+                  const data = await res.json()
+                  if (res.ok) {
+                    setLocalStatus("CANCELLED")
+                    setMessage("Appointment cancelled!")
+                    setTimeout(() => setMessage(""), 3000)
+                  } else {
+                    setMessage(data.error || "Failed to cancel")
+                  }
+                } catch {
+                  setMessage("An error occurred")
+                } finally {
+                  setLoading("")
+                }
+              }}
+              disabled={loading !== ""}
+              className="btn-danger text-xs font-semibold px-4 py-2"
+            >
+              {loading === "cancel" ? "Cancelling..." : "Cancel Request"}
+            </button>
+          </div>
+        )}
+
         {role === "FACULTY" && effectiveStatus === "PENDING" && (
           <div className="flex md:flex-col lg:flex-row gap-2 shrink-0 self-end md:self-center">
             <button
@@ -186,21 +217,30 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
 
         {role === "FACULTY" && effectiveStatus === "APPROVED" && (
           <div className="flex flex-col gap-3 shrink-0 self-stretch md:self-center md:max-w-xs w-full">
-            <button
-              onClick={() => handleAction("complete")}
-              disabled={loading !== ""}
-              className="btn-primary text-xs font-semibold py-2 w-full"
-            >
-              {loading === "complete" ? (
-                <span className="flex items-center gap-1.5">
-                  <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Completing
-                </span>
-              ) : "Mark Complete"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAction("complete")}
+                disabled={loading !== ""}
+                className="btn-primary text-xs font-semibold py-2 flex-1"
+              >
+                {loading === "complete" ? (
+                  <span className="flex items-center gap-1.5">
+                    <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Completing
+                  </span>
+                ) : "Mark Complete"}
+              </button>
+              <button
+                onClick={() => handleAction("cancel")}
+                disabled={loading !== ""}
+                className="btn-danger text-xs font-semibold py-2"
+              >
+                {loading === "cancel" ? "Cancelling..." : "Cancel"}
+              </button>
+            </div>
             <div className="w-full">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Microsoft Teams Link</p>
               <TeamsLinkInput appointmentId={appointment.id} />

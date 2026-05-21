@@ -18,6 +18,7 @@ enum AppointmentStatus {
   APPROVED
   REJECTED
   COMPLETED
+  CANCELLED
 }
 
 model User {
@@ -29,8 +30,12 @@ model User {
   createdAt    DateTime @default(now())
 
   facultySchedules FacultySchedule[]
+  availabilityRules FacultyAvailabilityRule[]
   studentAppointments Appointment[] @relation("StudentAppointments")
   facultyAppointments Appointment[] @relation("FacultyAppointments")
+
+  organizedMeetings   InternalMeeting[]               @relation("OrganizedMeetings")
+  meetingParticipants InternalMeetingParticipant[]
 
   accounts  Account[]
   sessions  Session[]
@@ -61,6 +66,58 @@ model Appointment {
   student  User             @relation("StudentAppointments", fields: [studentId], references: [id])
   faculty  User             @relation("FacultyAppointments", fields: [facultyId], references: [id])
   schedule FacultySchedule  @relation(fields: [scheduleId], references: [id])
+}
+
+enum MeetingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum ParticipantStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model InternalMeeting {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  date        String
+  startTime   String
+  endTime     String
+  organizerId String
+  teamsEventId String?
+  teamsLink   String?
+  status      MeetingStatus @default(CONFIRMED)
+  createdAt   DateTime      @default(now())
+
+  organizer    User                          @relation("OrganizedMeetings", fields: [organizerId], references: [id])
+  participants InternalMeetingParticipant[]
+}
+
+model InternalMeetingParticipant {
+  id        String            @id @default(cuid())
+  meetingId String
+  userId    String
+  status    ParticipantStatus @default(PENDING)
+
+  meeting InternalMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+}
+
+model FacultyAvailabilityRule {
+  id        String  @id @default(cuid())
+  facultyId String
+  dayOfWeek Int     // 0=Monday, 6=Sunday
+  isBlocked Boolean @default(false)
+  startTime String? // "15:00" — null means full day available
+  endTime   String? // "19:00"
+
+  faculty User @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  @@unique([facultyId, dayOfWeek])
 }
 
 // NextAuth models

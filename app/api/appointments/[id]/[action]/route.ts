@@ -4,6 +4,7 @@ import {
   approveAppointment,
   rejectAppointment,
   completeAppointment,
+  cancelAppointment,
   updateTeamsLink,
 } from "@/lib/controllers/appointments"
 import { createTeamsMeetingForAppointment } from "@/lib/controllers/teamsMeeting"
@@ -41,6 +42,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         break
       case "complete":
         appointment = await completeAppointment(id, facultyId)
+        break
+      case "cancel":
+        appointment = await cancelAppointment(id, facultyId)
         break
       case "teams-link":
         const { teamsLink } = await request.json()
