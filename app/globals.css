@@ -4,22 +4,35 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
 
-  --color-brand-50: #fffbeb;
-  --color-brand-100: #fef3c7;
-  --color-brand-500: #edae44; /* Lyceum of Alabang gold */
-  --color-brand-600: #d4952e;
-  --color-brand-700: #b87d1e;
+  --color-brand-50: #fffbe6;
+  --color-brand-100: #fff5c0;
+  --color-brand-500: #fcca13; /* Lyceum of Alabang logo yellow */
+  --color-brand-600: #e0b311;
+  --color-brand-700: #c49a0e;
 
-  --color-gold-50: #fffbeb;
-  --color-gold-100: #fef3c7;
-  --color-gold-200: #fde68a;
-  --color-gold-300: #fcd34d;
-  --color-gold-400: #fbbf24;
-  --color-gold-500: #edae44;
-  --color-gold-600: #d4952e;
-  --color-gold-700: #b87d1e;
-  --color-gold-800: #946115;
-  --color-gold-900: #7a4f10;
+  --color-gold-50: #fffbe6;
+  --color-gold-100: #fff5c0;
+  --color-gold-200: #fee782;
+  --color-gold-300: #fdd94d;
+  --color-gold-400: #fcd424;
+  --color-gold-500: #fcca13;
+  --color-gold-600: #e0b311;
+  --color-gold-700: #c49a0e;
+  --color-gold-800: #9e7c0c;
+  --color-gold-900: #7a5f09;
+
+  --color-green-50: #e6f5ed;
+  --color-green-100: #b3e0c7;
+  --color-green-200: #80cca2;
+  --color-green-300: #4db87c;
+  --color-green-400: #26a85f;
+  --color-green-500: #007337; /* Lyceum of Alabang logo green */
+  --color-green-600: #00632e;
+  --color-green-700: #005226;
+  --color-green-800: #00421e;
+  --color-green-900: #003116;
+
+  --color-logo-black: #000000;
 
   --color-surface: #ffffff;
   --color-surface-muted: #f8fafc;
