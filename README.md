@@ -1,115 +1,50 @@
 # E-Consultation
 
-Academic e-Consultation booking system built with Next.js 16.
-
-- **Students** browse faculty availability and book consultation slots
-- **Faculty** create availability, manage appointment requests, add Teams meeting links
-- **Admin** overview of all users and appointments
-- **Microsoft Teams** integration (feature-flagged) for automatic meeting creation via Graph API
-
-## Tech Stack
-
-- Next.js 16 (App Router)
-- NextAuth.js v5 (Credentials + Microsoft Entra ID)
-- Prisma 7 (SQLite local / PostgreSQL production)
-- Tailwind CSS 4
-- Vitest
-
-## Getting Started
-
-```bash
-npm install
-npx prisma db push
-npx prisma db seed
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Test Credentials
-
-After running the seed script, the following users are available:
-
-| Role    | Email                 | Password    |
-|---------|-----------------------|-------------|
-| Admin   | admin@econsult.com    | password123 |
-| Faculty | faculty1@econsult.com | password123 |
-| Faculty | faculty2@econsult.com | password123 |
-| Student | student@econsult.com  | password123 |
+Academic consultation management system built with Next.js 16, Supabase, and Tailwind CSS 4.
 
 ## Environment Variables
 
-See `.env.example` for all required variables.
+Copy `.env` to set up your local environment. Below are all required variables — obtain the values from your team lead or Supabase dashboard.
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | SQLite (`file:./dev.db`) or PostgreSQL connection string |
-| `AUTH_SECRET` | NextAuth encryption secret (run `npx auth secret` to generate) |
-| `FEATURE_CREATE_TEAMS_MEETING` | `true` or `false` — enables automatic Teams meeting creation |
-| `MICROSOFT_CLIENT_ID` | Azure AD app registration client ID |
-| `MICROSOFT_CLIENT_SECRET` | Azure AD app registration client secret |
-| `MICROSOFT_TENANT_ID` | Azure AD tenant ID |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `AUTH_SECRET` | Yes | NextAuth signing secret (generate via `openssl rand -base64 32`) |
+| `NEXTAUTH_URL` | Yes | App base URL (`http://localhost:3000` for dev) |
+| `AUTH_URL` | No | Alias for NEXTAUTH_URL |
+| `DB_PROVIDER` | Yes | `sqlite` for local dev, `supabase` for production |
+| `SUPABASE_URL` | If Supabase | Supabase project URL (`https://[project-ref].supabase.co`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | If Supabase | Supabase service role key (project Settings → API) |
+| `SSO_FEATURE_FLAG` | No | Set `true` to enable Microsoft Entra ID sign-in (requires Azure app registration) |
+| `EMAIL_FEATURE_FLAG` | No | Set `true` to enable email sending via Gmail SMTP |
+| `GMAIL_USER` | If email | Gmail address for sending activation emails |
+| `GMAIL_APP_PASSWORD` | If email | Gmail app password (enable 2FA → App passwords) |
+| `DATABASE_URL` | If SQLite | Prisma SQLite connection string (`file:./prisma/dev.db`) |
 
-## Architecture
-
-```
-lib/
-  prisma.ts              — Prisma client singleton
-  auth.ts                — NextAuth config (Credentials + Microsoft)
-  models/index.ts        — Shared domain types
-  repositories/
-    interfaces.ts        — Repository interfaces
-    prisma.ts            — Prisma implementations
-    factory.ts           — Provider factory
-  controllers/
-    auth.ts              — Registration
-    schedules.ts         — Schedule CRUD
-    appointments.ts      — Booking lifecycle
-    teamsMeeting.ts      — Teams meeting creation
-  services/
-    graph.ts             — Microsoft Graph API
-middleware.ts            — Route protection
-app/
-  api/                   — REST API routes
-  (auth)/                — Login / Register pages
-  student/               — Student dashboard
-  faculty/               — Faculty dashboard
-  admin/                 — Admin dashboard
-components/              — Shared UI components
-```
-
-## API Endpoints
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | No | Create account |
-| GET/POST | `/api/auth/[...nextauth]` | No | NextAuth handlers |
-| GET | `/api/schedules` | No | List available schedules |
-| POST | `/api/schedules` | Faculty | Create availability |
-| PATCH/DELETE | `/api/schedules/[id]` | Faculty | Update/delete schedule |
-| GET | `/api/appointments` | Student/Faculty | List own appointments |
-| POST | `/api/appointments` | Student | Request appointment |
-| GET | `/api/appointments/[id]` | Auth | Get appointment details |
-| POST | `/api/appointments/[id]/[action]` | Faculty | approve/reject/complete/teams-link |
-| POST | `/api/teams-meeting/create` | Faculty | Create Teams meeting |
-
-## Microsoft Teams Integration
-
-This feature is controlled by `FEATURE_CREATE_TEAMS_MEETING`.
-
-When **disabled** (default): Faculty manually enters a Teams meeting link on approved appointments.
-
-When **enabled**: The app uses the faculty member's Microsoft Graph OAuth token to automatically create a Teams meeting during approval. Requires:
-
-1. Azure AD app registration with `OnlineMeetings.ReadWrite` delegated permission
-2. Faculty signed in with their Microsoft account via NextAuth
-
-## Tests
+## Quick Start
 
 ```bash
-npx vitest run
+# Install dependencies
+npm install
+
+# SQLite (local dev)
+npx prisma db push
+npx tsx prisma/seed.ts
+npm run dev
+
+# Supabase (production)
+# 1. Run supabase-schema.sql in Supabase SQL Editor
+# 2. Set DB_PROVIDER=supabase in .env
+# 3. npx tsx prisma/seed-supabase.ts
+# 4. npm run dev
 ```
 
-## License
+## Seed Accounts (all password: `password123`)
 
-MIT
+| Role | Email |
+|------|-------|
+| Admin | admin@econsult.com |
+| Dean | regie@itmlyceumalabang.onmicrosoft.com |
+| Faculty | nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com |
+| Student | nin.alamo@outlook.com |
+
+Only the admin account is activated by default. Other accounts must use the activation flow at `/activate`.
