@@ -423,7 +423,7 @@ export const passwordResetTokenRepository: IPasswordResetTokenRepository = {
 export const auditLogRepository: IAuditLogRepository = {
   async create(data) {
     const { data: log, error } = await supabase
-      .from("AuditLog")
+      .from("audit_logs")
       .insert(data)
       .select("*")
       .single()
@@ -432,7 +432,7 @@ export const auditLogRepository: IAuditLogRepository = {
   },
   async list(limit = 100) {
     const { data, error } = await supabase
-      .from("AuditLog")
+      .from("audit_logs")
       .select("*")
       .order("createdAt", { ascending: false })
       .limit(limit)

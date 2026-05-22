@@ -1,6 +1,23 @@
 -- Paste this into Supabase SQL Editor to create all tables.
 -- Uses inline REFERENCES so PostgREST auto-names constraints as table_col_fkey.
 
+BEGIN;
+
+-- Drop all tables in reverse dependency order
+DROP TABLE IF EXISTS accounts CASCADE;
+DROP TABLE IF EXISTS sessions CASCADE;
+DROP TABLE IF EXISTS verification_tokens CASCADE;
+DROP TABLE IF EXISTS "AuditLog" CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS internal_meeting_participants CASCADE;
+DROP TABLE IF EXISTS internal_meetings CASCADE;
+DROP TABLE IF EXISTS appointment_attendees CASCADE;
+DROP TABLE IF EXISTS appointments CASCADE;
+DROP TABLE IF EXISTS faculty_availability_rules CASCADE;
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS departments CASCADE;
+
 -- Create tables WITHOUT circular FK first, then add FKs after
 CREATE TABLE IF NOT EXISTS departments (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
@@ -132,7 +149,8 @@ CREATE TABLE IF NOT EXISTS verification_tokens (
   CONSTRAINT uq_identifier_token UNIQUE (identifier, token)
 );
 
-CREATE TABLE IF NOT EXISTS "AuditLog" (
+DROP TABLE IF EXISTS "AuditLog";
+CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   "userId" TEXT,
   email TEXT,
@@ -152,3 +170,47 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_department ON users("departmentId");
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+
+-- Seed data (all passwords: "password123")
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+DO $$
+DECLARE
+  _admin_id TEXT := gen_random_uuid()::TEXT;
+  _dean_id TEXT := gen_random_uuid()::TEXT;
+  _dept_id TEXT := gen_random_uuid()::TEXT;
+  _faculty1_id TEXT := gen_random_uuid()::TEXT;
+  _student1_id TEXT := gen_random_uuid()::TEXT;
+  _hash TEXT := crypt('password123', gen_salt('bf', 12));
+BEGIN
+  INSERT INTO users (id, name, email, "passwordHash", role, "hasLoggedInBefore")
+  VALUES (_admin_id, 'Dr. Admin', 'admin@econsult.com', _hash, 'ADMIN', true);
+
+  INSERT INTO users (id, name, email, "passwordHash", role)
+  VALUES (_dean_id, 'Regie Ellana', 'regie@itmlyceumalabang.onmicrosoft.com', _hash, 'DEAN');
+
+  INSERT INTO departments (id, name, code, "deanId")
+  VALUES (_dept_id, 'College of Computer Studies', 'CCS', _dean_id);
+
+  UPDATE users SET "departmentId" = _dept_id WHERE id = _dean_id;
+
+  INSERT INTO users (id, name, email, "passwordHash", role, "departmentId")
+  VALUES (_faculty1_id, 'Nin Alamo', 'nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com', _hash, 'FACULTY', _dept_id);
+
+  INSERT INTO users (id, name, email, "passwordHash", role)
+  VALUES (_student1_id, 'Nino Francisco Alamo', 'nin.alamo@outlook.com', _hash, 'STUDENT');
+
+  FOR i IN 0..6 LOOP
+    INSERT INTO faculty_availability_rules ("facultyId", "dayOfWeek", "isBlocked", "startTime", "endTime", "startDate")
+    VALUES (
+      _faculty1_id,
+      i,
+      CASE WHEN i >= 5 THEN true ELSE false END,
+      CASE WHEN i >= 5 THEN NULL ELSE '08:00' END,
+      CASE WHEN i >= 5 THEN NULL ELSE '18:00' END,
+      '2026-01-01'
+    );
+  END LOOP;
+END $$;
+
+COMMIT;
