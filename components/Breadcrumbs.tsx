@@ -32,9 +32,6 @@ export default function Breadcrumbs() {
 
   return (
     <nav className="flex items-center gap-1 text-xs text-slate-400 px-6 py-3 border-b border-slate-100 bg-white">
-      <Link href="/" className="hover:text-slate-600 transition-colors">
-        Home
-      </Link>
       {items.map((item) => (
         <span key={item.href} className="flex items-center gap-1">
           <svg className="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
