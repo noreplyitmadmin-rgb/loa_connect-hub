@@ -58,6 +58,11 @@ export type InternalMeetingParticipant = Prisma.InternalMeetingParticipantModel
  */
 export type FacultyAvailabilityRule = Prisma.FacultyAvailabilityRuleModel
 /**
+ * Model AuditLog
+ * 
+ */
+export type AuditLog = Prisma.AuditLogModel
+/**
  * Model Account
  * 
  */

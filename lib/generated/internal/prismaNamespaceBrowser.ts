@@ -59,6 +59,7 @@ export const ModelName = {
   InternalMeeting: 'InternalMeeting',
   InternalMeetingParticipant: 'InternalMeetingParticipant',
   FacultyAvailabilityRule: 'FacultyAvailabilityRule',
+  AuditLog: 'AuditLog',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -191,6 +192,18 @@ export const FacultyAvailabilityRuleScalarFieldEnum = {
 } as const
 
 export type FacultyAvailabilityRuleScalarFieldEnum = (typeof FacultyAvailabilityRuleScalarFieldEnum)[keyof typeof FacultyAvailabilityRuleScalarFieldEnum]
+
+
+export const AuditLogScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  email: 'email',
+  action: 'action',
+  details: 'details',
+  createdAt: 'createdAt'
+} as const
+
+export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
 
 
 export const AccountScalarFieldEnum = {

@@ -6,6 +6,7 @@ import type {
   IAvailabilityRuleRepository,
   IMeetingRepository,
   IPasswordResetTokenRepository,
+  IAuditLogRepository,
   UserData,
   CreateUserInput,
   DepartmentData,
@@ -17,6 +18,7 @@ import type {
   MeetingData,
   CreateMeetingInput,
   MeetingParticipantData,
+  AuditLogData,
 } from "./interfaces"
 
 export const userRepository: IUserRepository = {
@@ -40,6 +42,10 @@ export const userRepository: IUserRepository = {
   },
   async listByDepartment(departmentId) {
     const users = await prisma.user.findMany({ where: { departmentId } })
+    return users as UserData[]
+  },
+  async listAll() {
+    const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' } })
     return users as UserData[]
   },
   async update(id, data) {
@@ -295,5 +301,16 @@ export const passwordResetTokenRepository: IPasswordResetTokenRepository = {
       orderBy: { createdAt: "desc" },
     })
     return record as any
+  },
+}
+
+export const auditLogRepository: IAuditLogRepository = {
+  async create(data) {
+    const log = await prisma.auditLog.create({ data: data as any })
+    return log as AuditLogData
+  },
+  async list(limit = 100) {
+    const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: limit })
+    return logs as AuditLogData[]
   },
 }

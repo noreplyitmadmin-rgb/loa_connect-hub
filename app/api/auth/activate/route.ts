@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { userRepository, passwordResetTokenRepository } from "@/lib/repositories/factory"
 import { randomBytes } from "crypto"
 import { sendActivationEmail } from "@/lib/services/email"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     const activationUrl = `${process.env.NEXTAUTH_URL}/change-password?token=${token}`
 
     await sendActivationEmail(user.email, user.name, activationUrl)
+    await logAuditEvent({ userId: user.id, email: user.email, action: "ACTIVATE_USER", details: "Activation email sent" })
 
     return NextResponse.json({ success: true })
   } catch (error) {

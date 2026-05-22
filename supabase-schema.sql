@@ -132,6 +132,15 @@ CREATE TABLE IF NOT EXISTS verification_tokens (
   CONSTRAINT uq_identifier_token UNIQUE (identifier, token)
 );
 
+CREATE TABLE IF NOT EXISTS "AuditLog" (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "userId" TEXT,
+  email TEXT,
+  action TEXT NOT NULL,
+  details TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_appointments_student ON appointments("studentId");
 CREATE INDEX IF NOT EXISTS idx_appointments_faculty ON appointments("facultyId");

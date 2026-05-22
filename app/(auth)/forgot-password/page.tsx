@@ -9,7 +9,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [state, setState] = useState<"idle" | "email-sent" | "not-found" | "not-activated">("idle")
+  const [state, setState] = useState<"idle" | "email-sent" | "activation-sent" | "not-found" | "not-activated">("idle")
   const [cooldown, setCooldown] = useState(0)
 
   useEffect(() => {
@@ -40,6 +40,11 @@ export default function ForgotPasswordPage() {
         return
       }
 
+      if (data.code === "ACTIVATION_SENT") {
+        setState("activation-sent")
+        return
+      }
+
       setCooldown(RESEND_COOLDOWN)
       setState("email-sent")
     } catch {
@@ -49,7 +54,7 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  if (state === "email-sent") {
+  if (state === "email-sent" || state === "activation-sent") {
     return (
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center mb-6">
@@ -58,14 +63,21 @@ export default function ForgotPasswordPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-800 font-display tracking-tight">Check Your Email</h1>
-          <p className="text-slate-400 mt-1.5 text-xs font-semibold uppercase tracking-wider">Reset link sent</p>
+          <h1 className="text-2xl font-extrabold text-slate-800 font-display tracking-tight">{state === "activation-sent" ? "Account Inactive" : "Check Your Email"}</h1>
+          <p className="text-slate-400 mt-1.5 text-xs font-semibold uppercase tracking-wider">{state === "activation-sent" ? "Activation link sent" : "Reset link sent"}</p>
         </div>
 
+      {state === "activation-sent" ? (
+        <p className="text-sm text-slate-500 text-center">
+          This account hasn&apos;t been activated yet. We sent an activation link to <span className="font-semibold text-slate-700">{email}</span>.
+          Click the link to set your password and activate your account.
+        </p>
+      ) : (
         <p className="text-sm text-slate-500 text-center">
           We sent a password reset link to <span className="font-semibold text-slate-700">{email}</span>.
           Click the link to reset your password.
         </p>
+      )}
 
         <p className="text-center text-xs text-slate-400">
           {cooldown > 0 ? (
@@ -107,8 +119,7 @@ export default function ForgotPasswordPage() {
 
       {state === "not-activated" && (
         <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-          This account hasn&apos;t been activated yet. Please{" "}
-          <Link href="/activate" className="underline font-semibold">activate first</Link>.
+          This account hasn&apos;t been activated yet. We&apos;ve sent an activation link to your email. Please check your inbox.
         </div>
       )}
 

@@ -29,6 +29,11 @@ export const authOptions: NextAuthOptions = {
 
         await userRepository.update(user.id, { hasLoggedInBefore: true, lastLoginAt: new Date() })
 
+        // Fire-and-forget audit log
+        import("@/lib/services/audit").then(({ logAuditEvent }) =>
+          logAuditEvent({ userId: user.id, email: user.email, action: "LOGIN", details: "Successful login" })
+        ).catch(() => {})
+
         return {
           id: user.id,
           email: user.email,

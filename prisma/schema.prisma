@@ -133,6 +133,15 @@ model FacultyAvailabilityRule {
   @@unique([facultyId, dayOfWeek, startDate])
 }
 
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String?
+  action    String   // "LOGIN", "CREATE_USER", "DISABLE_USER", "ENABLE_USER", "CHANGE_ROLE", "PASSWORD_RESET", "ACTIVATE_USER"
+  details   String?
+  createdAt DateTime @default(now())
+}
+
 // NextAuth models
 model Account {
   id                String  @id @default(cuid())

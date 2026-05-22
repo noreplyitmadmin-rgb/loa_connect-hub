@@ -6,6 +6,7 @@ import type {
   IAvailabilityRuleRepository,
   IMeetingRepository,
   IPasswordResetTokenRepository,
+  IAuditLogRepository,
   UserData,
   CreateUserInput,
   DepartmentData,
@@ -18,6 +19,7 @@ import type {
   CreateMeetingInput,
   MeetingParticipantData,
   PasswordResetTokenData,
+  AuditLogData,
 } from "./interfaces"
 
 async function singleQuery<T>(builder: any): Promise<T | null> {
@@ -48,6 +50,11 @@ export const userRepository: IUserRepository = {
   },
   async listByDepartment(departmentId) {
     const { data, error } = await supabase.from("users").select("*").eq("departmentId", departmentId)
+    if (error) throw error
+    return data as UserData[]
+  },
+  async listAll() {
+    const { data, error } = await supabase.from("users").select("*").order("createdAt", { ascending: false })
     if (error) throw error
     return data as UserData[]
   },
@@ -410,5 +417,26 @@ export const passwordResetTokenRepository: IPasswordResetTokenRepository = {
       .limit(1)
     if (error) throw error
     return (data?.[0] as PasswordResetTokenData) ?? null
+  },
+}
+
+export const auditLogRepository: IAuditLogRepository = {
+  async create(data) {
+    const { data: log, error } = await supabase
+      .from("AuditLog")
+      .insert(data)
+      .select("*")
+      .single()
+    if (error) throw error
+    return log as AuditLogData
+  },
+  async list(limit = 100) {
+    const { data, error } = await supabase
+      .from("AuditLog")
+      .select("*")
+      .order("createdAt", { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data as AuditLogData[]
   },
 }

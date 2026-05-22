@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { userRepository, passwordResetTokenRepository } from "@/lib/repositories/factory"
 import { randomBytes } from "crypto"
-import { sendForgotPasswordEmail } from "@/lib/services/email"
+import { sendForgotPasswordEmail, sendActivationEmail } from "@/lib/services/email"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +19,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user.hasLoggedInBefore) {
-      return NextResponse.json({ error: "Account not yet activated. Please activate first.", code: "NOT_ACTIVATED" }, { status: 400 })
+      // Send activation link instead
+      const token = randomBytes(32).toString("hex")
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
+      await passwordResetTokenRepository.create(user.email, token, expiresAt)
+      const activationUrl = `${process.env.NEXTAUTH_URL}/change-password?token=${token}`
+      await sendActivationEmail(user.email, user.name, activationUrl)
+      await logAuditEvent({ userId: user.id, email: user.email, action: "PASSWORD_RESET", details: "Inactive user requested reset — activation email sent" })
+      return NextResponse.json({ success: true, code: "ACTIVATION_SENT" })
     }
 
     const token = randomBytes(32).toString("hex")
@@ -29,6 +37,7 @@ export async function POST(req: NextRequest) {
     const resetUrl = `${process.env.NEXTAUTH_URL}/change-password?token=${token}`
 
     await sendForgotPasswordEmail(user.email, user.name, resetUrl)
+    await logAuditEvent({ userId: user.id, email: user.email, action: "PASSWORD_RESET", details: "Password reset email sent" })
 
     return NextResponse.json({ success: true })
   } catch (error) {

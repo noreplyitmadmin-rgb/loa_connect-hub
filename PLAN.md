@@ -21,8 +21,8 @@
 | **11. ETL — Bulk User Import (CSV)** | ✅ **Done** |
 | **16. Staggered & Multi-Faculty Booking** | ✅ **Done** |
 | — | — |
-| **12. Email-based Auth & Password Setup** | ❌ **Remaining** |
-| **13. Consultation Completion (Action Taken)** | ❌ **Remaining** |
+| **12. Email-based Auth & Password Setup** | ✅ **Done** |
+| **13. Consultation Completion (Action Taken)** | ✅ **Done** |
 | **14. Attendee Permissions** | ❌ **Remaining** |
 | **15. Reports & Export** | ❌ **Remaining** |
 
@@ -326,12 +326,13 @@ Name | Microsoft Email | Department | Dean (true/false)
 
 ---
 
-## Phase 12: Email-based Auth & Password Setup ❌
+## Phase 12: Email-based Auth & Password Setup ✅ *(Implemented)*
 
 ### 12A. Email Service
 
-- **Local dev**: Nodemailer + Gmail SMTP (App Password from sender's Gmail)
-- **Vercel** (future): Resend HTTP API (works on Vercel, free tier: 100 emails/day)
+- Nodemailer + Gmail SMTP via `lib/services/email.ts`
+- `sendActivationEmail()` and `sendForgotPasswordEmail()`
+- Feature flag: `EMAIL_FEATURE_FLAG`
 
 ### 12B. PasswordResetToken Model
 
@@ -349,76 +350,64 @@ model PasswordResetToken {
 ### 12C. Flow: First-Time Password Setup
 
 1. User created via ETL → `passwordHash: null`, `hasLoggedInBefore: false`
-2. System generates crypto-random token, stores `PasswordResetToken` with 15-min expiry
-3. Email sent: "Set your password: https://app/setup-password?token=<token>"
-4. User clicks link → `/setup-password?token=xxx`
-   - Validate: token exists, not expired, not used
-   - Show password creation form
+2. User goes to `/activate` → enters email → system generates token, sends activation email
+3. User clicks link → `/change-password?token=xxx`
+   - Token validated on page load (checks exists, not expired, not used)
+   - Password form shown
    - On submit: `passwordHash = hash(password)`, `hasLoggedInBefore = true`, `token.usedAt = now()`
-5. User can now log in normally
+4. User can now log in normally
 
 ### 12D. Flow: Password Reset
 
-1. User goes to `/register` and enters email
-2. If email found + `hasLoggedInBefore = true`:
-   - "This email is already registered. Would you like to change your password?"
-   - Yes → generate token, send reset email
-3. Same `/setup-password` page handles both setup and reset
+1. User goes to `/forgot-password` and enters email
+2. If not found → "No account found"
+3. If found + `hasLoggedInBefore = false` → "Please activate first"
+4. If found + `hasLoggedInBefore = true` → sends reset email with link
+5. Same `/change-password` page handles both setup and reset
 
-### 12E. Registration Page Changes
-
-`/register` becomes email-first:
-1. User enters email only
-2. System checks DB:
-   - **Not found** → "This email is not in the system. Please contact your dean."
-   - **Found + `hasLoggedInBefore = false`** → "First-time setup!" → sends setup-password email
-   - **Found + `hasLoggedInBefore = true`** → "Already registered. Send password reset?" → sends reset email
-3. No more name/password fields on registration — those come from ETL + setup flow
-
-### 12F. Logging In
+### 12E. Logging In
 
 - User logs in with email + password (standard Credentials provider)
 - On successful login: update `lastLoginAt` timestamp
-- If user has `passwordHash: null` (never set up) → login fails with "Please set up your password first"
+- If user has `passwordHash: null` → login fails
 
-### 12G. Files
+### 12F. Files
 
 | File | Action |
 |------|--------|
-| `prisma/schema.prisma` | + `PasswordResetToken`, + `hasLoggedInBefore`, `lastLoginAt` on User |
-| `lib/email.ts` | New — Email sending service (Nodemailer) |
-| `lib/services/passwordReset.ts` | New — Token generation, validation, password set |
-| `app/api/auth/send-setup-email/route.ts` | New — Trigger setup/reset email |
-| `app/api/auth/reset-password/route.ts` | New — Validate token + set password |
-| `app/setup-password/page.tsx` | New — Password setup/reset page (token in URL) |
-| `app/(auth)/register/page.tsx` | Rewrite — email-first flow |
-| `app/(auth)/login/page.tsx` | Update — handle `passwordHash: null` case |
+| `prisma/schema.prisma` | `PasswordResetToken`, `hasLoggedInBefore`, `lastLoginAt` on User |
+| `lib/services/email.ts` | Email sending (Nodemailer) |
+| `app/api/auth/activate/route.ts` | Generate token + send activation email |
+| `app/api/auth/forgot-password/route.ts` | Generate token + send reset email |
+| `app/api/auth/change-password/route.ts` | Validate token + set password |
+| `app/api/auth/change-password/validate/route.ts` | Token validation endpoint |
+| `app/(auth)/activate/page.tsx` | Email input + success/error states |
+| `app/(auth)/forgot-password/page.tsx` | Email input + success/error states |
+| `app/(auth)/change-password/page.tsx` | Password form with token validation on mount |
+| `app/(auth)/login/page.tsx` | Credentials sign-in |
 
 ---
 
-## Phase 13: Consultation Completion (Action Taken) ❌
+## Phase 13: Consultation Completion (Action Taken) ✅ *(Implemented)*
 
 ### 13A. Schema
 
-Add to `Appointment`:
+On `Appointment`:
 ```prisma
-actionTaken       String?  // required when completing
-additionalRemarks String?
+actionTaken         String?
+additionalRemarks   String?
 ```
 
 ### 13B. Flow
 
 1. Faculty clicks **"Mark Complete"** on an approved appointment
-2. Instead of immediate status change → modal opens:
-   - **Action Taken** (required) — free text field
-   - **Additional Remarks** (optional) — textarea
+2. Modal opens with Action Taken (required) and Additional Remarks (optional)
 3. On submit → `status = COMPLETED`, `actionTaken` and `additionalRemarks` saved
 
 ### 13C. UI
 
-- `AppointmentCard`: Show action taken and remarks on completed appointments
-- Booking ticket page: Show completion details
-- Reports: Action Taken distribution analysis
+- `AppointmentCard`: "Mark Complete" button with modal
+- Completed appointments show action taken details
 
 ---
 
@@ -556,8 +545,8 @@ Phase 10 ──> Phase 11 ──> Phase 16 ──> Phase 12 ──> Phase 13 ─
 ### Remaining Order
 
 ```
-Phase 12 ──> Phase 13 ──> Phase 15 ──> Phase 14
-(Email)     (Action)    (Reports)   (Perms)
+Phase 15 ──> Phase 14
+(Reports)   (Perms)
 ```
 
 ### Dependency Map
@@ -566,7 +555,7 @@ Phase 12 ──> Phase 13 ──> Phase 15 ──> Phase 14
 - **Phase 11 (ETL)** — Users created via CSV need departments and email setup.
 - **Phase 12 (Email Auth)** — Required by Phase 11 (new users need setup emails).
 - **Phase 16 (Staggered)** — Independent (data model change only).
-- **Phase 13 (Action Taken)** — Independent. Can be done in parallel with 14.
+- **Phase 13 (Action Taken)** — Independent.
 - **Phase 15 (Reports)** — Builds on 10 (department filtering) and 13 (action taken data).
 - **Phase 14 (Permissions)** — Builds on 10 (role/department checks).
 

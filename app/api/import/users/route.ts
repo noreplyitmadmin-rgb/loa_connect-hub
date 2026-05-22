@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { parseCsv, getCsvTemplate } from "@/lib/services/csvParser"
 import { importUsers } from "@/lib/services/userImport"
 import { departmentRepository } from "@/lib/repositories/factory"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function GET() {
   const csv = getCsvTemplate("full")
@@ -44,6 +45,12 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await importUsers(rows, "DEAN", departmentId)
+
+  await logAuditEvent({
+    userId: (session!.user as any).id,
+    action: "CREATE_USER",
+    details: `Imported ${result.created.length} users (${result.skipped.length} skipped, ${result.errors.length} errors)`,
+  })
 
   return NextResponse.json({ ...result, parseErrors })
 }

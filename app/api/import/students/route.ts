@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { parseCsv, getCsvTemplate } from "@/lib/services/csvParser"
 import { importUsers } from "@/lib/services/userImport"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function GET() {
   const csv = getCsvTemplate("students")
@@ -36,6 +37,12 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await importUsers(rows, "FACULTY", null)
+
+  await logAuditEvent({
+    userId: (session!.user as any).id,
+    action: "CREATE_USER",
+    details: `Imported ${result.created.length} students (${result.skipped.length} skipped, ${result.errors.length} errors)`,
+  })
 
   return NextResponse.json({ ...result, parseErrors })
 }

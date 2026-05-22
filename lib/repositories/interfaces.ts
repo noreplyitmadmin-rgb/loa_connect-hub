@@ -56,6 +56,7 @@ export interface IUserRepository {
   create(input: CreateUserInput): Promise<UserData>
   listByRole(role: string): Promise<UserData[]>
   listByDepartment(departmentId: string): Promise<UserData[]>
+  listAll(): Promise<UserData[]>
   update(id: string, data: Partial<UserData>): Promise<UserData>
 }
 
@@ -102,6 +103,7 @@ export interface IUserRepository {
   findById(id: string): Promise<UserData | null>
   create(input: CreateUserInput): Promise<UserData>
   listByRole(role: string): Promise<UserData[]>
+  listAll(): Promise<UserData[]>
 }
 
 export interface AppointmentAttendeeData {
@@ -217,4 +219,18 @@ export interface IPasswordResetTokenRepository {
   findByToken(token: string): Promise<PasswordResetTokenData | null>
   markUsed(id: string): Promise<void>
   findByEmail(email: string): Promise<PasswordResetTokenData | null>
+}
+
+export interface AuditLogData {
+  id: string
+  userId: string | null
+  email: string | null
+  action: string
+  details: string | null
+  createdAt: Date
+}
+
+export interface IAuditLogRepository {
+  create(data: { userId?: string | null; email?: string | null; action: string; details?: string | null }): Promise<AuditLogData>
+  list(limit?: number): Promise<AuditLogData[]>
 }
