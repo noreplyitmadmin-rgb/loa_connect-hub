@@ -498,7 +498,7 @@ export default function StudentBooking({ facultyWithRules }: Props) {
                 {fmtDate(currentYear, currentMonth, selectedDay)}
               </h4>
 
-              {availableSlots.length > 0 && (
+              {/* {availableSlots.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-slate-600 mb-2">Quick available blocks:</p>
                   <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
@@ -532,7 +532,7 @@ export default function StudentBooking({ facultyWithRules }: Props) {
                     })}
                   </div>
                 </div>
-              )}
+              )} */}
 
               <div className="space-y-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
                 {availableSlots.length === 0 ? (
