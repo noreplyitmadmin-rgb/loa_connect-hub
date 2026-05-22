@@ -11,7 +11,6 @@ function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [msLoading, setMsLoading] = useState(false)
   const error = searchParams.get("error")
 
   const handleSubmit = async (e: FormEvent) => {
@@ -22,16 +21,16 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-sm space-y-6">
-      <div className="text-center mb-6">
-        <div className="mx-auto w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center mb-3 shadow-lg shadow-indigo-100">
-          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
+      <div className="text-center mb-8">
+        <div className="flex justify-center mb-4">
+          <img
+            src="https://lyceumalabang.edu.ph/wp-content/uploads/2025/08/logo-blk.png"
+            alt="Lyceum of Alabang"
+            className="h-10 object-contain"
+          />
         </div>
-        <h1 className="text-2xl font-extrabold text-slate-800 font-display tracking-tight">Welcome back</h1>
-        <p className="text-slate-400 mt-1.5 text-xs font-semibold uppercase tracking-wider">Academic e-Consultations</p>
+        <h1 className="text-xl font-bold text-[#3D0E18] font-display tracking-tight">Student Portal Sign In</h1>
+        <p className="text-[#5C1624]/50 mt-1 text-xs font-semibold uppercase tracking-wider">Academic e-Consultations</p>
       </div>
 
       {error && (
@@ -39,40 +38,13 @@ function LoginForm() {
           <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Invalid email credentials or password
+          Invalid email or password
         </div>
-      )}
-
-      {process.env.NEXT_PUBLIC_SSO_FEATURE_FLAG === "true" && (
-        <>
-          <button
-            onClick={() => { setMsLoading(true); signIn("azure-ad", { callbackUrl: "/" }) }}
-            disabled={msLoading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-slate-700 shadow-sm"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none">
-              <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-              <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-              <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-              <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-            </svg>
-            {msLoading ? "Connecting to Microsoft..." : "Sign in with Microsoft Office 365"}
-          </button>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">or continue with email</span>
-            </div>
-          </div>
-        </>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-slate-500 mb-1.5">
+          <label htmlFor="email" className="block text-xs font-semibold text-[#5C1624]/70 mb-1.5 uppercase tracking-wider">
             Email Address
           </label>
           <input
@@ -81,13 +53,13 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="input text-slate-800"
-            placeholder="john.doe@itmlyceumalabang.onmicrosoft.com"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-rose-200/80 bg-white text-sm text-[#3D0E18] placeholder-rose-300/70 focus:outline-none focus:ring-2 focus:ring-[#7B1D2A]/20 focus:border-[#7B1D2A] transition-all"
+            placeholder="you@itmlyceumalabang.onmicrosoft.com"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-xs font-semibold text-slate-500 mb-1.5">
+          <label htmlFor="password" className="block text-xs font-semibold text-[#5C1624]/70 mb-1.5 uppercase tracking-wider">
             Password
           </label>
           <input
@@ -96,27 +68,31 @@ function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="input text-slate-800"
-            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-rose-200/80 bg-white text-sm text-[#3D0E18] placeholder-rose-300/70 focus:outline-none focus:ring-2 focus:ring-[#7B1D2A]/20 focus:border-[#7B1D2A] transition-all"
+            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
           />
         </div>
 
-        <button type="submit" disabled={loading} className="btn-primary w-full text-xs font-semibold py-2.5 mt-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 rounded-lg bg-[#5C1624] hover:bg-[#7B1D2A] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-sm"
+        >
           {loading ? (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               Signing in...
             </span>
-          ) : "Sign in to Portal"}
+          ) : "Sign In"}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-xs text-slate-500 font-medium">
+      <p className="text-center text-xs text-[#5C1624]/50 font-medium">
         First time here?{" "}
-        <Link href="/activate" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">
+        <Link href="/activate" className="text-[#7B1D2A] hover:text-[#5C1624] font-semibold transition-colors">
           Activate your account
         </Link>
       </p>
@@ -128,7 +104,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="w-full max-w-sm flex items-center justify-center py-12">
-        <svg className="animate-spin w-6 h-6 text-indigo-600" viewBox="0 0 24 24">
+        <svg className="animate-spin w-6 h-6 text-[#5C1624]" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
