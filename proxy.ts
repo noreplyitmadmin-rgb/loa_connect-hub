@@ -19,6 +19,10 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
+    if (pathname.startsWith("/admin/users") && role !== "ADMIN" && role !== "DEAN") {
+      return NextResponse.redirect(new URL("/login", req.url))
+    }
+
     if (pathname.startsWith("/admin") && role !== "ADMIN") {
       return NextResponse.redirect(new URL("/login", req.url))
     }
@@ -29,7 +33,7 @@ export default withAuth(
     callbacks: {
       authorized({ req, token }) {
         const { pathname } = req.nextUrl
-        if (pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/api/auth")) {
+        if (pathname.startsWith("/login") || pathname.startsWith("/activate") || pathname.startsWith("/change-password") || pathname.startsWith("/setup-password") || pathname.startsWith("/api/auth")) {
           return true
         }
         return !!token

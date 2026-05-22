@@ -6,6 +6,7 @@ export interface UserData {
   role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN"
   departmentId: string | null
   course: string | null
+  isDisabled: boolean
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null
   createdAt: Date

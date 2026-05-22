@@ -36,6 +36,7 @@ model User {
   role         Role     @default(STUDENT)
   departmentId String?
   course       String?
+  isDisabled   Boolean  @default(false)
   hasLoggedInBefore Boolean @default(false)
   lastLoginAt       DateTime?
   createdAt    DateTime @default(now())

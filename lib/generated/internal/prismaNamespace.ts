@@ -1272,6 +1272,7 @@ export const UserScalarFieldEnum = {
   role: 'role',
   departmentId: 'departmentId',
   course: 'course',
+  isDisabled: 'isDisabled',
   hasLoggedInBefore: 'hasLoggedInBefore',
   lastLoginAt: 'lastLoginAt',
   createdAt: 'createdAt'

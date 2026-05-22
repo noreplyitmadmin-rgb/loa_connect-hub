@@ -26,9 +26,15 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.passwordHash) return null
+        if (user.isDisabled) return null
 
         const isValid = await compare(credentials.password as string, user.passwordHash)
         if (!isValid) return null
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { hasLoggedInBefore: true, lastLoginAt: new Date() },
+        })
 
         return {
           id: user.id,
@@ -38,7 +44,7 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    ...(process.env.FEATURE_CREATE_TEAMS_MEETING === "true"
+    ...(process.env.SSO_FEATURE_FLAG === "true"
       ? [
           AzureAD({
             clientId: process.env.MICROSOFT_CLIENT_ID!,

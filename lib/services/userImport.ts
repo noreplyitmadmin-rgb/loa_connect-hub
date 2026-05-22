@@ -1,5 +1,31 @@
-import { userRepository, departmentRepository } from "@/lib/repositories/factory"
+import { userRepository, departmentRepository, availabilityRuleRepository } from "@/lib/repositories/factory"
 import type { CsvRow } from "./csvParser"
+
+const TODAY = new Date().toISOString().split("T")[0]
+
+function createDefaultAvailabilityRules(facultyId: string) {
+  const rules = [
+    { dayOfWeek: 0, startTime: "08:00", endTime: "17:00", isBlocked: false },
+    { dayOfWeek: 1, startTime: "08:00", endTime: "17:00", isBlocked: false },
+    { dayOfWeek: 2, startTime: "08:00", endTime: "17:00", isBlocked: false },
+    { dayOfWeek: 3, startTime: "08:00", endTime: "17:00", isBlocked: false },
+    { dayOfWeek: 4, startTime: "08:00", endTime: "17:00", isBlocked: false },
+    { dayOfWeek: 5, isBlocked: true },
+    { dayOfWeek: 6, isBlocked: true },
+  ]
+  return Promise.all(
+    rules.map((r) =>
+      availabilityRuleRepository.upsert({
+        facultyId,
+        dayOfWeek: r.dayOfWeek,
+        isBlocked: r.isBlocked,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        startDate: TODAY,
+      })
+    )
+  )
+}
 
 export interface ImportResult {
   created: { name: string; email: string; role: string; department: string | null; course: string | null }[]
@@ -84,6 +110,10 @@ export async function importUsers(
         departmentId: deptForCreate,
         course: row.course,
       })
+
+      if (role === "FACULTY" || role === "DEAN") {
+        await createDefaultAvailabilityRules(user.id)
+      }
 
       result.created.push({
         name: user.name,

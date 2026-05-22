@@ -14,19 +14,6 @@ function LoginForm() {
   const [msLoading, setMsLoading] = useState(false)
   const error = searchParams.get("error")
 
-  const testAccounts = [
-    { label: "Admin", email: "admin@econsult.com" },
-    { label: "Dean", email: "dean@econsult.com" },
-    { label: "Faculty 1", email: "faculty1@econsult.com" },
-    { label: "Faculty 2", email: "faculty2@econsult.com" },
-    { label: "Student", email: "student@econsult.com" },
-  ]
-
-  const fillAccount = (accountEmail: string) => {
-    setEmail(accountEmail)
-    setPassword("password123")
-  }
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -56,7 +43,7 @@ function LoginForm() {
         </div>
       )}
 
-      {process.env.NEXT_PUBLIC_FEATURE_TEAMS === "true" && (
+      {process.env.NEXT_PUBLIC_SSO_FEATURE_FLAG === "true" && (
         <>
           <button
             onClick={() => { setMsLoading(true); signIn("azure-ad", { callbackUrl: "/" }) }}
@@ -127,26 +114,10 @@ function LoginForm() {
         </button>
       </form>
 
-      <div className="pt-4 border-t border-slate-100">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Quick fill test account</p>
-        <div className="grid grid-cols-2 gap-2">
-          {testAccounts.map((acct) => (
-            <button
-              key={acct.email}
-              type="button"
-              onClick={() => fillAccount(acct.email)}
-              className="px-2 py-1.5 rounded-md border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 text-[11px] font-medium text-slate-600 transition-colors"
-            >
-              {acct.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <p className="mt-6 text-center text-xs text-slate-500 font-medium">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">
-          Create one now
+        First time here?{" "}
+        <Link href="/activate" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">
+          Activate your account
         </Link>
       </p>
     </div>

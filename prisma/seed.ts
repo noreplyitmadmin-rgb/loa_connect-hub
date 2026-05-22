@@ -24,11 +24,11 @@ async function main() {
   await prisma.user.deleteMany()
 
   const admin = await prisma.user.create({
-    data: { name: "Dr. Admin", email: "admin@econsult.com", passwordHash, role: "ADMIN" },
+    data: { name: "Dr. Admin", email: "admin@econsult.com", passwordHash, role: "ADMIN", hasLoggedInBefore: true },
   })
 
   const dean = await prisma.user.create({
-    data: { name: "Dr. Dean Rivera", email: "dean@econsult.com", passwordHash, role: "DEAN" },
+    data: { name: "Regie Ellana", email: "regie@itmlyceumalabang.onmicrosoft.com", passwordHash, role: "DEAN" },
   })
 
   const department = await prisma.department.create({
@@ -38,31 +38,15 @@ async function main() {
   await prisma.user.update({ where: { id: dean.id }, data: { departmentId: department.id } })
 
   const faculty1 = await prisma.user.create({
-    data: { name: "Dr. Sarah Chen", email: "faculty1@econsult.com", passwordHash, role: "FACULTY", departmentId: department.id },
-  })
-
-  const faculty2 = await prisma.user.create({
-    data: { name: "Prof. Marcus Johnson", email: "faculty2@econsult.com", passwordHash, role: "FACULTY" },
-  })
-
-  const faculty3 = await prisma.user.create({
-    data: { name: "Dr. Elena Rodriguez", email: "faculty3@econsult.com", passwordHash, role: "FACULTY" },
+    data: { name: "Nin Alamo", email: "nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com", passwordHash, role: "FACULTY", departmentId: department.id },
   })
 
   const student1 = await prisma.user.create({
-    data: { name: "Alice Student", email: "student@econsult.com", passwordHash, role: "STUDENT" },
-  })
-
-  const student2 = await prisma.user.create({
-    data: { name: "Bob Martinez", email: "bob@econsult.com", passwordHash, role: "STUDENT" },
-  })
-
-  const student3 = await prisma.user.create({
-    data: { name: "Carol Nguyen", email: "carol@econsult.com", passwordHash, role: "STUDENT" },
+    data: { name: "Nino Francisco Alamo", email: "nin.alamo@outlook.com", passwordHash, role: "STUDENT" },
   })
 
   // Default availability rules for faculty: Mon-Fri 08:00-18:00, Sat-Sun blocked
-  const allFaculty = [faculty1, faculty2, faculty3]
+  const allFaculty = [faculty1]
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
   for (const faculty of allFaculty) {
@@ -86,15 +70,11 @@ async function main() {
     dean: { name: dean.name, role: dean.role, department: department.name },
     faculty: [
       { name: faculty1.name },
-      { name: faculty2.name },
-      { name: faculty3.name },
     ],
     students: [
-      { name: student1.name },
-      { name: student2.name },
-      { name: student3.name },
+      { name: student1.name, email: student1.email },
     ],
-    totalUsers: 8,
+    totalUsers: 4,
     departments: [{ name: department.name, code: department.code }],
     availabilityRules: `${allFaculty.length} faculty × 7 days = ${allFaculty.length * 7} rules`,
   })
