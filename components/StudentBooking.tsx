@@ -581,7 +581,7 @@ export default function StudentBooking({ facultyWithRules }: Props) {
                 </div>
               </div>
 
-              {selectedSlots.filter((s) => s.date === fmtDate(currentYear, currentMonth, selectedDay)).length > 0 && (
+              {/* {selectedSlots.filter((s) => s.date === fmtDate(currentYear, currentMonth, selectedDay)).length > 0 && (
                 <div className="p-3 rounded-lg bg-gold-50 border border-gold-200">
                   <p className="text-xs font-semibold text-gold-700 mb-2">Selected blocks for this day:</p>
                   <div className="space-y-1">
@@ -601,7 +601,7 @@ export default function StudentBooking({ facultyWithRules }: Props) {
                       ))}
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           )}
         </section>
