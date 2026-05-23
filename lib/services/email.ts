@@ -123,6 +123,7 @@ export async function sendConsultationInvite(
     to: to.email,
     subject: `${data.studentName} is requesting for Consultation`,
     html,
+    cc: data.cc,
   }
 
   if (icalString) {

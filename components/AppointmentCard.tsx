@@ -343,7 +343,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
 
       <div className="mt-4 pt-3 border-t border-slate-100">
         <Link
-          href={`/appointments/${appointment.id}`}
+          href={role === "STUDENT" ? `/student/meetings/${appointment.id}` : `/appointments/${appointment.id}`}
           className="text-xs font-semibold text-gold-600 hover:text-gold-700 inline-flex items-center gap-1"
         >
           View Details

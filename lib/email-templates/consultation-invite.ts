@@ -9,7 +9,8 @@ export interface ConsultationInviteData {
   endTime: string
   title?: string | null
   description?: string | null
-  viewUrl: string
+  viewUrl: string,
+  cc?: string | string[] | null
 }
 
 export function consultationInviteHtml(data: ConsultationInviteData): string {
@@ -24,7 +25,7 @@ export function consultationInviteHtml(data: ConsultationInviteData): string {
     <tr><td style="background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
 
       <!-- Header -->
-      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Consultation Approved</p>
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Consultation Request</p>
       <h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#0f172a;">${escapeHtml(displayTitle)}</h1>
 
       <!-- Event card -->
