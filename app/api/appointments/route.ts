@@ -43,6 +43,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const role = (session.user as any).role
+  if (role !== "STUDENT" && role !== "FACULTY" && role !== "DEAN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const body = await request.json()
     const appointment = await requestAppointment({
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
       title: body.title,
       description: body.description,
       attendeeIds: body.attendeeIds,
+      meetingType: body.meetingType,
     })
     return NextResponse.json({ appointment }, { status: 201 })
   } catch (error) {

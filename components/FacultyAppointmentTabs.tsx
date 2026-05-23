@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 const TABS = [
   { key: "all", label: "All", countKey: null },
   { key: "pending", label: "Pending", countKey: "pending" as const },
-  { key: "approved", label: "Approved", countKey: "approved" as const },
+  { key: "approved", label: "Accepted", countKey: "approved" as const },
   { key: "completed", label: "Completed", countKey: "completed" as const },
   { key: "cancelled", label: "Cancelled", countKey: "cancelled" as const },
 ]

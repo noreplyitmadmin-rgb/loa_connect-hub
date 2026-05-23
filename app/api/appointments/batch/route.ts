@@ -4,12 +4,16 @@ import { requestAppointment } from "@/lib/controllers/appointments"
 
 export async function POST(request: NextRequest) {
   const session = await auth()
-  if (!session?.user || (session.user as any).role !== "STUDENT") {
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const role = (session.user as any).role
+  if (role !== "STUDENT" && role !== "FACULTY" && role !== "DEAN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const body = await request.json()
-  const { facultyIds, date, startTime, endTime, timeSlots, title, description, attendeeOptions } = body
+  const { facultyIds, date, startTime, endTime, timeSlots, title, description, attendeeOptions, meetingType } = body
   const studentId = (session.user as any).id
 
   if (!Array.isArray(facultyIds) || facultyIds.length === 0) {
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest) {
         title,
         description,
         attendeeOptions: otherFacultyOptions,
+        meetingType,
       })
       results.push({ facultyId, appointment: appointment as any })
     } catch (err) {

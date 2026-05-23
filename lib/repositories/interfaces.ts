@@ -25,6 +25,8 @@ export interface AppointmentData {
   id: string
   studentId: string
   facultyId: string
+  createdByEmail: string
+  meetingType: "CONSULTATION" | "INTERNAL"
   sessionGroupId: string | null
   date: string
   startTime: string
@@ -73,6 +75,8 @@ export interface AppointmentData {
   id: string
   studentId: string
   facultyId: string
+  createdByEmail: string
+  meetingType: "CONSULTATION" | "INTERNAL"
   date: string
   startTime: string
   endTime: string
@@ -91,6 +95,8 @@ export interface AppointmentData {
 export interface CreateAppointmentInput {
   studentId: string
   facultyId: string
+  createdByEmail: string
+  meetingType?: "CONSULTATION" | "INTERNAL"
   sessionGroupId?: string | null
   date: string
   startTime: string

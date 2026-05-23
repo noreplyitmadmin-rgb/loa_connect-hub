@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { studentCancelAppointment } from "@/lib/controllers/appointments"
+import { cancelAppointment } from "@/lib/controllers/appointments"
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -8,11 +8,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const studentId = (session.user as any).id
+  const userId = (session.user as any).id
+  const userEmail = (session.user as any).email
   const { id } = await params
 
   try {
-    const appointment = await studentCancelAppointment(id, studentId)
+    const appointment = await cancelAppointment(id, userId, userEmail)
     return NextResponse.json({ appointment })
   } catch (error) {
     return NextResponse.json(

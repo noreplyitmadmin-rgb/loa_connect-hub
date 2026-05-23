@@ -97,6 +97,16 @@ CREATE TABLE appointments (
 
   "sessionGroupId" TEXT,
 
+  "createdByEmail" TEXT NOT NULL,
+
+  "meetingType" TEXT NOT NULL DEFAULT 'CONSULTATION'
+    CHECK (
+      "meetingType" IN (
+        'CONSULTATION',
+        'INTERNAL'
+      )
+    ),
+
   date TEXT NOT NULL,
   "startTime" TEXT NOT NULL,
   "endTime" TEXT NOT NULL,
@@ -535,6 +545,44 @@ BEGIN
   END LOOP;
 
 END $$;
+
+COMMIT;
+
+-- =========================================================
+-- POST-SCHEMA MIGRATIONS
+-- Apply these *after* the main schema above, against an
+-- existing database that needs to be upgraded.
+-- =========================================================
+
+-- -------------------------------------------------------
+-- Migration 1: Populate appointment_time_slots from legacy
+--             appointments (run once after adding the
+--             appointment_time_slots table)
+-- -------------------------------------------------------
+
+BEGIN;
+
+INSERT INTO appointment_time_slots ("appointmentId", date, "startTime", "endTime", "createdAt")
+SELECT 
+  id,
+  date,
+  "startTime",
+  "endTime",
+  NOW()
+FROM appointments
+ON CONFLICT ("appointmentId", date, "startTime") DO NOTHING;
+
+COMMIT;
+
+-- -------------------------------------------------------
+-- Migration 2: Add meetingType column to appointments
+--             (run once after schema update adds the column)
+-- -------------------------------------------------------
+
+BEGIN;
+
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS "meetingType" TEXT NOT NULL DEFAULT 'CONSULTATION'
+  CHECK ("meetingType" IN ('CONSULTATION', 'INTERNAL'));
 
 COMMIT;
 

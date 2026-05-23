@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import {
-  approveAppointment,
-  rejectAppointment,
+  acceptAppointment,
+  declineAppointment,
   completeAppointment,
   cancelAppointment,
   updateTeamsLink,
@@ -14,29 +14,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const facultyId = (session.user as any).id
+  const userId = (session.user as any).id
+  const userEmail = (session.user as any).email
   const { id, action } = await params
 
   try {
     let appointment
 
     switch (action) {
+      case "accept":
       case "approve":
-        appointment = await approveAppointment(id, facultyId)
-        // Teams sync is handled asynchronously by the orchestration layer (Phase 7)
+        appointment = await acceptAppointment(id, userId)
         break
+      case "decline":
       case "reject":
-        appointment = await rejectAppointment(id, facultyId)
+        appointment = await declineAppointment(id, userId)
         break
       case "complete":
-        appointment = await completeAppointment(id, facultyId)
+        appointment = await completeAppointment(id, userId)
         break
       case "cancel":
-        appointment = await cancelAppointment(id, facultyId)
+        appointment = await cancelAppointment(id, userId, userEmail)
         break
       case "teams-link":
         const { teamsLink } = await request.json()
-        appointment = await updateTeamsLink(id, facultyId, teamsLink)
+        appointment = await updateTeamsLink(id, userId, teamsLink)
         break
       default:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 })

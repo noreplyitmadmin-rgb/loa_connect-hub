@@ -31,6 +31,7 @@ export async function requestAppointment(input: {
   description?: string
   attendeeIds?: string[]
   attendeeOptions?: { userId: string; isMandatory: boolean }[]
+  meetingType?: "CONSULTATION" | "INTERNAL"
 }) {
   // Determine the timeslots to use
   const timeSlots = input.timeSlots || (input.date && input.startTime && input.endTime 
@@ -88,22 +89,61 @@ export async function requestAppointment(input: {
     }
   }
 
-  // Validate additional attendees are FACULTY or DEAN role
-  const attendeeIds = input.attendeeIds || input.attendeeOptions?.map(a => a.userId) || []
-  if (attendeeIds.length > 0) {
-    for (const attendeeId of attendeeIds) {
-      const user = await userRepository.findById(attendeeId)
+  // Resolve creator to determine meetingType
+  const creator = await userRepository.findById(input.studentId)
+  if (!creator) throw new Error("Creator not found")
+
+  // Determine meetingType based on role
+  let meetingType = input.meetingType
+  if (creator.role === "STUDENT") {
+    // Students always create consultations
+    meetingType = "CONSULTATION"
+  } else if (!meetingType) {
+    // Faculty/Dean default to INTERNAL
+    meetingType = "INTERNAL"
+  }
+
+  // Collect all involved user IDs
+  const attendeeIds = [...new Set([
+    input.studentId,
+    input.facultyId,
+    ...(input.attendeeIds || []),
+    ...(input.attendeeOptions?.map(a => a.userId) || []),
+  ])]
+
+  // Enforce participant rules per meetingType
+  if (meetingType === "INTERNAL") {
+    for (const uid of attendeeIds) {
+      const user = uid === input.studentId ? creator : await userRepository.findById(uid)
       if (!user || (user.role !== "FACULTY" && user.role !== "DEAN")) {
-        throw new Error(`User ${attendeeId} is not a faculty member`)
+        throw new Error("Internal meetings can only include faculty and deans")
       }
+    }
+  } else {
+    // CONSULTATION — at least one student must be involved
+    let hasStudent = creator.role === "STUDENT"
+    if (!hasStudent) {
+      for (const uid of attendeeIds) {
+        if (uid === input.studentId) continue // already checked
+        const user = await userRepository.findById(uid)
+        if (user?.role === "STUDENT") { hasStudent = true; break }
+      }
+    }
+    if (!hasStudent) {
+      throw new Error("Consultations must include at least one student")
     }
   }
 
   // Use first timeslot for main appointment record (backward compat for Teams sync)
   const firstSlot = timeSlots[0]
+
+  const createdByEmail = creator.email ?? input.studentId
+
   const appointment = await appointmentRepository.create({
     studentId: input.studentId,
     facultyId: input.facultyId,
+    createdByEmail,
+    meetingType,
     sessionGroupId: input.sessionGroupId ?? null,
     date: firstSlot.date,
     startTime: firstSlot.startTime,
@@ -117,7 +157,7 @@ export async function requestAppointment(input: {
     await appointmentRepository.addTimeSlot(appointment.id, slot.date, slot.startTime, slot.endTime)
   }
 
-  // Add additional faculty attendees
+  // Add additional attendees
   if (input.attendeeOptions && input.attendeeOptions.length > 0) {
     for (const opt of input.attendeeOptions) {
       if (opt.userId !== input.facultyId) {
@@ -135,7 +175,7 @@ export async function requestAppointment(input: {
   return appointmentRepository.findById(appointment.id)
 }
 
-export async function approveAppointment(id: string, facultyId: string) {
+export async function acceptAppointment(id: string, facultyId: string) {
   const appointment = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
   if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
@@ -145,7 +185,10 @@ export async function approveAppointment(id: string, facultyId: string) {
   return appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
 }
 
-export async function rejectAppointment(id: string, facultyId: string) {
+// Backward-compat alias
+export const approveAppointment = acceptAppointment
+
+export async function declineAppointment(id: string, facultyId: string) {
   const appointment = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
   if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
@@ -153,6 +196,9 @@ export async function rejectAppointment(id: string, facultyId: string) {
 
   return appointmentRepository.update(id, { status: "REJECTED" })
 }
+
+// Backward-compat alias
+export const rejectAppointment = declineAppointment
 
 export async function completeAppointment(id: string, facultyId: string) {
   const appointment = await appointmentRepository.findById(id)
@@ -163,26 +209,25 @@ export async function completeAppointment(id: string, facultyId: string) {
   return appointmentRepository.update(id, { status: "COMPLETED" })
 }
 
-export async function cancelAppointment(id: string, facultyId: string) {
+export async function cancelAppointment(id: string, userId: string, userEmail?: string) {
   const appointment = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
-  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-  if (appointment.status !== "APPROVED") throw new Error("Only approved appointments can be cancelled")
+
+  // Only the creator or the consulting faculty can cancel
+  const isCreator = userEmail && appointment.createdByEmail === userEmail
+  const isFaculty = appointment.facultyId === userId
+  if (!isCreator && !isFaculty) throw new Error("Unauthorized — only the creator or faculty can cancel")
+
+  // Faculty can only cancel approved appointments
+  if (isFaculty && !isCreator && appointment.status !== "APPROVED") {
+    throw new Error("Only approved appointments can be cancelled by faculty")
+  }
 
   // If synced to Teams, attempt cleanup (best-effort, does not block cancellation)
   if (appointment.teamsSyncStatus === "WRITTEN") {
     // TODO: Phase 7 — attempt Teams meeting deletion
     // If deletion fails, log error but proceed with cancellation
   }
-
-  return appointmentRepository.update(id, { status: "CANCELLED" })
-}
-
-export async function studentCancelAppointment(id: string, studentId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.studentId !== studentId) throw new Error("Unauthorized")
-  if (appointment.status !== "PENDING") throw new Error("Only pending appointments can be cancelled")
 
   return appointmentRepository.update(id, { status: "CANCELLED" })
 }

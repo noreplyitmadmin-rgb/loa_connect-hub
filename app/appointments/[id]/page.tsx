@@ -10,6 +10,7 @@ import Skeleton from "@/components/Skeleton"
 interface AppointmentDetail {
   id: string
   status: string
+  meetingType: string
   date: string
   startTime: string
   endTime: string
@@ -79,7 +80,9 @@ export default function AppointmentDetailPage() {
       if (res.ok) {
         if (data.appointment) setAppointment(data.appointment)
         const statusMap: Record<string, string> = {
+          accept: "APPROVED",
           approve: "APPROVED",
+          decline: "REJECTED",
           reject: "REJECTED",
           complete: "COMPLETED",
           cancel: "CANCELLED",
@@ -129,7 +132,18 @@ export default function AppointmentDetailPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-slate-900">Booking Ticket</h1>
-          <StatusBadge status={effectiveStatus} />
+          <div className="flex items-center gap-2">
+            {appointment.meetingType && (
+              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                appointment.meetingType === "CONSULTATION"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-purple-50 text-purple-700 border-purple-200"
+              }`}>
+                {appointment.meetingType === "CONSULTATION" ? "Consultation" : "Internal"}
+              </span>
+            )}
+            <StatusBadge status={effectiveStatus} />
+          </div>
         </div>
 
         {/* People */}
@@ -255,22 +269,22 @@ export default function AppointmentDetailPage() {
             </SubmitButton>
           )}
 
-          {/* Faculty: approve/reject PENDING */}
+          {/* Faculty: accept/decline PENDING */}
           {isFaculty && effectiveStatus === "PENDING" && (
             <>
               <SubmitButton
-                onClick={() => handleAction("approve")}
-                loading={actionLoading === "approve"}
+                onClick={() => handleAction("accept")}
+                loading={actionLoading === "accept"}
                 variant="success"
               >
-                Approve
+                Accept
               </SubmitButton>
               <SubmitButton
-                onClick={() => handleAction("reject")}
-                loading={actionLoading === "reject"}
+                onClick={() => handleAction("decline")}
+                loading={actionLoading === "decline"}
                 variant="danger"
               >
-                Reject
+                Decline
               </SubmitButton>
             </>
           )}

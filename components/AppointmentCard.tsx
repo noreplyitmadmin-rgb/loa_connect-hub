@@ -15,6 +15,7 @@ interface AppointmentCardProps {
     endTime: string
     title?: string | null
     description?: string | null
+    meetingType?: "CONSULTATION" | "INTERNAL" | string
     teamsLink: string | null
     teamsSyncStatus?: string
     teamsSyncRetries?: number
@@ -87,7 +88,9 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
           setLocalTeamsLink(data.appointment.teamsLink)
         } else {
           const statusMap: Record<string, string> = {
+            accept: "APPROVED",
             approve: "APPROVED",
+            decline: "REJECTED",
             reject: "REJECTED",
             complete: "COMPLETED",
             cancel: "CANCELLED",
@@ -114,6 +117,15 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
         <div className="space-y-3 flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={effectiveStatus} />
+            {(appointment as any).meetingType && (
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                (appointment as any).meetingType === "CONSULTATION"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-purple-50 text-purple-700 border-purple-200"
+              }`}>
+                {(appointment as any).meetingType === "CONSULTATION" ? "Consultation" : "Internal"}
+              </span>
+            )}
 
             {localTeamsLink && (
               <a
@@ -247,20 +259,20 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
         {role === "FACULTY" && effectiveStatus === "PENDING" && (
           <div className="flex md:flex-col lg:flex-row gap-2 shrink-0 self-end md:self-center">
             <SubmitButton
-              onClick={() => handleAction("approve")}
-              loading={loading === "approve"}
+              onClick={() => handleAction("accept")}
+              loading={loading === "accept"}
               variant="success"
               className="text-xs font-semibold px-4 py-2"
             >
-              {loading === "approve" ? "Processing" : "Approve"}
+              {loading === "accept" ? "Processing" : "Accept"}
             </SubmitButton>
             <SubmitButton
-              onClick={() => handleAction("reject")}
-              loading={loading === "reject"}
+              onClick={() => handleAction("decline")}
+              loading={loading === "decline"}
               variant="danger"
               className="text-xs font-semibold px-4 py-2"
             >
-              {loading === "reject" ? "Rejecting..." : "Reject"}
+              {loading === "decline" ? "Declining..." : "Decline"}
             </SubmitButton>
           </div>
         )}

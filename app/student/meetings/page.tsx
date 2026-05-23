@@ -59,7 +59,7 @@ export default async function StudentMeetings(props: {
           </p>
           <p className="text-slate-400 text-xs mt-1">
             {activeTab === "approved"
-              ? "Approved consultations will appear here once faculty confirms your booking."
+              ? "Accepted consultations will appear here once faculty confirms your booking."
               : activeTab === "all"
               ? "Book a consultation to see your requests here."
               : `You have no ${activeTab} consultation requests.`}
