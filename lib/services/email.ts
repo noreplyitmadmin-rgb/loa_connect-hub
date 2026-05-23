@@ -88,7 +88,8 @@ export async function sendConsultationInvite(
     endTime: string
     title?: string | null
     description?: string | null
-    viewUrl: string
+    viewUrl: string,
+    cc?: string | string[] | null
   },
   icalString?: string
 ) {
@@ -105,6 +106,7 @@ export async function sendConsultationInvite(
     title: data.title,
     description: data.description,
     viewUrl: data.viewUrl,
+    cc: data.cc,
   })
 
   if (!isEmailEnabled()) {
@@ -119,7 +121,7 @@ export async function sendConsultationInvite(
   const mail: any = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
     to: to.email,
-    subject: `Consultation Approved — ${data.facultyName}`,
+    subject: `${data.studentName} is requesting for Consultation`,
     html,
   }
 
@@ -144,7 +146,8 @@ export async function sendMeetingInviteWithICS(
     startTime: string
     endTime: string
     participantNames: string[]
-    viewUrl: string
+    viewUrl: string,
+    cc?: string | string[] | null
   },
   icalString?: string
 ) {
@@ -159,6 +162,7 @@ export async function sendMeetingInviteWithICS(
     endTime: data.endTime,
     participantNames: data.participantNames,
     viewUrl: data.viewUrl,
+    cc: data.cc,
   })
 
   if (!isEmailEnabled()) {

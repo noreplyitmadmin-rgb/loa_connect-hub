@@ -115,9 +115,10 @@ export default function AppointmentDetailPage() {
   const isFaculty = role === "FACULTY" && appointment.faculty?.id === userId
 
   return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto">
+   
+    <div className="p-6 md:p-8 max-w-3xl">
       {/* Back */}
-      <button
+      {/* <button
         onClick={() => router.push(role === "STUDENT" ? "/student" : "/faculty")}
         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6"
       >
@@ -125,13 +126,13 @@ export default function AppointmentDetailPage() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
         Back to Dashboard
-      </button>
+      </button> */}
 
       {/* Main ticket card */}
       <div className="card p-6 bg-white mb-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-slate-900">Booking Ticket</h1>
+          <h1 className="text-xl font-bold text-slate-900">Consultation</h1>
           <div className="flex items-center gap-2">
             {appointment.meetingType && (
               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${

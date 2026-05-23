@@ -7,7 +7,8 @@ export interface MeetingInviteData {
   startTime: string
   endTime: string
   participantNames: string[]
-  viewUrl: string
+  viewUrl: string,
+  cc?: string | string[] | null
 }
 
 export function meetingInviteHtml(data: MeetingInviteData): string {

@@ -1,5 +1,7 @@
 import { appointmentRepository, userRepository } from "@/lib/repositories/factory"
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
+import { generateICal } from "@/lib/services/ical"
+import { sendConsultationInvite, sendMeetingInviteWithICS } from "@/lib/services/email"
 
 export interface TimeSlot {
   date: string
@@ -20,7 +22,8 @@ function isValidTime(time: string): boolean {
 }
 
 export async function requestAppointment(input: {
-  studentId: string
+  createdByUserId: string
+  studentId: string | null
   facultyId: string
   sessionGroupId?: string
   date?: string
@@ -33,114 +36,141 @@ export async function requestAppointment(input: {
   attendeeOptions?: { userId: string; isMandatory: boolean }[]
   meetingType?: "CONSULTATION" | "INTERNAL"
 }) {
-  // Determine the timeslots to use
-  const timeSlots = input.timeSlots || (input.date && input.startTime && input.endTime 
+
+  // 1. Determine the timeslots
+  const timeSlots = input.timeSlots || (input.date && input.startTime && input.endTime
     ? [{ date: input.date, startTime: input.startTime, endTime: input.endTime }]
     : [])
-  
+
   if (!timeSlots || timeSlots.length === 0) {
     throw new Error("At least one timeslot (date, startTime, endTime) is required")
   }
 
-  // Validate timeslot durations and time boundaries
-  for (const slot of timeSlots) {
-    if (!isValidTime(slot.startTime)) {
-      throw new Error(`Start time ${slot.startTime} must be on a 15-minute boundary (HH:00, HH:15, HH:30, or HH:45)`)
-    }
-    if (!isValidTime(slot.endTime)) {
-      throw new Error(`End time ${slot.endTime} must be on a 15-minute boundary (HH:00, HH:15, HH:30, or HH:45)`)
-    }
-    const durationMinutes = getMinutesDifference(slot.startTime, slot.endTime)
-    if (durationMinutes < MIN_TIMESLOT_DURATION_MINUTES) {
-      throw new Error(`Timeslot duration must be at least ${MIN_TIMESLOT_DURATION_MINUTES} minutes`)
-    }
-    if (durationMinutes > MAX_TIMESLOT_DURATION_MINUTES) {
-      throw new Error(`Timeslot duration cannot exceed ${MAX_TIMESLOT_DURATION_MINUTES} minutes (8 hours)`)
-    }
-  }
+  // 2. Initial Validations
+  validateDurationAndBoundaries(timeSlots)
+  checkForOverlapWithinSameAppointment(timeSlots)
 
-  // Check for overlapping timeslots within the same appointment
-  for (let i = 0; i < timeSlots.length; i++) {
-    for (let j = i + 1; j < timeSlots.length; j++) {
-      const slot1 = timeSlots[i]
-      const slot2 = timeSlots[j]
-      if (
-        slot1.date === slot2.date &&
-        slot1.startTime < slot2.endTime &&
-        slot1.endTime > slot2.startTime
-      ) {
-        throw new Error("Timeslots cannot overlap within the same appointment")
-      }
-    }
-  }
-
-  // Check for conflicting appointments with any of the timeslots
-  // Exclude appointments in the same sessionGroupId (multi-faculty / staggered blocks)
-  for (const slot of timeSlots) {
-    const conflictingSlots = await appointmentRepository.listStudentConflictingSlots(
-      input.studentId,
-      slot.date,
-      slot.startTime,
-      slot.endTime,
-      input.sessionGroupId
-    )
-    if (conflictingSlots.length > 0) {
-      throw new Error("You already have an appointment that overlaps with this time")
-    }
-  }
-
-  // Resolve creator to determine meetingType
-  const creator = await userRepository.findById(input.studentId)
+  // 3. Resolve Creator
+  const creator = await userRepository.findById(input.createdByUserId)
   if (!creator) throw new Error("Creator not found")
 
-  // Determine meetingType based on role
+  // 4. Determine meetingType & Enforce Conflicts
   let meetingType = input.meetingType
+
   if (creator.role === "STUDENT") {
-    // Students always create consultations
     meetingType = "CONSULTATION"
+
+    // Check Student Conflicts (Only if creator is a student)
+    for (const slot of timeSlots) {
+      const conflictingSlots = await appointmentRepository.listStudentConflictingSlots(
+        input.createdByUserId,
+        slot.date,
+        slot.startTime,
+        slot.endTime,
+        input.sessionGroupId
+      )
+      if (conflictingSlots.length > 0) {
+        throw new Error("You already have an appointment that overlaps with this time")
+      }
+    }
   } else if (!meetingType) {
-    // Faculty/Dean default to INTERNAL
     meetingType = "INTERNAL"
   }
 
-  // Collect all involved user IDs
+  // 5. Always Check Faculty Conflicts (Cannot double-book the target faculty)
+  // for (const slot of timeSlots) {
+  //   const conflictingFaculty = await appointmentRepository.listConflictingSlots(
+  //     input.facultyId,
+  //     slot.date,
+  //     slot.startTime,
+  //     slot.endTime
+  //   )
+  //   const actualConflicts = conflictingFaculty.filter(
+  //     (apt: any) => apt.sessionGroupId !== input.sessionGroupId
+  //   )
+  //   if (actualConflicts.length > 0) {
+  //     throw new Error("The faculty member is already booked at this time")
+  //   }
+  // }
+
+  // 6. Collect all involved user IDs
   const attendeeIds = [...new Set([
     input.studentId,
     input.facultyId,
     ...(input.attendeeIds || []),
     ...(input.attendeeOptions?.map(a => a.userId) || []),
-  ])]
+  ])].filter(Boolean) as string[]
 
-  // Enforce participant rules per meetingType
-  if (meetingType === "INTERNAL") {
-    for (const uid of attendeeIds) {
-      const user = uid === input.studentId ? creator : await userRepository.findById(uid)
+  console.log("DEBUG: Meeting Type:", meetingType);
+  console.log("DEBUG: Direct Student ID:", input.studentId);
+  console.log("DEBUG: Attendee IDs:", attendeeIds);
+
+  // 7. Enforce participant rules & Check Conflicts for Faculty/Deans
+  for (const uid of attendeeIds) {
+    const user = uid === input.studentId ? creator : await userRepository.findById(uid)
+
+    // A. Role Validation for Internal Meetings
+    if (meetingType === "INTERNAL") {
       if (!user || (user.role !== "FACULTY" && user.role !== "DEAN")) {
         throw new Error("Internal meetings can only include faculty and deans")
       }
     }
-  } else {
-    // CONSULTATION — at least one student must be involved
-    let hasStudent = creator.role === "STUDENT"
-    if (!hasStudent) {
-      for (const uid of attendeeIds) {
-        if (uid === input.studentId) continue // already checked
-        const user = await userRepository.findById(uid)
-        if (user?.role === "STUDENT") { hasStudent = true; break }
+
+    // B. Conflict Check for Faculty/Deans (using the repository array method)
+    if (user?.role === "FACULTY" || user?.role === "DEAN") {
+      for (const slot of timeSlots) {
+        const conflictingSlots = await appointmentRepository.listConflictingSlots(
+          [uid],
+          slot.date,
+          slot.startTime,
+          slot.endTime
+        )
+
+        // Filter out the current session group and rejected/cancelled appointments
+        const actualConflicts = (conflictingSlots || []).filter((s: any) => {
+          const apt = s.appointment
+          return apt &&
+            apt.sessionGroupId !== input.sessionGroupId &&
+            apt.status !== "REJECTED" &&
+            apt.status !== "CANCELLED"
+        })
+
+        if (actualConflicts.length > 0) {
+          throw new Error(`The participant ${user.name} is already booked at this time`)
+        }
       }
-    }
-    if (!hasStudent) {
-      throw new Error("Consultations must include at least one student")
     }
   }
 
-  // Use first timeslot for main appointment record (backward compat for Teams sync)
-  const firstSlot = timeSlots[0]
+  // C. Consultation-specific Student check
+  if (meetingType === "CONSULTATION") {
+    // 1. Verify that the person requesting the meeting is a Student
+    if (creator.role !== "STUDENT") {
+      // Optional: If you want to allow Faculty to book FOR students, 
+      // remove this check and keep the loop below.
+      throw new Error("Consultations can only be created by students");
+    }
 
-  const createdByEmail = creator.email ?? input.studentId
+    // 2. Verify that the student ID is either missing (use creator) or matches creator
+    // This prevents a Student from accidentally booking under someone else's ID
+    if (input.studentId && input.studentId !== creator.id) {
+      throw new Error("Consultation studentId must match the creator");
+    }
+  }
+
+  // 8. Create Appointment
+  const firstSlot = timeSlots[0]
+  const createdByEmail = creator.email ?? input.studentId ?? "unknown@system.com"
+
+  // ✅ FIX: Determine the studentId before calling create
+  // If it's a Consultation, we force the studentId to be the creator
+  let requiredStudentId = input.studentId;
+  if (meetingType === "CONSULTATION" && !requiredStudentId) {
+      requiredStudentId = input.createdByUserId; 
+  }
 
   const appointment = await appointmentRepository.create({
-    studentId: input.studentId,
+    studentId: requiredStudentId, //this should be creator
     facultyId: input.facultyId,
     createdByEmail,
     meetingType,
@@ -152,12 +182,10 @@ export async function requestAppointment(input: {
     description: input.description ?? null,
   })
 
-  // Add all timeslots
   for (const slot of timeSlots) {
     await appointmentRepository.addTimeSlot(appointment.id, slot.date, slot.startTime, slot.endTime)
   }
 
-  // Add additional attendees
   if (input.attendeeOptions && input.attendeeOptions.length > 0) {
     for (const opt of input.attendeeOptions) {
       if (opt.userId !== input.facultyId) {
@@ -172,8 +200,155 @@ export async function requestAppointment(input: {
     }
   }
 
-  return appointmentRepository.findById(appointment.id)
+  try {
+
+    // 9. Fetch full data & trigger emails
+    const fullAppointment = await appointmentRepository.findById(appointment.id)
+    if (fullAppointment) {
+      sendAppointmentCreatedEmail(fullAppointment, input.createdByUserId).catch((err) => {
+        console.error("Failed to send appointment creation email:", err)
+      })
+    }
+
+    return fullAppointment
+  } catch (err) { throw err }
+
+
+
+  // --- Helper Functions ---
+  function validateDurationAndBoundaries(slots: TimeSlot[]) {
+    for (const slot of slots) {
+      if (!isValidTime(slot.startTime) || !isValidTime(slot.endTime)) {
+        throw new Error(`Time must be on a 15-minute boundary`)
+      }
+      const duration = getMinutesDifference(slot.startTime, slot.endTime)
+      if (duration < MIN_TIMESLOT_DURATION_MINUTES || duration > MAX_TIMESLOT_DURATION_MINUTES) {
+        throw new Error(`Invalid duration`)
+      }
+    }
+  }
+
+  function checkForOverlapWithinSameAppointment(slots: TimeSlot[]) {
+    for (let i = 0; i < slots.length; i++) {
+      for (let j = i + 1; j < slots.length; j++) {
+        if (slots[i].date === slots[j].date &&
+          slots[i].startTime < slots[j].endTime &&
+          slots[i].endTime > slots[j].startTime) {
+          throw new Error("Timeslots cannot overlap within the same appointment")
+        }
+      }
+    }
+  }
 }
+
+// ─── Email helpers ────────────────────────────
+
+async function sendAppointmentCreatedEmail(appointment: any, creatorId: string) {
+  if (!appointment) return
+
+  const recipients = new Map<string, { name: string; email: string }>()
+
+  if (appointment.faculty?.id && appointment.faculty.id !== creatorId && appointment.faculty.email) {
+    recipients.set(appointment.faculty.id, {
+      name: appointment.faculty.name || "Faculty",
+      email: appointment.faculty.email,
+    })
+  }
+
+  if (Array.isArray(appointment.attendees)) {
+    for (const attendee of appointment.attendees) {
+      const user = attendee?.user
+      if (!user || !user.id || !user.email || user.id === creatorId) continue
+      recipients.set(user.id, {
+        name: user.name || "Attendee",
+        email: user.email,
+      })
+    }
+  }
+
+  if (recipients.size === 0) return
+
+  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
+  const viewUrl = `${host}/appointments/${appointment.id}`
+
+  const organizerName = appointment.student?.id === creatorId
+    ? appointment.student?.name
+    : appointment.faculty?.id === creatorId
+      ? appointment.faculty?.name
+      : appointment.student?.name || appointment.faculty?.name || "Organizer"
+
+  const organizerEmail = appointment.student?.id === creatorId
+    ? appointment.student?.email
+    : appointment.faculty?.id === creatorId
+      ? appointment.faculty?.email
+      : appointment.student?.email || appointment.faculty?.email || ""
+
+  const eventSummary = appointment.title
+    ? `${appointment.meetingType === "CONSULTATION" ? "Consultation" : "Meeting"}: ${appointment.title}`
+    : appointment.meetingType === "CONSULTATION"
+      ? "Consultation"
+      : "Meeting"
+
+  const descriptionLines = [
+    appointment.title ? `Title: ${appointment.title}` : null,
+    appointment.description || null,
+    `Organizer: ${organizerName}`,
+  ].filter(Boolean).join("\n")
+
+  const icalString = generateICal({
+    uid: `appt-${appointment.id}@e-consultation`,
+    summary: eventSummary,
+    description: descriptionLines,
+    date: appointment.date,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    location: "Microsoft Teams",
+    organizer: { name: organizerName, email: organizerEmail },
+    attendees: Array.from(recipients.values()).map(r => ({ name: r.name, email: r.email })),
+  })
+
+  const recipientNames = Array.from(recipients.values()).map(r => r.name)
+  const cc = Array.from(recipients.values()).map(r => r.email)
+
+  for (const recipient of recipients.values()) {
+    if (appointment.meetingType === "CONSULTATION") {
+      await sendConsultationInvite(
+        { email: recipient.email, name: recipient.name },
+        {
+          studentName: appointment.student?.name || "Student",
+          studentEmail: appointment.student?.email || "",
+          facultyName: appointment.faculty?.name || "Faculty",
+          facultyEmail: appointment.faculty?.email || "",
+          date: appointment.date,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          title: appointment.title,
+          description: appointment.description,
+          viewUrl,
+          cc,
+        },
+        icalString,
+      )
+    } else {
+      await sendMeetingInviteWithICS(
+        { email: recipient.email, name: recipient.name },
+        {
+          organizerName,
+          title: appointment.title || "Appointment",
+          description: appointment.description,
+          date: appointment.date,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          participantNames: recipientNames,
+          viewUrl,
+          cc,
+        },
+        icalString,
+      )
+    }
+  }
+}
+
 
 export async function acceptAppointment(id: string, facultyId: string) {
   const appointment = await appointmentRepository.findById(id)
@@ -185,7 +360,7 @@ export async function acceptAppointment(id: string, facultyId: string) {
   const result = await appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
 
   // Fire-and-forget consultation approval email with .ics attachment
-  sendConsultationApprovedEmail(result as any).catch(() => {})
+  sendConsultationApprovedEmail(result as any).catch(() => { })
 
   return result
 }

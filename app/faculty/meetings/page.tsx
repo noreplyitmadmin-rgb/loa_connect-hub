@@ -98,8 +98,8 @@ export default async function MeetingsPage(props: {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Consultations</h1>
-          <p className="text-sm text-slate-500 mt-1">Schedule and manage faculty-to-faculty consultations</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Meetings</h1>
+          <p className="text-sm text-slate-500 mt-1">Schedule and manage meetings</p>
         </div>
         <Link
           href="/faculty/meetings/new"

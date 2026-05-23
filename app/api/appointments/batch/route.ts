@@ -4,17 +4,32 @@ import { requestAppointment } from "@/lib/controllers/appointments"
 
 export async function POST(request: NextRequest) {
   const session = await auth()
+
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
   const role = (session.user as any).role
+  const currentUserId = (session.user as any).id
+
   if (role !== "STUDENT" && role !== "FACULTY" && role !== "DEAN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const body = await request.json()
-  const { facultyIds, date, startTime, endTime, timeSlots, title, description, attendeeOptions, meetingType } = body
-  const studentId = (session.user as any).id
+  const {
+    facultyIds,
+    studentId: bodyStudentId,
+    date,
+    startTime,
+    endTime,
+    timeSlots,
+    title,
+    description,
+    attendeeOptions,
+    meetingType
+  } = body
+
 
   if (!Array.isArray(facultyIds) || facultyIds.length === 0) {
     return NextResponse.json({ error: "facultyIds must be a non-empty array" }, { status: 400 })
@@ -24,41 +39,82 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A time slot or timeSlots array is required" }, { status: 400 })
   }
 
+  // ✅ FIX: determine student correctly
+  let studentId: string = ""
+
+  if (role === "STUDENT") {
+    // Creator is student → NOT stored as studentId
+    studentId = "";
+  } else {
+    // Faculty/Dean may include a student
+    studentId = bodyStudentId ?? null
+  }
+
+  // ✅ RULE: studentId must not equal creator
+  if (studentId && studentId === currentUserId) {
+    return NextResponse.json(
+      { error: "Creator cannot be the student participant" },
+      { status: 400 }
+    )
+  }
+
+  // Primary faculty
+  const primaryFacultyId = facultyIds[0]
+
+  // Additional faculty attendees
+  const additionalFacultyAttendees = facultyIds
+    .filter((id: string) => id !== primaryFacultyId)
+    .map((id: string) => {
+      const opt = attendeeOptions?.find((o: any) => o.userId === id)
+      return {
+        userId: id,
+        isMandatory: opt?.isMandatory ?? true,
+      }
+    })
+
+  // Combine attendees
+  const allAttendees = [
+    ...additionalFacultyAttendees,
+    ...(attendeeOptions || []).filter((o: any) => !facultyIds.includes(o.userId))
+  ]
+
   const sessionGroupId = crypto.randomUUID()
+
   const results: { facultyId: string; appointment: any }[] = []
   const errors: { facultyId: string; error: string }[] = []
 
-  for (const facultyId of facultyIds) {
-    try {
-      // For each faculty, create an appointment with the other faculty as attendees
-      const otherFacultyOptions = facultyIds
-        .filter((id: string) => id !== facultyId)
-        .map((id: string) => {
-          const opt = attendeeOptions?.find((o: any) => o.userId === id)
-          return {
-            userId: id,
-            isMandatory: opt?.isMandatory ?? true,
-          }
-        })
+  try {
+    const appointment = await requestAppointment({
+      createdByUserId: currentUserId,
+      studentId: studentId === "" ? null : studentId,
+      facultyId: primaryFacultyId,
+      sessionGroupId,
+      date,
+      startTime,
+      endTime,
+      timeSlots,
+      title,
+      description,
+      attendeeOptions: allAttendees,
+      meetingType,
+    })
 
-      const appointment = await requestAppointment({
-        studentId,
-        facultyId,
-        sessionGroupId,
-        date,
-        startTime,
-        endTime,
-        timeSlots,
-        title,
-        description,
-        attendeeOptions: otherFacultyOptions,
-        meetingType,
-      })
-      results.push({ facultyId, appointment: appointment as any })
-    } catch (err) {
-      errors.push({ facultyId, error: err instanceof Error ? err.message : "Unknown error" })
-    }
+    return NextResponse.json({ appointment, sessionGroupId }, { status: 201 })
+    
+  } catch (err: any) {
+    // 1. THIS IS THE MOST IMPORTANT PART
+    // It prints the file, line number, and error type in your terminal
+    console.error("--- APPOINTMENT CREATION FAILED ---");
+    console.error(err); 
+    console.error("-----------------------------------");
+
+    // 2. Force the API to return a failure status code
+    return NextResponse.json(
+      { 
+        error: err.message || "Failed to create appointment",
+        details: err.stack // Helps you debug exactly where the crash happened
+      }, 
+      { status: 400 }
+    )
   }
-
-  return NextResponse.json({ results, errors, sessionGroupId })
 }

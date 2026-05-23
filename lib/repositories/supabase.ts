@@ -238,13 +238,27 @@ export const appointmentRepository: IAppointmentRepository = {
     if (error) throw error
     return data as any
   },
-  async listConflictingSlots(facultyIds, date, startTime, endTime) {
+  // async listConflictingSlots(facultyIds, date, startTime, endTime) {
+  //   const { data, error } = await supabase
+  //     .from("appointment_time_slots")
+  //     .select("*, appointment:appointments(*)")
+  //     .eq("date", date)
+  //     .lt("startTime", endTime)
+  //     .gt("endTime", startTime)
+  //   if (error) throw error
+  //   return data as any
+  // },
+  async listConflictingSlots(facultyIds: string[], date: string, startTime: string, endTime: string) {
     const { data, error } = await supabase
       .from("appointment_time_slots")
-      .select("*, appointment:appointments(*)")
+      // We use !inner to force an INNER JOIN so we can filter by facultyId
+      .select("*, appointment:appointments!inner(*)")
       .eq("date", date)
       .lt("startTime", endTime)
       .gt("endTime", startTime)
+      // Now we can actually use the facultyIds parameter!
+      .in("appointment.facultyId", facultyIds) 
+
     if (error) throw error
     return data as any
   },

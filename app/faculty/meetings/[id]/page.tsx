@@ -244,6 +244,7 @@ export default function MeetingDetailPage() {
   if (error || !meeting) return <div className="p-6 md:p-8"><p className="text-red-600">{error || "Meeting not found"}</p></div>
 
   const isOrganizer = meeting.organizerId === userId
+  console.log("Meeting details:", meeting, userId);
   const myParticipation = meeting.participants?.find((p) => p.userId === userId)
   const otherParticipantCount = meeting.participants?.filter((p) => p.userId !== userId).length || 0
   const isResendThrottled = resendState.nextAvailableAt ? Date.now() < resendState.nextAvailableAt : false
@@ -252,7 +253,7 @@ export default function MeetingDetailPage() {
   return (
     <div className="p-6 md:p-8 max-w-3xl">
       {/* Back */}
-      <button
+      {/* <button
         onClick={() => router.push("/faculty/meetings")}
         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6"
       >
@@ -260,7 +261,7 @@ export default function MeetingDetailPage() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
         Back to Consultations
-      </button>
+      </button> */}
 
       {/* Header */}
       <div className="card p-6 bg-white mb-6">

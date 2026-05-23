@@ -94,7 +94,7 @@ export interface AppointmentData {
 }
 
 export interface CreateAppointmentInput {
-  studentId: string
+  studentId: string | null
   facultyId: string
   createdByEmail: string
   meetingType?: "CONSULTATION" | "INTERNAL"

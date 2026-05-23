@@ -67,12 +67,12 @@ function generateSlots(startTime: string, endTime: string): { start: string; end
   const slots: { start: string; end: string }[] = []
   const [sh, sm] = startTime.split(":").map(Number)
   const [eh, em] = endTime.split(":").map(Number)
-  
+
   // Convert to minutes for easier calculation
   let currentMinutes = sh * 60 + sm
   const endMinutes = eh * 60 + em
   const maxSlotDuration = 8 * 60 // 8 hours
-  
+
   // Generate 30-minute increment slots
   while (currentMinutes < endMinutes) {
     const slotDuration = Math.min(maxSlotDuration, endMinutes - currentMinutes)
@@ -81,7 +81,7 @@ function generateSlots(startTime: string, endTime: string): { start: string; end
       const startMins = currentMinutes % 60
       const endHours = Math.floor((currentMinutes + slotDuration) / 60)
       const endMins = (currentMinutes + slotDuration) % 60
-      
+
       const s = `${String(startHours).padStart(2, "0")}:${String(startMins).padStart(2, "0")}`
       const e = `${String(endHours).padStart(2, "0")}:${String(endMins).padStart(2, "0")}`
       slots.push({ start: s, end: e })
@@ -92,6 +92,7 @@ function generateSlots(startTime: string, endTime: string): { start: string; end
 }
 
 export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
+
   const now = useMemo(() => new Date(serverNow || Date.now()), [serverNow])
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
@@ -279,27 +280,34 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
     const facultyIds = selectedFaculty.map((f) => f.id)
 
     try {
+      const req = JSON.stringify({
+        facultyIds,
+        timeSlots: selectedSlots.map((s) => ({
+          date: s.date,
+          startTime: s.start,
+          endTime: s.end,
+        })),
+        title: title.trim(),
+        description: description.trim() || undefined,
+        attendeeOptions: attendeeOptions.filter((o) => o.userId !== facultyIds[0]),
+      });
+
+      console.log("Booking request payload:", req);
+
       const res = await fetch("/api/appointments/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          facultyIds,
-          timeSlots: selectedSlots.map((s) => ({
-            date: s.date,
-            startTime: s.start,
-            endTime: s.end,
-          })),
-          title: title.trim(),
-          description: description.trim() || undefined,
-          attendeeOptions: attendeeOptions.filter((o) => o.userId !== facultyIds[0]),
-        }),
+        body: req,
       })
 
       const data = await res.json()
       if (res.ok) {
+        const results = data.results || [];
+        const errors = data.errors || [];
+
         setResult({
-          success: data.results.length,
-          errors: data.errors.map((err: any) => `${err.facultyId}: ${err.error}`),
+          success: results.length,
+          errors: errors.map((err: any) => `${err.facultyId}: ${err.error}`),
           sessionGroupId: data.sessionGroupId,
         })
         setSelectedDay(null)
@@ -309,8 +317,16 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
       } else {
         setResult({ success: 0, errors: [data.error || "Booking failed"] })
       }
-    } catch {
-      setResult({ success: 0, errors: ["Network error"] })
+    } catch (err: any) {
+      // 1. THIS IS THE KEY: Log the real error to the console
+      console.error("DEBUG: Frontend Caught Error:", err);
+
+      // 2. Show the specific error message if available, otherwise fallback
+      setResult({
+        success: 0,
+        errors: [err.message || "An unexpected error occurred. Check server logs."]
+      });
+
     } finally {
       setSubmitting(false)
     }
@@ -395,11 +411,10 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
                 return (
                   <div
                     key={f.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                      isSelected
-                        ? "border-gold-300 bg-gold-50/50"
-                        : "border-slate-200 hover:border-slate-300 bg-white"
-                    }`}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isSelected
+                      ? "border-gold-300 bg-gold-50/50"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -421,11 +436,10 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
                     {isSelected && opt && selectedFacultyIds.length > 1 && (
                       <button
                         onClick={() => toggleMandatory(f.id)}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                          opt.isMandatory
-                            ? "bg-gold-100 text-gold-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${opt.isMandatory
+                          ? "bg-gold-100 text-gold-700"
+                          : "bg-slate-100 text-slate-500"
+                          }`}
                       >
                         {opt.isMandatory ? "Required" : "Optional"}
                       </button>
@@ -757,11 +771,10 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
 
       {/* Result */}
       {result && (
-        <div className={`p-3 rounded-lg text-xs font-medium border ${
-          result.errors.length > 0
-            ? "bg-amber-50 text-amber-700 border-amber-200"
-            : "bg-emerald-50 text-emerald-700 border-emerald-200"
-        }`}>
+        <div className={`p-3 rounded-lg text-xs font-medium border ${result.errors.length > 0
+          ? "bg-amber-50 text-amber-700 border-amber-200"
+          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+          }`}>
           {result.success > 0 && <p>{result.success} appointment(s) created successfully.</p>}
           {result.sessionGroupId && <p className="text-[10px] opacity-75 mt-1">Session: {result.sessionGroupId}</p>}
           {result.errors.map((err, i) => <p key={i} className="text-red-600">{err}</p>)}

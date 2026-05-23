@@ -43,15 +43,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const user = session.user as any
+  const body = await request.json()
+
   const role = (session.user as any).role
   if (role !== "STUDENT" && role !== "FACULTY" && role !== "DEAN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // 1. Determine studentId dynamically based on the CREATOR'S role
+  // If the creator is a STUDENT, the studentId is their own ID.
+  // If the creator is FACULTY/DEAN, they might be booking on behalf of a student 
+  // (via body.studentId) or creating an internal meeting (studentId = null).
+  let studentId: string | null = null
+  if (user.role === "STUDENT") {
+    studentId = user.id
+  } else {
+    studentId = body.studentId || null 
+  }
+
   try {
     const body = await request.json()
     const appointment = await requestAppointment({
-      studentId: (session.user as any).id,
+      createdByUserId: (session.user as any).id,
+      studentId: studentId,
       facultyId: body.facultyId,
       sessionGroupId: body.sessionGroupId,
       date: body.date,

@@ -27,7 +27,8 @@ export default async function StudentDashboard() {
   }))
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      // <div className="p-6 md:p-8 max-w-6xl">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12"> 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="card p-5 bg-white">
