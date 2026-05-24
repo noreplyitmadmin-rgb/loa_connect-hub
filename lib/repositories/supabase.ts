@@ -115,7 +115,8 @@ export const appointmentRepository: IAppointmentRepository = {
       .from("appointments")
       .select(appointmentSelect)
       .eq("studentId", studentId)
-      .order("requestedAt", { ascending: false })
+      .order("date", { ascending: true })
+      .order("startTime", { ascending: true })
     if (error) throw error
     return data as any
   },
@@ -124,7 +125,8 @@ export const appointmentRepository: IAppointmentRepository = {
       .from("appointments")
       .select(appointmentSelect)
       .eq("facultyId", facultyId)
-      .order("requestedAt", { ascending: false })
+      .order("date", { ascending: true })
+      .order("startTime", { ascending: true })
     if (error) throw error
     return data as any
   },
@@ -132,7 +134,8 @@ export const appointmentRepository: IAppointmentRepository = {
     const { data, error } = await supabase
       .from("appointments")
       .select(appointmentSelect)
-      .order("requestedAt", { ascending: false })
+      .order("date", { ascending: true })
+      .order("startTime", { ascending: true })
     if (error) throw error
     return data as any
   },

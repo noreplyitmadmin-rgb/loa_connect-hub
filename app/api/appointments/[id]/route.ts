@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { getAppointmentById } from "@/lib/controllers/appointments"
+import { getAppointmentDetail } from "@/lib/controllers/appointments"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params
-    const appointment = await getAppointmentById(id)
+    const appointment = await getAppointmentDetail(id)
     return NextResponse.json({ appointment })
   } catch (error) {
     return NextResponse.json(

@@ -447,6 +447,78 @@ export async function getAppointmentById(id: string) {
   return appointment
 }
 
+export async function getAppointmentDetail(id: string) {
+  const appointment: any = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+
+  const timeSlots = await appointmentRepository.listTimeSlots(id)
+
+  // ── Derive organizer from createdByEmail ───────────────────────
+  let organizer: { id: string; name: string; email: string; role?: string } | null = null
+  if (appointment.createdByEmail === appointment.student?.email) {
+    organizer = { id: appointment.student.id, name: appointment.student.name, email: appointment.student.email, role: appointment.student.role }
+  } else if (appointment.createdByEmail === appointment.faculty?.email) {
+    organizer = { id: appointment.faculty.id, name: appointment.faculty.name, email: appointment.faculty.email, role: appointment.faculty.role }
+  } else {
+    const matched = (appointment.attendees || []).find((a: any) => a.user?.email === appointment.createdByEmail)
+    if (matched?.user) {
+      organizer = { id: matched.user.id, name: matched.user.name, email: matched.user.email, role: matched.user.role }
+    }
+  }
+  if (!organizer) {
+    // Fallback: use the student as organizer
+    organizer = appointment.student
+      ? { id: appointment.student.id, name: appointment.student.name, email: appointment.student.email, role: appointment.student.role }
+      : { id: "", name: "Unknown", email: appointment.createdByEmail }
+  }
+
+  // ── Filter attendees: exclude organizer and primary faculty ────
+  const filtered = (appointment.attendees || []).filter((a: any) => {
+    if (!a.user) return false
+    if (a.user.id === appointment.faculty?.id) return false
+    if (a.user.id === organizer!.id) return false
+    return true
+  })
+
+  const mappedAttendees = filtered.map((a: any) => ({
+    id: a.id,
+    userId: a.userId,
+    status: a.status === "INVITED" ? "PENDING" as const : a.status as "ACCEPTED" | "DECLINED",
+    isMandatory: a.isMandatory,
+    user: { id: a.user.id, name: a.user.name, email: a.user.email, role: a.user.role },
+  }))
+
+  const mapUser = (u: any) => (u ? { id: u.id, name: u.name, email: u.email, role: u.role } : null)
+
+  return {
+    id: appointment.id,
+    status: appointment.status,
+    meetingType: appointment.meetingType,
+    date: appointment.date,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    title: appointment.title,
+    description: appointment.description,
+    teamsLink: appointment.teamsLink,
+    teamsSyncStatus: appointment.teamsSyncStatus,
+    teamsSyncRetries: appointment.teamsSyncRetries,
+    teamsSyncError: appointment.teamsSyncError,
+    teamsSyncLastAttempt: appointment.teamsSyncLastAttempt,
+    requestedAt: appointment.requestedAt,
+    updatedAt: appointment.updatedAt,
+    organizer,
+    student: mapUser(appointment.student),
+    faculty: mapUser(appointment.faculty),
+    attendees: mappedAttendees,
+    timeSlots: timeSlots.map((s: any) => ({
+      id: s.id,
+      date: s.date,
+      startTime: s.startTime,
+      endTime: s.endTime,
+    })),
+  }
+}
+
 // ─── Email helpers (fire-and-forget) ────────────────────────────
 
 async function sendConsultationApprovedEmail(appointment: any) {
