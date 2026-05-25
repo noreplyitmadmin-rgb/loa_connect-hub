@@ -6,6 +6,9 @@ import {
   completeAppointment,
   cancelAppointment,
   updateTeamsLink,
+  attendeeAcceptAppointment,
+  attendeeDeclineAppointment,
+  getAppointmentDetail,
 } from "@/lib/controllers/appointments"
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; action: string }> }) {
@@ -24,14 +27,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     switch (action) {
       case "accept":
       case "approve":
-        appointment = await acceptAppointment(id, userId)
+        await acceptAppointment(id, userId)
+        // Re-fetch enriched detail so per-slot Teams links, files, etc. are included
+        appointment = await getAppointmentDetail(id)
         break
       case "decline":
       case "reject":
         appointment = await declineAppointment(id, userId)
         break
       case "complete":
-        appointment = await completeAppointment(id, userId)
+        const { actionTaken } = await request.json()
+        await completeAppointment(id, userId, actionTaken)
+        appointment = await getAppointmentDetail(id)
         break
       case "cancel":
         appointment = await cancelAppointment(id, userId, userEmail)
@@ -40,6 +47,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const { teamsLink } = await request.json()
         appointment = await updateTeamsLink(id, userId, teamsLink)
         break
+      case "attendee-accept":
+        return NextResponse.json(await attendeeAcceptAppointment(id, userId))
+      case "attendee-decline":
+        return NextResponse.json(await attendeeDeclineAppointment(id, userId))
       default:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 })
     }

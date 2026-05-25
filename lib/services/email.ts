@@ -180,6 +180,71 @@ export async function sendMeetingInviteWithICS(
     to: to.email,
     subject: `Consultation Invitation — ${data.title}`,
     html,
+    ...(data.cc ? { cc: data.cc } : {}),
+  }
+
+  if (icalString) {
+    mail.attachments = [{
+      filename: "event.ics",
+      content: icalString,
+      contentType: "text/calendar; charset=utf-8",
+    }]
+  }
+
+  await transporter.sendMail(mail)
+}
+
+export async function sendApprovedWithTeamsLink(
+  to: { email: string; name: string },
+  ccList: { email: string; name: string }[],
+  data: {
+    studentName: string
+    studentEmail: string
+    facultyName: string
+    facultyEmail: string
+    date: string
+    startTime: string
+    endTime: string
+    title?: string | null
+    description?: string | null
+    teamsLink: string | null
+    viewUrl: string
+  },
+  icalString?: string
+) {
+  const { consultationApprovedHtml } = await import("@/lib/email-templates/consultation-approved")
+  const html = consultationApprovedHtml({
+    recipientName: to.name,
+    studentName: data.studentName,
+    studentEmail: data.studentEmail,
+    facultyName: data.facultyName,
+    facultyEmail: data.facultyEmail,
+    date: data.date,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    title: data.title,
+    description: data.description,
+    teamsLink: data.teamsLink,
+    viewUrl: data.viewUrl,
+  })
+
+  if (!isEmailEnabled()) {
+    console.log("[DEV] Consultation approved email (EMAIL_FEATURE_FLAG=false):")
+    console.log(`  To: ${to.email} (${to.name})`)
+    console.log(`  CC: ${ccList.map(c => c.email).join(", ")}`)
+    console.log(`  Teams link: ${data.teamsLink}`)
+    console.log(`  .ics: ${icalString ? "attached" : "none"}`)
+    return
+  }
+
+  if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
+
+  const mail: any = {
+    from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
+    to: to.email,
+    subject: `Consultation Accepted — Microsoft Teams Link Inside`,
+    html,
+    cc: ccList.map(c => c.email),
   }
 
   if (icalString) {

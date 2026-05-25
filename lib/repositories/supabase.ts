@@ -1,26 +1,14 @@
 import { supabase } from "@/lib/supabase"
 import type {
-  IUserRepository,
-  IDepartmentRepository,
-  IAppointmentRepository,
-  IAvailabilityRuleRepository,
-  IPasswordResetTokenRepository,
-  IAuditLogRepository,
-  UserData,
-  CreateUserInput,
-  DepartmentData,
-  AppointmentData,
-  CreateAppointmentInput,
-  AppointmentAttendeeData,
-  AppointmentTimeSlotData,
-  AvailabilityRuleData,
-  IMeetingRepository,
-  MeetingData,
-  CreateMeetingInput,
-  MeetingParticipantData,
-  UpsertAvailabilityRuleInput,
-  PasswordResetTokenData,
-  AuditLogData,
+  AppointmentData, AppointmentAttendeeData, AppointmentTimeSlotData,
+  MeetingData, MeetingParticipantData, UserData,
+  DepartmentData, AvailabilityRuleData,
+  PasswordResetTokenData, AuditLogData,
+  CreateAppointmentInput, CreateUserInput, CreateMeetingInput,
+  AppointmentFileData,
+  IUserRepository, IDepartmentRepository, IAppointmentRepository,
+  IMeetingRepository, IAvailabilityRuleRepository,
+  IPasswordResetTokenRepository, IAuditLogRepository,
 } from "./interfaces"
 
 async function singleQuery<T>(builder: any): Promise<T | null> {
@@ -215,6 +203,25 @@ export const appointmentRepository: IAppointmentRepository = {
       .eq("id", slotId)
     if (error) throw error
   },
+  async updateTimeSlot(id, data) {
+    const { data: result, error } = await supabase
+      .from("appointment_time_slots")
+      .update(data)
+      .eq("id", id)
+      .select("*")
+      .single()
+    if (error) throw error
+    return result as AppointmentTimeSlotData
+  },
+  async findTimeSlotById(id) {
+    const { data, error } = await supabase
+      .from("appointment_time_slots")
+      .select("*")
+      .eq("id", id)
+      .single()
+    if (error) return null
+    return data as AppointmentTimeSlotData
+  },
   async listTimeSlots(appointmentId) {
     const { data, error } = await supabase
       .from("appointment_time_slots")
@@ -264,6 +271,24 @@ export const appointmentRepository: IAppointmentRepository = {
 
     if (error) throw error
     return data as any
+  },
+  async addFile(appointmentId, data) {
+    const { data: result, error } = await supabase
+      .from("appointment_files")
+      .insert({ appointmentId, ...data })
+      .select("*")
+      .single()
+    if (error) throw error
+    return result as AppointmentFileData
+  },
+  async listFiles(appointmentId) {
+    const { data, error } = await supabase
+      .from("appointment_files")
+      .select("*")
+      .eq("appointmentId", appointmentId)
+      .order("createdAt", { ascending: true })
+    if (error) throw error
+    return (data || []) as AppointmentFileData[]
   },
 }
 

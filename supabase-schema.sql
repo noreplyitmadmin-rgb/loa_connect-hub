@@ -168,6 +168,8 @@ CREATE TABLE appointment_time_slots (
   "startTime" TEXT NOT NULL,
   "endTime" TEXT NOT NULL,
 
+  "teamsLink" TEXT,
+
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   CONSTRAINT uq_timeslot_unique
@@ -203,6 +205,28 @@ CREATE TABLE appointment_attendees (
   CONSTRAINT uq_appointment_user
     UNIQUE ("appointmentId", "userId")
 );
+
+-- =========================================================
+-- APPOINTMENT FILES (screen captures, attachments)
+-- =========================================================
+
+CREATE TABLE appointment_files (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+
+  "appointmentId" TEXT NOT NULL
+    REFERENCES appointments(id)
+    ON DELETE CASCADE,
+
+  "fileName" TEXT NOT NULL,
+  "fileType" TEXT NOT NULL,
+  "fileData" TEXT NOT NULL,
+  "fileSize" INTEGER NOT NULL,
+
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_appointment_files_appointment
+  ON appointment_files("appointmentId");
 
 -- =========================================================
 -- FACULTY AVAILABILITY
@@ -599,6 +623,35 @@ BEGIN;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER NOT NULL DEFAULT 0;
 
 COMMIT;
+
+-- -------------------------------------------------------
+-- Migration 4: Add teamsLink column to appointment_time_slots
+--             (run after schema update adds the column)
+-- -------------------------------------------------------
+
+BEGIN;
+
+ALTER TABLE appointment_time_slots ADD COLUMN IF NOT EXISTS "teamsLink" TEXT;
+
+COMMIT;
+
+-- -------------------------------------------------------
+-- Migration 5: Create appointment_files table
+--             (run after schema update adds the table)
+-- -------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS appointment_files (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "appointmentId" TEXT NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+  "fileName" TEXT NOT NULL,
+  "fileType" TEXT NOT NULL,
+  "fileData" TEXT NOT NULL,
+  "fileSize" INTEGER NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointment_files_appointment
+  ON appointment_files("appointmentId");
 
 -- =========================================================
 -- IMPORTANT AFTER RUNNING

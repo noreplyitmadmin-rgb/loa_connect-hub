@@ -5,9 +5,11 @@ import SubmitButton from "@/components/SubmitButton"
 
 interface TeamsLinkInputProps {
   appointmentId: string
+  slotId?: string
+  label?: string
 }
 
-export function TeamsLinkInput({ appointmentId }: TeamsLinkInputProps) {
+export function TeamsLinkInput({ appointmentId, slotId, label }: TeamsLinkInputProps) {
   const [teamsLink, setTeamsLink] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
@@ -21,7 +23,11 @@ export function TeamsLinkInput({ appointmentId }: TeamsLinkInputProps) {
     setMessage("")
 
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}/teams-link`, {
+      const url = slotId
+        ? `/api/appointments/slots/${slotId}/teams-link`
+        : `/api/appointments/${appointmentId}/teams-link`
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamsLink }),
@@ -30,7 +36,7 @@ export function TeamsLinkInput({ appointmentId }: TeamsLinkInputProps) {
       const data = await res.json()
 
       if (res.ok) {
-        setMessage("Teams link added!")
+        setMessage(slotId ? `Link added for this time slot!` : "Teams link added!")
         setTeamsLink("")
         setTimeout(() => setMessage(""), 3000)
       } else {
@@ -45,6 +51,9 @@ export function TeamsLinkInput({ appointmentId }: TeamsLinkInputProps) {
 
   return (
     <div className="space-y-1.5 w-full">
+      {label && (
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
+      )}
       <form onSubmit={handleSubmit} className="flex gap-1.5 w-full">
         <div className="relative flex-grow">
           <input

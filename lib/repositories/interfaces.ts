@@ -128,6 +128,17 @@ export interface AppointmentTimeSlotData {
   date: string
   startTime: string
   endTime: string
+  teamsLink: string | null
+  createdAt: Date
+}
+
+export interface AppointmentFileData {
+  id: string
+  appointmentId: string
+  fileName: string
+  fileType: string
+  fileData: string
+  fileSize: number
   createdAt: Date
 }
 
@@ -144,9 +155,13 @@ export interface IAppointmentRepository {
   updateAttendeeStatus(appointmentId: string, userId: string, status: "INVITED" | "ACCEPTED" | "DECLINED"): Promise<AppointmentAttendeeData>
   addTimeSlot(appointmentId: string, date: string, startTime: string, endTime: string): Promise<AppointmentTimeSlotData>
   removeTimeSlot(slotId: string): Promise<void>
+  updateTimeSlot(id: string, data: Partial<Pick<AppointmentTimeSlotData, "teamsLink">>): Promise<AppointmentTimeSlotData>
+  findTimeSlotById(id: string): Promise<AppointmentTimeSlotData | null>
   listTimeSlots(appointmentId: string): Promise<AppointmentTimeSlotData[]>
   listStudentConflictingSlots(studentId: string, date: string, startTime: string, endTime: string, excludeSessionGroupId?: string): Promise<AppointmentTimeSlotData[]>
   listConflictingSlots(facultyIds: string[], date: string, startTime: string, endTime: string): Promise<AppointmentTimeSlotData[]>
+  addFile(appointmentId: string, data: { fileName: string; fileType: string; fileData: string; fileSize: number }): Promise<AppointmentFileData>
+  listFiles(appointmentId: string): Promise<AppointmentFileData[]>
 }
 
 // --- Internal Meetings (legacy, kept for existing code) ---

@@ -18,6 +18,16 @@ export interface TimeSlotDto {
   date: string
   startTime: string
   endTime: string
+  teamsLink: string | null
+}
+
+export interface AppointmentFileDto {
+  id: string
+  fileName: string
+  fileType: string
+  fileData: string
+  fileSize: number
+  createdAt: string
 }
 
 export interface AppointmentDetailDto {
@@ -46,4 +56,6 @@ export interface AppointmentDetailDto {
   attendees: AttendeeDto[]
   /** Timeslots for this appointment */
   timeSlots: TimeSlotDto[]
+  /** Uploaded files (screen captures, etc.) */
+  files: AppointmentFileDto[]
 }

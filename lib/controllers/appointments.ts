@@ -246,27 +246,22 @@ export async function requestAppointment(input: {
 async function sendAppointmentCreatedEmail(appointment: any, creatorId: string) {
   if (!appointment) return
 
-  const recipients = new Map<string, { name: string; email: string }>()
+  // ── Determine primary recipient (the TO) ──
+  // The primary recipient is appointment.faculty (or first attendee as fallback).
+  // All other attendees are CC'd on a single email — no duplicate sends.
+  const primaryUser = appointment.faculty?.id ? appointment.faculty : appointment.attendees?.[0]?.user
+  if (!primaryUser?.id || !primaryUser?.email || primaryUser.id === creatorId) return
 
-  if (appointment.faculty?.id && appointment.faculty.id !== creatorId && appointment.faculty.email) {
-    recipients.set(appointment.faculty.id, {
-      name: appointment.faculty.name || "Faculty",
-      email: appointment.faculty.email,
-    })
-  }
-
-  if (Array.isArray(appointment.attendees)) {
+  // ── Build CC list from remaining attendees (non-primary, non-creator) ──
+  const ccList: { name: string; email: string }[] = []
+  if (appointment.attendees) {
     for (const attendee of appointment.attendees) {
       const user = attendee?.user
-      if (!user || !user.id || !user.email || user.id === creatorId) continue
-      recipients.set(user.id, {
-        name: user.name || "Attendee",
-        email: user.email,
-      })
+      if (!user || !user.id || !user.email) continue
+      if (user.id === creatorId || user.id === primaryUser.id) continue
+      ccList.push({ name: user.name || "Attendee", email: user.email })
     }
   }
-
-  if (recipients.size === 0) return
 
   const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
   const viewUrl = `${host}/appointments/${appointment.id}`
@@ -295,6 +290,12 @@ async function sendAppointmentCreatedEmail(appointment: any, creatorId: string) 
     `Organizer: ${organizerName}`,
   ].filter(Boolean).join("\n")
 
+  // All participants (primary + cc'd) go into the iCal attendees list
+  const allParticipants = [
+    { name: primaryUser.name || "Faculty", email: primaryUser.email },
+    ...ccList,
+  ]
+
   const icalString = generateICal({
     uid: `appt-${appointment.id}@e-consultation`,
     summary: eventSummary,
@@ -304,48 +305,47 @@ async function sendAppointmentCreatedEmail(appointment: any, creatorId: string) 
     endTime: appointment.endTime,
     location: "Microsoft Teams",
     organizer: { name: organizerName, email: organizerEmail },
-    attendees: Array.from(recipients.values()).map(r => ({ name: r.name, email: r.email })),
+    attendees: allParticipants,
   })
 
-  const recipientNames = Array.from(recipients.values()).map(r => r.name)
-  const cc = Array.from(recipients.values()).map(r => r.email)
+  const participantNames = allParticipants.map(r => r.name)
+  const ccEmails = ccList.map(r => r.email)
 
-  for (const recipient of recipients.values()) {
-    if (appointment.meetingType === "CONSULTATION") {
-      await sendConsultationInvite(
-        { email: recipient.email, name: recipient.name },
-        {
-          studentName: appointment.student?.name || "Student",
-          studentEmail: appointment.student?.email || "",
-          facultyName: appointment.faculty?.name || "Faculty",
-          facultyEmail: appointment.faculty?.email || "",
-          date: appointment.date,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          title: appointment.title,
-          description: appointment.description,
-          viewUrl,
-          cc,
-        },
-        icalString,
-      )
-    } else {
-      await sendMeetingInviteWithICS(
-        { email: recipient.email, name: recipient.name },
-        {
-          organizerName,
-          title: appointment.title || "Appointment",
-          description: appointment.description,
-          date: appointment.date,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          participantNames: recipientNames,
-          viewUrl,
-          cc,
-        },
-        icalString,
-      )
-    }
+  // Send ONE email — primary recipient as TO, all other attendees as CC
+  if (appointment.meetingType === "CONSULTATION") {
+    await sendConsultationInvite(
+      { email: primaryUser.email, name: primaryUser.name },
+      {
+        studentName: appointment.student?.name || "Student",
+        studentEmail: appointment.student?.email || "",
+        facultyName: appointment.faculty?.name || "Faculty",
+        facultyEmail: appointment.faculty?.email || "",
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        title: appointment.title,
+        description: appointment.description,
+        viewUrl,
+        cc: ccEmails,
+      },
+      icalString,
+    )
+  } else {
+    await sendMeetingInviteWithICS(
+      { email: primaryUser.email, name: primaryUser.name },
+      {
+        organizerName,
+        title: appointment.title || "Appointment",
+        description: appointment.description,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        participantNames,
+        viewUrl,
+        cc: ccEmails,
+      },
+      icalString,
+    )
   }
 }
 
@@ -380,13 +380,38 @@ export async function declineAppointment(id: string, facultyId: string) {
 // Backward-compat alias
 export const rejectAppointment = declineAppointment
 
-export async function completeAppointment(id: string, facultyId: string) {
+export async function attendeeAcceptAppointment(id: string, userId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+
+  const attendee = await appointmentRepository.updateAttendeeStatus(id, userId, "ACCEPTED")
+
+  // Fire-and-forget confirmation to the attendee
+  // (email logic can be added later)
+
+  return { appointment, attendee }
+}
+
+export async function attendeeDeclineAppointment(id: string, userId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+
+  const attendee = await appointmentRepository.updateAttendeeStatus(id, userId, "DECLINED")
+
+  return { appointment, attendee }
+}
+
+export async function completeAppointment(id: string, facultyId: string, actionTaken?: string) {
   const appointment = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
   if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
   if (appointment.status !== "APPROVED") throw new Error("Appointment is not approved")
 
-  return appointmentRepository.update(id, { status: "COMPLETED" })
+  if (!actionTaken || actionTaken.trim().length < 100) {
+    throw new Error("Actions taken must be at least 100 characters")
+  }
+
+  return appointmentRepository.update(id, { status: "COMPLETED", actionTaken })
 }
 
 export async function cancelAppointment(id: string, userId: string, userEmail?: string) {
@@ -410,6 +435,52 @@ export async function cancelAppointment(id: string, userId: string, userEmail?: 
   }
 
   return appointmentRepository.update(id, { status: "CANCELLED" })
+}
+
+export async function studentResendInvitation(id: string, userId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.studentId !== userId) throw new Error("Unauthorized — only the student can resend")
+  if (appointment.status !== "REJECTED" && appointment.status !== "CANCELLED") {
+    throw new Error("Can only resend invitation for rejected or cancelled appointments")
+  }
+
+  const updated = await appointmentRepository.update(id, {
+    status: "PENDING",
+    teamsLink: null,
+    teamsSyncStatus: "UNWRITTEN",
+    teamsSyncRetries: 0,
+    teamsSyncError: null,
+    teamsSyncLastAttempt: null,
+  })
+
+  // Fire-and-forget: re-send the invitation email to the faculty
+  const [faculty, student] = await Promise.all([
+    userRepository.findById(appointment.facultyId),
+    userRepository.findById(appointment.studentId),
+  ])
+
+  if (faculty && student) {
+    const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
+    const viewUrl = `${host}/appointments/${id}`
+    sendConsultationInvite(
+      { email: faculty.email, name: faculty.name },
+      {
+        studentName: student.name,
+        studentEmail: student.email,
+        facultyName: faculty.name,
+        facultyEmail: faculty.email,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        title: appointment.title,
+        description: appointment.description,
+        viewUrl,
+      }
+    ).catch(() => {})
+  }
+
+  return updated
 }
 
 export async function updateTeamsLink(id: string, facultyId: string, teamsLink: string) {
@@ -451,7 +522,18 @@ export async function getAppointmentDetail(id: string) {
   const appointment: any = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
 
-  const timeSlots = await appointmentRepository.listTimeSlots(id)
+  let timeSlots: any[] = []
+  let files: any[] = []
+  try {
+    timeSlots = await appointmentRepository.listTimeSlots(id)
+  } catch {
+    // appointment_time_slots table may not exist yet
+  }
+  try {
+    files = await appointmentRepository.listFiles(id)
+  } catch {
+    // appointment_files table may not exist yet (migration not run)
+  }
 
   // ── Derive organizer from createdByEmail ───────────────────────
   let organizer: { id: string; name: string; email: string; role?: string } | null = null
@@ -515,6 +597,15 @@ export async function getAppointmentDetail(id: string) {
       date: s.date,
       startTime: s.startTime,
       endTime: s.endTime,
+      teamsLink: s.teamsLink || null,
+    })),
+    files: files.map((f) => ({
+      id: f.id,
+      fileName: f.fileName,
+      fileType: f.fileType,
+      fileData: f.fileData,
+      fileSize: f.fileSize,
+      createdAt: typeof f.createdAt === "string" ? f.createdAt : f.createdAt.toISOString(),
     })),
   }
 }
@@ -529,35 +620,50 @@ async function sendConsultationApprovedEmail(appointment: any) {
   const faculty = appointment.faculty || { name: "Faculty", email: "" }
 
   const { generateICal } = await import("@/lib/services/ical")
-  const { sendConsultationInvite } = await import("@/lib/services/email")
+  const { sendApprovedWithTeamsLink } = await import("@/lib/services/email")
+
+  // Collect CC list: faculty + all attendees (excluding student)
+  const ccMap = new Map<string, { email: string; name: string }>()
+  if (faculty.email && faculty.email !== student.email) {
+    ccMap.set(faculty.email, { email: faculty.email, name: faculty.name })
+  }
+  if (appointment.attendees) {
+    for (const att of appointment.attendees) {
+      const user = att.user
+      if (!user || !user.email || user.email === student.email) continue
+      if (!ccMap.has(user.email)) {
+        ccMap.set(user.email, { email: user.email, name: user.name })
+      }
+    }
+  }
+
+  const teamsLink = appointment.teamsLink || null
 
   const icalString = generateICal({
     uid: `appt-${appointment.id}@e-consultation`,
     summary: `Consultation with ${faculty.name}`,
     description: [
-      "Academic Consultation",
+      "Academic Consultation — Accepted",
       appointment.title ? `— ${appointment.title}` : "",
       `Student: ${student.name} (${student.email})`,
       `Faculty: ${faculty.name} (${faculty.email})`,
+      teamsLink ? `Teams link: ${teamsLink}` : "",
       appointment.description || "",
     ].filter(Boolean).join("\n"),
     date: appointment.date,
     startTime: appointment.startTime,
     endTime: appointment.endTime,
-    location: "Microsoft Teams",
+    location: teamsLink || "Microsoft Teams",
     organizer: { name: faculty.name, email: faculty.email },
     attendees: [
       { name: student.name, email: student.email },
-      ...(appointment.attendees?.map((a: any) => ({
-        name: a.user?.name || "Attendee",
-        email: a.user?.email || "",
-      })) || []),
+      ...Array.from(ccMap.values()),
     ],
   })
 
-  // Send to student
-  await sendConsultationInvite(
+  await sendApprovedWithTeamsLink(
     { email: student.email, name: student.name },
+    Array.from(ccMap.values()),
     {
       studentName: student.name,
       studentEmail: student.email,
@@ -568,32 +674,9 @@ async function sendConsultationApprovedEmail(appointment: any) {
       endTime: appointment.endTime,
       title: appointment.title,
       description: appointment.description,
+      teamsLink,
       viewUrl,
     },
     icalString,
   )
-
-  // Send to each additional attendee
-  if (appointment.attendees) {
-    for (const att of appointment.attendees) {
-      const user = att.user
-      if (!user || user.email === student.email) continue
-      await sendConsultationInvite(
-        { email: user.email, name: user.name },
-        {
-          studentName: student.name,
-          studentEmail: student.email,
-          facultyName: faculty.name,
-          facultyEmail: faculty.email,
-          date: appointment.date,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          title: appointment.title,
-          description: appointment.description,
-          viewUrl,
-        },
-        icalString,
-      )
-    }
-  }
 }

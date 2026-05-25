@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { StatusBadge } from "@/components/StatusBadge"
 import SubmitButton from "@/components/SubmitButton"
+import { TeamsLinkInput } from "@/components/TeamsLinkInput"
 import Skeleton from "@/components/Skeleton"
 import type { AppointmentDetailDto } from "@/lib/dtos/Appointments"
 
@@ -37,6 +38,11 @@ export default function AppointmentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [actionLoading, setActionLoading] = useState("")
+  const [teamsLinkMode, setTeamsLinkMode] = useState<"single" | "per-slot">("single")
+  const [showTeamsLinkForm, setShowTeamsLinkForm] = useState(false)
+  const [singleLink, setSingleLink] = useState("")
+  const [slotLinks, setSlotLinks] = useState<Record<string, string>>({})
+  const [teamsLinkError, setTeamsLinkError] = useState("")
 
   const role = (session?.user as any)?.role
   const userEmail = (session?.user as any)?.email
@@ -49,7 +55,7 @@ export default function AppointmentDetail() {
       .then((r) => r.json())
       .then((data) => {
         if (data.appointment) setAppointment(data.appointment)
-        else setError("Appointment not found")
+        else setError(data.error || "Appointment not found")
       })
       .catch(() => setError("Failed to load appointment"))
       .finally(() => setLoading(false))
@@ -87,6 +93,73 @@ export default function AppointmentDetail() {
     } finally {
       setActionLoading("")
       pendingRef.current = false
+    }
+  }
+
+  const handleConfirmApprove = async () => {
+    setTeamsLinkError("")
+
+    if (teamsLinkMode === "single") {
+      if (!singleLink.trim()) {
+        setTeamsLinkError("Please provide a Teams meeting link")
+        return
+      }
+    } else {
+      const emptySlot = appointment?.timeSlots?.find((s) => !slotLinks[s.id]?.trim())
+      if (emptySlot) {
+        setTeamsLinkError("Please provide a Teams link for each time slot")
+        return
+      }
+    }
+
+    setActionLoading("accept")
+
+    try {
+      if (teamsLinkMode === "single") {
+        const res = await fetch(`/api/appointments/${appointmentId}/teams-link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamsLink: singleLink.trim() }),
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          setTeamsLinkError(data.error || "Failed to save Teams link")
+          setActionLoading("")
+          return
+        }
+      } else {
+        for (const slot of appointment?.timeSlots || []) {
+          const link = slotLinks[slot.id]?.trim()
+          if (!link) continue
+          const res = await fetch(`/api/appointments/slots/${slot.id}/teams-link`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ teamsLink: link }),
+          })
+          if (!res.ok) {
+            const data = await res.json()
+            setTeamsLinkError(data.error || `Failed to save link for ${slot.date} ${slot.startTime}`)
+            setActionLoading("")
+            return
+          }
+        }
+      }
+
+      const res = await fetch(`/api/appointments/${appointmentId}/accept`, { method: "POST" })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.appointment) setAppointment(data.appointment)
+        setLocalStatus("APPROVED")
+        setShowTeamsLinkForm(false)
+        setSingleLink("")
+        setSlotLinks({})
+      } else {
+        setTeamsLinkError(data.error || "Failed to approve appointment")
+      }
+    } catch {
+      setTeamsLinkError("An error occurred")
+    } finally {
+      setActionLoading("")
     }
   }
 
@@ -159,10 +232,10 @@ export default function AppointmentDetail() {
           </div>
         </div>
 
-        {/* Additional timeslots */}
+        {/* Other timeslots */}
         {appointment.timeSlots && appointment.timeSlots.length > 1 && (
           <div className="mb-6 space-y-2">
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Alternative timeslots</p>
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Time slots</p>
             {appointment.timeSlots.map((slot, idx) => {
               if (slot.date === appointment.date && slot.startTime === appointment.startTime && slot.endTime === appointment.endTime) return null
               return (
@@ -333,15 +406,14 @@ export default function AppointmentDetail() {
             </SubmitButton>
           )}
 
-          {/* Faculty/Dean: accept/decline PENDING */}
-          {(isFaculty || isDean) && effectiveStatus === "PENDING" && (
+          {/* Faculty/Dean: Accept flow with mandatory Teams link */}
+          {(isFaculty || isDean) && effectiveStatus === "PENDING" && !showTeamsLinkForm && (
             <div className="flex flex-wrap gap-2">
               <SubmitButton
-                onClick={() => handleAction("accept")}
-                loading={actionLoading === "accept"}
+                onClick={() => setShowTeamsLinkForm(true)}
                 variant="success"
               >
-                {actionLoading === "accept" ? "Processing" : "Accept"}
+                Accept
               </SubmitButton>
               <SubmitButton
                 onClick={() => handleAction("decline")}
@@ -350,6 +422,96 @@ export default function AppointmentDetail() {
               >
                 {actionLoading === "decline" ? "Declining..." : "Decline"}
               </SubmitButton>
+            </div>
+          )}
+
+          {/* Faculty/Dean: Teams link form (shown after clicking Accept) */}
+          {(isFaculty || isDean) && showTeamsLinkForm && (
+            <div className="space-y-4">
+              <p className="text-sm font-bold text-slate-800">Set Microsoft Teams link(s) to approve</p>
+              <div className="flex flex-wrap gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="teams-link-mode"
+                    checked={teamsLinkMode === "single"}
+                    onChange={() => setTeamsLinkMode("single")}
+                    className="accent-gold-600"
+                  />
+                  <span className="text-sm text-slate-700">One single link for all time slots</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="teams-link-mode"
+                    checked={teamsLinkMode === "per-slot"}
+                    onChange={() => setTeamsLinkMode("per-slot")}
+                    className="accent-gold-600"
+                  />
+                  <span className="text-sm text-slate-700">Assign each with a link</span>
+                </label>
+              </div>
+              <div className="space-y-3">
+                {teamsLinkMode === "single" && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Single meeting link for all time slots</p>
+                    <input
+                      type="url"
+                      value={singleLink}
+                      onChange={(e) => setSingleLink(e.target.value)}
+                      placeholder="https://teams.microsoft.com/l/meetup-join/..."
+                      className="input text-xs py-2 w-full"
+                    />
+                  </div>
+                )}
+                {teamsLinkMode === "per-slot" && appointment.timeSlots && (
+                  <div className="space-y-3">
+                    {appointment.timeSlots.map((slot) => {
+                      const isPrimary =
+                        slot.date === appointment.date &&
+                        slot.startTime === appointment.startTime &&
+                        slot.endTime === appointment.endTime
+                      return (
+                        <div key={slot.id}>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            {isPrimary ? `${slot.date} ${slot.startTime}–${slot.endTime} (primary)` : `${slot.date} ${slot.startTime}–${slot.endTime}`}
+                          </p>
+                          <input
+                            type="url"
+                            value={slotLinks[slot.id] || ""}
+                            onChange={(e) => setSlotLinks((prev) => ({ ...prev, [slot.id]: e.target.value }))}
+                            placeholder="https://teams.microsoft.com/l/meetup-join/..."
+                            className="input text-xs py-2 w-full"
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              {teamsLinkError && (
+                <p className="text-xs text-red-600 font-semibold">{teamsLinkError}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <SubmitButton
+                  onClick={handleConfirmApprove}
+                  loading={actionLoading === "accept"}
+                  variant="success"
+                >
+                  {actionLoading === "accept" ? "Approving..." : "Confirm & Approve"}
+                </SubmitButton>
+                <SubmitButton
+                  onClick={() => {
+                    setShowTeamsLinkForm(false)
+                    setTeamsLinkError("")
+                    setSingleLink("")
+                    setSlotLinks({})
+                  }}
+                  variant="secondary"
+                >
+                  Cancel
+                </SubmitButton>
+              </div>
             </div>
           )}
 
