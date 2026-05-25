@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   const errors: { facultyId: string; error: string }[] = []
 
   try {
-    const appointment = await requestAppointment({
+    const result = await requestAppointment({
       createdByUserId: currentUserId,
       studentId: studentId === "" ? null : studentId,
       facultyId: primaryFacultyId,
@@ -99,22 +99,15 @@ export async function POST(request: NextRequest) {
       meetingType,
     })
 
-    return NextResponse.json({ appointment, sessionGroupId }, { status: 201 })
+    return NextResponse.json({ appointment: result.appointment, sessionGroupId, conflicts: result.conflicts }, { status: 201 })
     
   } catch (err: any) {
-    // 1. THIS IS THE MOST IMPORTANT PART
-    // It prints the file, line number, and error type in your terminal
     console.error("--- APPOINTMENT CREATION FAILED ---");
     console.error(err); 
     console.error("-----------------------------------");
 
-    // 2. Force the API to return a failure status code
-    return NextResponse.json(
-      { 
-        error: err.message || "Failed to create appointment",
-        details: err.stack // Helps you debug exactly where the crash happened
-      }, 
-      { status: 400 }
-    )
+    const body: any = { error: err.message || "Failed to create appointment" }
+    if (err.conflicts) body.conflicts = err.conflicts
+    return NextResponse.json(body, { status: 400 })
   }
 }

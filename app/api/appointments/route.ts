@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const appointment = await requestAppointment({
+    const result = await requestAppointment({
       createdByUserId: (session.user as any).id,
       studentId: studentId,
       facultyId: body.facultyId,
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       attendeeIds: body.attendeeIds,
       meetingType: body.meetingType,
     })
-    return NextResponse.json({ appointment }, { status: 201 })
+    return NextResponse.json({ appointment: result.appointment, conflicts: result.conflicts }, { status: 201 })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create appointment" },

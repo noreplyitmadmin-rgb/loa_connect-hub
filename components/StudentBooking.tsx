@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -41,8 +41,17 @@ interface FacultyWithRules {
   rules: FacultyRule[]
 }
 
+interface SimpleUser {
+  id: string
+  name: string
+  email: string
+  department: string | null
+}
+
 interface Props {
   facultyWithRules: FacultyWithRules[]
+  userRole: "STUDENT" | "FACULTY" | "DEAN"
+  students?: SimpleUser[]
   serverNow?: string
 }
 
@@ -91,17 +100,22 @@ function generateSlots(startTime: string, endTime: string): { start: string; end
   return slots
 }
 
-export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
+export default function StudentBooking({ facultyWithRules, userRole, students, serverNow }: Props) {
 
   const now = useMemo(() => new Date(serverNow || Date.now()), [serverNow])
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
 
   // Faculty selection
-  const [selectedFacultyIds, setSelectedFacultyIds] = useState<string[]>([])
-  const [attendeeOptions, setAttendeeOptions] = useState<{ userId: string; isMandatory: boolean }[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
+  const [primaryFacultyId, setPrimaryFacultyId] = useState<string | null>(null)
+  const [attendeeIds, setAttendeeIds] = useState<string[]>([])
+  const [primarySearch, setPrimarySearch] = useState("")
+  const [attendeeSearch, setAttendeeSearch] = useState("")
+  const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false)
+  const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false)
   const [deptFilter, setDeptFilter] = useState<string>("all")
+  const primaryRef = useRef<HTMLDivElement>(null)
+  const attendeeRef = useRef<HTMLDivElement>(null)
 
   // Date & slot selection
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
@@ -132,11 +146,11 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
   const [result, setResult] = useState<{ success: number; errors: string[]; sessionGroupId?: string } | null>(null)
 
   // Conflict warnings
-  const [conflicts, setConflicts] = useState<{ facultyName: string; message: string }[]>([])
+  const [conflicts, setConflicts] = useState<{ userName: string; message: string; appointments?: { appointmentId: string; title: string | null; meetingType: string; date: string; startTime: string; endTime: string }[] }[]>([])
 
   const selectedFaculty = useMemo(
-    () => facultyWithRules.filter((f) => selectedFacultyIds.includes(f.id)),
-    [facultyWithRules, selectedFacultyIds]
+    () => facultyWithRules.filter((f) => f.id === primaryFacultyId),
+    [facultyWithRules, primaryFacultyId]
   )
 
   const getActiveRule = (faculty: FacultyWithRules, dateStr: string) => {
@@ -218,42 +232,21 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
     setSelectedDay(null); setSelectedSlots([]); setManualTime(null); setResult(null); setConflicts([])
   }
 
-  const toggleFaculty = (id: string) => {
-    setSelectedFacultyIds((prev) => {
-      if (prev.includes(id)) {
-        const next = prev.filter((x) => x !== id)
-        setAttendeeOptions((opts) => opts.filter((o) => o.userId !== id))
-        return next
-      }
-      return [...prev, id]
-    })
-    setSelectedDay(null); setSelectedSlots([]); setManualTime(null); setResult(null); setConflicts([])
+  const selectPrimary = (id: string) => {
+    setPrimaryFacultyId(id)
+    setAttendeeIds((prev) => prev.filter((x) => x !== id))
+    setConflicts([]); setSelectedDay(null); setSelectedSlots([]); setManualTime(null); setResult(null)
   }
 
-  const toggleMandatory = (userId: string) => {
-    setAttendeeOptions((prev) =>
-      prev.map((o) =>
-        o.userId === userId ? { ...o, isMandatory: !o.isMandatory } : o
-      )
+  const toggleAttendee = (id: string) => {
+    setAttendeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
   }
 
-  // When faculty selection changes, ensure attendeeOptions has entries for all selected
-  const ensureAttendeeOptions = () => {
-    setAttendeeOptions((prev) => {
-      const existing = new Set(prev.map((o) => o.userId))
-      const additions = selectedFacultyIds
-        .filter((id) => !existing.has(id))
-        .map((id) => ({ userId: id, isMandatory: true }))
-      return [...prev, ...additions].filter((o) => selectedFacultyIds.includes(o.userId))
-    })
-  }
-
   const handleDayClick = (day: number) => {
-    ensureAttendeeOptions()
     setSelectedDay(day)
-    setResult(null)
-    setConflicts([])
+    setSelectedSlots([]); setResult(null); setConflicts([])
   }
 
   const handleAddSlot = (slot: { start: string; end: string }) => {
@@ -274,14 +267,13 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
 
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (selectedSlots.length === 0 || selectedFaculty.length === 0) return
+    if (selectedSlots.length === 0 || !primaryFacultyId) return
 
     setSubmitting(true)
-    const facultyIds = selectedFaculty.map((f) => f.id)
 
     try {
       const req = JSON.stringify({
-        facultyIds,
+        facultyIds: [primaryFacultyId],
         timeSlots: selectedSlots.map((s) => ({
           date: s.date,
           startTime: s.start,
@@ -289,7 +281,7 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
         })),
         title: title.trim(),
         description: description.trim() || undefined,
-        attendeeOptions: attendeeOptions.filter((o) => o.userId !== facultyIds[0]),
+        attendeeOptions: attendeeIds.map((id) => ({ userId: id, isMandatory: true })),
       });
 
       console.log("Booking request payload:", req);
@@ -302,36 +294,34 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
 
       const data = await res.json()
       if (res.ok) {
-        const results = data.results || [];
-        const errors = data.errors || [];
-
+        setConflicts(data.conflicts || [])
         setResult({
-          success: results.length,
-          errors: errors.map((err: any) => `${err.facultyId}: ${err.error}`),
+          success: 1,
+          errors: [],
           sessionGroupId: data.sessionGroupId,
         })
+        setPrimaryFacultyId(null)
+        setAttendeeIds([])
         setSelectedDay(null)
         setSelectedSlots([])
         setTitle("")
         setDescription("")
       } else {
+        setConflicts(data.conflicts || [])
         setResult({ success: 0, errors: [data.error || "Booking failed"] })
       }
     } catch (err: any) {
-      // 1. THIS IS THE KEY: Log the real error to the console
       console.error("DEBUG: Frontend Caught Error:", err);
-
-      // 2. Show the specific error message if available, otherwise fallback
       setResult({
         success: 0,
         errors: [err.message || "An unexpected error occurred. Check server logs."]
       });
-
     } finally {
       setSubmitting(false)
     }
   }
 
+  // Departments for filter
   const allDepartments = useMemo(() => {
     const depts = new Set<string>()
     for (const f of facultyWithRules) {
@@ -340,50 +330,89 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
     return Array.from(depts).sort()
   }, [facultyWithRules])
 
-  const filteredFaculty = useMemo(() => {
-    return facultyWithRules.filter((f) => {
-      if (deptFilter !== "all" && f.department !== deptFilter) return false
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const nameParts = f.name.toLowerCase().split(/\s+/)
-        return nameParts.some((p) => p.startsWith(q))
-      }
-      return true
-    })
-  }, [facultyWithRules, deptFilter, searchQuery])
+  const matchesDept = (dept: string | null) => deptFilter === "all" || dept === deptFilter
 
-  const groupedFaculty = useMemo(() => {
-    const groups: { department: string | null; members: FacultyWithRules[] }[] = []
-    for (const f of filteredFaculty) {
-      let group = groups.find((g) => g.department === f.department)
-      if (!group) {
-        group = { department: f.department, members: [] }
-        groups.push(group)
-      }
-      group.members.push(f)
+  // Autocomplete search results
+  const primarySearchResults = useMemo(() => {
+    if (!primarySearch.trim()) return []
+    const q = primarySearch.toLowerCase()
+    return facultyWithRules.filter(
+      (f) => f.id !== primaryFacultyId && matchesDept(f.department) && (f.name.toLowerCase().includes(q) || f.email.toLowerCase().includes(q))
+    ).slice(0, 20)
+  }, [facultyWithRules, primarySearch, primaryFacultyId, deptFilter])
+
+  const attendeeSearchResults = useMemo(() => {
+    if (!attendeeSearch.trim()) return []
+    const q = attendeeSearch.toLowerCase()
+    const fromFaculty = facultyWithRules
+      .filter((f) => f.id !== primaryFacultyId && !attendeeIds.includes(f.id) && matchesDept(f.department) && (f.name.toLowerCase().includes(q) || f.email.toLowerCase().includes(q)))
+    const fromStudents = userRole !== "STUDENT" && students
+      ? students.filter((s) => !attendeeIds.includes(s.id) && (s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)))
+      : []
+    return [...fromFaculty, ...fromStudents].slice(0, 20)
+  }, [facultyWithRules, students, attendeeSearch, attendeeIds, primaryFacultyId, userRole, deptFilter])
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (primaryRef.current && !primaryRef.current.contains(e.target as Node)) setShowPrimaryDropdown(false)
+      if (attendeeRef.current && !attendeeRef.current.contains(e.target as Node)) setShowAttendeeDropdown(false)
     }
-    return groups
-  }, [filteredFaculty])
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
 
   return (
     <div className="space-y-6">
-      {/* 1. Faculty Selection */}
+      {/* 1a. Select Primary Faculty (Required) */}
       <section className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-700">1. Select Faculty Members</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-700">
+            {userRole === "STUDENT" ? "1. Select Faculty" : "1. Select Primary Faculty"}
+            <span className="text-red-500 ml-1">*</span>
+          </h3>
+          {primaryFacultyId && (
+            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              Required
+            </span>
+          )}
+        </div>
 
-        {/* Search + Department Filter */}
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name..."
-              className="input text-xs pl-9 w-full"
-            />
+          <div ref={primaryRef} className="relative flex-1">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={primarySearch}
+                onChange={(e) => { setPrimarySearch(e.target.value); setShowPrimaryDropdown(true) }}
+                onFocus={() => { if (primarySearch.trim()) setShowPrimaryDropdown(true) }}
+                placeholder="Search by name or email..."
+                className="input text-xs pl-9 w-full"
+              />
+            </div>
+            {showPrimaryDropdown && primarySearchResults.length > 0 && (
+              <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {primarySearchResults.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { selectPrimary(f.id); setPrimarySearch(""); setShowPrimaryDropdown(false) }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-gold-50 border-b border-slate-50 last:border-b-0 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-slate-800">{f.name}</p>
+                    <p className="text-xs text-slate-400">{f.email}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showPrimaryDropdown && primarySearch.trim() && primarySearchResults.length === 0 && (
+              <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg p-3">
+                <p className="text-xs text-slate-400">No faculty match your search.</p>
+              </div>
+            )}
           </div>
           {allDepartments.length > 0 && (
             <select
@@ -399,66 +428,125 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
           )}
         </div>
 
-        <div className="space-y-4">
-          {groupedFaculty.map((group) => (
-            <div key={group.department || "no-dept"} className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                {group.department || "No Department"}
-              </p>
-              {group.members.map((f) => {
-                const isSelected = selectedFacultyIds.includes(f.id)
-                const opt = attendeeOptions.find((o) => o.userId === f.id)
+        {/* Selected primary chip */}
+        {primaryFacultyId && (() => {
+          const f = facultyWithRules.find((x) => x.id === primaryFacultyId)
+          if (!f) return null
+          return (
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-gold-50 border border-gold-200">
+              <div className="w-8 h-8 rounded-full bg-gold-200 flex items-center justify-center text-xs font-bold text-gold-700">
+                {f.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800">{f.name}</p>
+                <p className="text-xs text-slate-400">{f.email}</p>
+              </div>
+              <span className="text-[10px] font-semibold text-gold-700 bg-gold-100 px-2 py-0.5 rounded-full border border-gold-200">
+                Primary
+              </span>
+              <button
+                type="button"
+                onClick={() => { setPrimaryFacultyId(null); setAttendeeIds([]) }}
+                className="text-xs text-red-500 hover:text-red-700 font-bold ml-1"
+              >
+                &times;
+              </button>
+            </div>
+          )
+        })()}
+      </section>
+
+      {/* 1b. Select Attendees (Optional) — shown only after primary is selected */}
+      {primaryFacultyId && (
+        <section className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-700">2. Select Attendees <span className="text-slate-400 font-normal text-xs">(Optional)</span></h3>
+          </div>
+
+          <div className="flex gap-2">
+            <div ref={attendeeRef} className="relative flex-1">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={attendeeSearch}
+                  onChange={(e) => { setAttendeeSearch(e.target.value); setShowAttendeeDropdown(true) }}
+                  onFocus={() => { if (attendeeSearch.trim()) setShowAttendeeDropdown(true) }}
+                  placeholder="Search by name or email..."
+                  className="input text-xs pl-9 w-full"
+                />
+              </div>
+              {showAttendeeDropdown && attendeeSearchResults.length > 0 && (
+                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {attendeeSearchResults.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => { toggleAttendee(p.id); setAttendeeSearch(""); setShowAttendeeDropdown(false) }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-gold-50 border-b border-slate-50 last:border-b-0 transition-colors"
+                    >
+                      <p className="text-sm font-medium text-slate-800">{p.name}</p>
+                      <p className="text-xs text-slate-400">{p.email}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showAttendeeDropdown && attendeeSearch.trim() && attendeeSearchResults.length === 0 && (
+                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg p-3">
+                  <p className="text-xs text-slate-400">No users match your search.</p>
+                </div>
+              )}
+            </div>
+            {allDepartments.length > 0 && (
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="input text-xs w-auto py-1.5 min-w-[160px]"
+              >
+                <option value="all">All Departments</option>
+                {allDepartments.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Selected attendee chips */}
+          {attendeeIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {attendeeIds.map((id) => {
+                const f = facultyWithRules.find((x) => x.id === id)
+                const s = students?.find((x) => x.id === id)
+                const person = f || s
+                if (!person) return null
                 return (
-                  <div
-                    key={f.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isSelected
-                      ? "border-gold-300 bg-gold-50/50"
-                      : "border-slate-200 hover:border-slate-300 bg-white"
-                      }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleFaculty(f.id)}
-                      className="w-4 h-4 rounded border-slate-300 text-gold-600 focus:ring-gold-500"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-slate-800">{f.name}</p>
-                        {!f.hasLoggedInBefore && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 leading-none">
-                            Inactive
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400">{f.email}</p>
-                    </div>
-                    {isSelected && opt && selectedFacultyIds.length > 1 && (
-                      <button
-                        onClick={() => toggleMandatory(f.id)}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${opt.isMandatory
-                          ? "bg-gold-100 text-gold-700"
-                          : "bg-slate-100 text-slate-500"
-                          }`}
-                      >
-                        {opt.isMandatory ? "Required" : "Optional"}
-                      </button>
-                    )}
+                  <div key={id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs text-slate-700">
+                    <span className="font-medium truncate max-w-[120px]">{person.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleAttendee(id)}
+                      className="text-red-500 hover:text-red-700 font-bold leading-none ml-0.5"
+                    >
+                      &times;
+                    </button>
                   </div>
                 )
               })}
             </div>
-          ))}
-          {groupedFaculty.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-4">No faculty match your search or filter.</p>
           )}
-        </div>
-      </section>
 
-      {/* 2. Date & Time */}
-      {selectedFaculty.length > 0 && (
+          {attendeeIds.length === 0 && (
+            <p className="text-xs text-slate-400 italic">No additional attendees selected. Only the primary faculty will be invited.</p>
+          )}
+        </section>
+      )}
+
+      {/* 3. Date & Time */}
+      {primaryFacultyId && (
         <section className="space-y-3">
-          <h3 className="text-sm font-bold text-slate-700">2. Pick a Date & Time</h3>
+          <h3 className="text-sm font-bold text-slate-700">3. Pick a Date & Time</h3>
           <div className="flex gap-3 text-[10px] font-semibold">
             <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Available for All</span>
             <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" /> Partially Available</span>
@@ -703,10 +791,10 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
         </section>
       )}
 
-      {/* 3. Booking Form */}
-      {selectedSlots.length > 0 && selectedFaculty.length > 0 && (
+      {/* 4. Booking Form */}
+      {selectedSlots.length > 0 && primaryFacultyId && (
         <form onSubmit={handleBook} className="card p-5 bg-white space-y-4">
-          <h3 className="text-sm font-bold text-slate-700">3. Confirm Booking</h3>
+          <h3 className="text-sm font-bold text-slate-700">4. Confirm Booking</h3>
 
           <div className="p-3 rounded-lg bg-gold-50 border border-gold-100 text-sm space-y-3">
             <div>
@@ -725,20 +813,19 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
             <div>
               <p className="text-gold-700 font-semibold">Participants</p>
               <p className="text-gold-600 text-xs mt-1">
-                With {selectedFaculty.map((f) => `${f.name}${f.department ? ` (${f.department})` : ""}`).join(", ")}
+                {(() => {
+                  const primary = facultyWithRules.find((f) => f.id === primaryFacultyId)
+                  const attendees = facultyWithRules.filter((f) => attendeeIds.includes(f.id))
+                  const studentAttendees = (students || []).filter((s) => attendeeIds.includes(s.id))
+                  const parts: string[] = []
+                  if (primary) parts.push(`${primary.name} (Primary)`)
+                  attendees.forEach((a) => parts.push(`${a.name}${a.department ? ` (${a.department})` : ""}`))
+                  studentAttendees.forEach((s) => parts.push(`${s.name} (Student)`))
+                  return parts.length > 0 ? parts.join(", ") : "No participants"
+                })()}
               </p>
             </div>
           </div>
-
-          {conflicts.length > 0 && (
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 space-y-1">
-              <p className="font-semibold">Advisory: Schedule Conflicts</p>
-              {conflicts.map((c, i) => (
-                <p key={i}>{c.facultyName}: {c.message}</p>
-              ))}
-              <p className="opacity-75">You can still proceed with booking. Invited faculty will review and accept/decline.</p>
-            </div>
-          )}
 
           <div>
             <label className="input-label">Meeting Title <span className="text-red-500">*</span></label>
@@ -763,10 +850,38 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-2.5 disabled:opacity-50">
-              {submitting ? "Booking..." : `Book Consultation (${selectedFaculty.length} faculty)`}
+              {submitting ? "Booking..." : "Book Consultation"}
             </button>
           </div>
         </form>
+      )}
+
+      {/* Conflicts (outside form so it persists) */}
+      {conflicts.length > 0 && (
+        <div className={`p-3 rounded-lg text-xs space-y-1 border ${result?.success ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+          <p className="font-semibold">Schedule Conflicts Detected</p>
+          {conflicts.map((c, i) => (
+            <div key={i} className="space-y-0.5">
+              <p className="font-semibold">{c.userName}: {c.message}</p>
+              {c.appointments && c.appointments.map((a, j) => (
+                <a
+                  key={j}
+                      href={`/${userRole === "STUDENT" ? "student" : "faculty"}/meetings/${a.appointmentId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 underline hover:opacity-80 ml-2"
+                >
+                  {a.meetingType === "CONSULTATION" ? "Consultation" : "Meeting"}{a.title ? `: ${a.title}` : ""} &mdash; {a.date} {a.startTime}&ndash;{a.endTime}
+                </a>
+              ))}
+            </div>
+          ))}
+          {result?.success ? (
+            <p className="opacity-75 pt-1">You can still proceed with booking. Invited faculty will review and accept/decline.</p>
+          ) : (
+            <p className="opacity-75 pt-1">Please resolve the conflicts before booking.</p>
+          )}
+        </div>
       )}
 
       {/* Result */}
@@ -781,10 +896,10 @@ export default function StudentBooking({ facultyWithRules, serverNow }: Props) {
         </div>
       )}
 
-      {selectedFaculty.length === 0 && (
+      {!primaryFacultyId && (
         <div className="card p-12 text-center bg-white">
-          <p className="text-slate-700 font-semibold text-sm">Select faculty members</p>
-          <p className="text-slate-400 text-xs mt-1">Pick at least one faculty above to see available dates and times.</p>
+          <p className="text-slate-700 font-semibold text-sm">Select a primary faculty member</p>
+          <p className="text-slate-400 text-xs mt-1">Pick a faculty member above to see available dates and times.</p>
         </div>
       )}
     </div>

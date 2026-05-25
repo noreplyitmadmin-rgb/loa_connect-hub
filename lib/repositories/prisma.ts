@@ -180,7 +180,7 @@ export const meetingsRepository: IMeetingRepository = {
   },
   async listStudentConflictingSlots(studentId, date, startTime, endTime, excludeSessionGroupId) {
     const where: any = {
-      appointment: { studentId, status: { in: ["PENDING", "APPROVED"] } },
+      appointment: { studentId, status: "APPROVED" },
       date,
       startTime: { lt: endTime },
       endTime: { gt: startTime },
