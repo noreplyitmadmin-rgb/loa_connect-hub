@@ -84,7 +84,7 @@ export default async function StudentMeetings(props: {
   const filterLabel = filterLabels[activeFilter] || "All Consultations"
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">

@@ -73,7 +73,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Manage Users</h1>
         <p className="text-xs text-slate-500">{filtered.length} user(s)</p>

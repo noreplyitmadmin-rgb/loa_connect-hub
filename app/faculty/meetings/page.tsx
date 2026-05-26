@@ -108,9 +108,9 @@ export default async function MeetingsPage(props: {
   const cancelledMeetings = sorted.filter((m: any) => m.status === "CANCELLED")
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Meetings</h1>
           <p className="text-sm text-slate-500 mt-1">Schedule and manage meetings</p>
@@ -124,7 +124,7 @@ export default async function MeetingsPage(props: {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-2 gap-4">
         <div className="card p-5 bg-white">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Accepted</p>
           <p className="text-3xl font-bold text-emerald-600 mt-1">{acceptedMeetings.length}</p>
@@ -136,7 +136,7 @@ export default async function MeetingsPage(props: {
       </div>
 
       {/* Filters */}
-      <div className="card p-4 bg-white mb-6">
+      <div className="card p-4 bg-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(filterLabels).map(([key, label]) => (
