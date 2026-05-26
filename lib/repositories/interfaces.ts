@@ -146,6 +146,7 @@ export interface IAppointmentRepository {
   create(input: CreateAppointmentInput): Promise<AppointmentData>
   listByStudent(studentId: string): Promise<AppointmentData[]>
   listByFaculty(facultyId: string): Promise<AppointmentData[]>
+  listByParticipant(userId: string): Promise<AppointmentData[]>
   listAll(): Promise<AppointmentData[]>
   listPendingSync(): Promise<AppointmentData[]>
   findById(id: string): Promise<AppointmentData | null>
@@ -163,47 +164,6 @@ export interface IAppointmentRepository {
   listFacultyAppointmentsByDateRange(facultyId: string, startDate: string, endDate: string, status?: string): Promise<AppointmentData[]>
   addFile(appointmentId: string, data: { fileName: string; fileType: string; fileData: string; fileSize: number }): Promise<AppointmentFileData>
   listFiles(appointmentId: string): Promise<AppointmentFileData[]>
-}
-
-// --- Internal Meetings (legacy, kept for existing code) ---
-
-export type MeetingStatusData = "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "COMPLETED" | "CANCELLED"
-export type ParticipantStatusData = "PENDING" | "ACCEPTED" | "DECLINED"
-
-export interface MeetingData {
-  id: string
-  title: string
-  description: string | null
-  date: string
-  startTime: string
-  endTime: string
-  organizerId: string
-  teamsEventId: string | null
-  teamsLink: string | null
-  status: MeetingStatusData
-  createdAt: Date
-  organizer?: UserData | null
-  participants?: MeetingParticipantData[]
-}
-
-export interface MeetingParticipantData {
-  id: string
-  meetingId: string
-  userId: string
-  status: ParticipantStatusData
-  user?: UserData | null
-}
-
-export interface IMeetingRepository {
-  findById(id: string): Promise<MeetingData | null>
-  listByOrganizer(organizerId: string): Promise<MeetingData[]>
-  listByParticipant(userId: string): Promise<MeetingData[]>
-  update(id: string, data: Partial<MeetingData>): Promise<MeetingData>
-  addParticipant(meetingId: string, userId: string): Promise<MeetingParticipantData>
-  updateParticipantStatus(meetingId: string, userId: string, status: ParticipantStatusData): Promise<MeetingParticipantData>
-  getParticipants(meetingId: string): Promise<MeetingParticipantData[]>
-  listConflictingAppointments(facultyId: string, date: string, startTime: string, endTime: string): Promise<AppointmentData[]>
-  listConflictingMeetings(facultyId: string, date: string, startTime: string, endTime: string): Promise<MeetingData[]>
 }
 
 export interface AvailabilityRuleData {

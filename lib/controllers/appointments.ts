@@ -764,3 +764,51 @@ async function sendConsultationApprovedEmail(appointment: any) {
     icalString,
   )
 }
+
+export async function getMeetingsForUser(userId: string) {
+  const [organized, invited] = await Promise.all([
+    appointmentRepository.listByFaculty(userId),
+    appointmentRepository.listByParticipant(userId),
+  ])
+
+  const merged = [...organized, ...invited]
+  const seen = new Set<string>()
+  const unique = merged.filter((apt: any) => {
+    if (seen.has(apt.id)) return false
+    seen.add(apt.id)
+    return true
+  })
+
+  // Format to match legacy MeetingData shape for the frontend UI compatibility
+  return unique.map((appointment: any) => {
+    const participants = (appointment.attendees || []).map((att: any) => ({
+      id: att.id,
+      meetingId: appointment.id,
+      userId: att.userId,
+      status: (att.status === "ACCEPTED" ? "ACCEPTED" : att.status === "DECLINED" ? "DECLINED" : "PENDING") as any,
+      user: att.user,
+    }))
+
+    const organizer = appointment.student?.email === appointment.createdByEmail
+      ? appointment.student
+      : appointment.faculty?.email === appointment.createdByEmail
+        ? appointment.faculty
+        : appointment.student || appointment.faculty || null
+
+    return {
+      id: appointment.id,
+      title: appointment.title,
+      description: appointment.description,
+      date: appointment.date,
+      startTime: appointment.startTime,
+      endTime: appointment.endTime,
+      organizerId: organizer?.id || appointment.facultyId || appointment.studentId,
+      teamsEventId: null,
+      teamsLink: appointment.teamsLink,
+      status: appointment.status,
+      createdAt: new Date(appointment.requestedAt),
+      organizer,
+      participants,
+    }
+  })
+}

@@ -13,8 +13,6 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DROP TABLE IF EXISTS appointment_time_slots CASCADE;
 DROP TABLE IF EXISTS appointment_attendees CASCADE;
-DROP TABLE IF EXISTS internal_meeting_participants CASCADE;
-DROP TABLE IF EXISTS internal_meetings CASCADE;
 DROP TABLE IF EXISTS faculty_availability_rules CASCADE;
 DROP TABLE IF EXISTS appointments CASCADE;
 DROP TABLE IF EXISTS password_reset_tokens CASCADE;
@@ -254,69 +252,6 @@ CREATE TABLE faculty_availability_rules (
 );
 
 -- =========================================================
--- INTERNAL MEETINGS
--- TODO: Remove this table — no longer used. The appointments
--- table handles both consultations and internal meetings.
--- =========================================================
-
-CREATE TABLE internal_meetings (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-
-  title TEXT NOT NULL,
-  description TEXT,
-
-  date TEXT NOT NULL,
-  "startTime" TEXT NOT NULL,
-  "endTime" TEXT NOT NULL,
-
-  "organizerId" TEXT NOT NULL
-    REFERENCES users(id)
-    ON DELETE CASCADE,
-
-  "teamsEventId" TEXT,
-  "teamsLink" TEXT,
-
-  status TEXT NOT NULL DEFAULT 'CONFIRMED'
-    CHECK (
-      status IN (
-        'CONFIRMED',
-        'CANCELLED'
-      )
-    ),
-
-  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- =========================================================
--- INTERNAL MEETING PARTICIPANTS
--- TODO: Remove this table — no longer used.
--- =========================================================
-
-CREATE TABLE internal_meeting_participants (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-
-  "meetingId" TEXT NOT NULL
-    REFERENCES internal_meetings(id)
-    ON DELETE CASCADE,
-
-  "userId" TEXT NOT NULL
-    REFERENCES users(id)
-    ON DELETE CASCADE,
-
-  status TEXT NOT NULL DEFAULT 'PENDING'
-    CHECK (
-      status IN (
-        'PENDING',
-        'ACCEPTED',
-        'DECLINED'
-      )
-    ),
-
-  CONSTRAINT uq_meeting_user
-    UNIQUE ("meetingId", "userId")
-);
-
--- =========================================================
 -- PASSWORD RESET TOKENS
 -- =========================================================
 
@@ -433,14 +368,6 @@ CREATE INDEX idx_timeslot_date
 
 CREATE INDEX idx_availability_faculty
   ON faculty_availability_rules("facultyId");
-
--- TODO: Remove this index (table deprecated)
-CREATE INDEX idx_internal_meetings_organizer
-  ON internal_meetings("organizerId");
-
--- TODO: Remove this index (table deprecated)
-CREATE INDEX idx_meeting_participants_user
-  ON internal_meeting_participants("userId");
 
 CREATE INDEX idx_users_email
   ON users(email);

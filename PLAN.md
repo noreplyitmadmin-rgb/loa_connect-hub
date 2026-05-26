@@ -1,88 +1,159 @@
-# Faculty Workflow — Review & Plan
+# E-Consultation — Architecture, Workflows & Roadmap
 
-## Overview
-
-Two separate meeting systems exist:
-
-| System | Table | Audience | Created Via | Status Flow |
-|---|---|---|---|---|
-| **Appointments** | `appointments` + `appointment_attendees` + `appointment_time_slots` | Students ↔ Faculty (consultations) or Faculty ↔ Faculty (internal) | `/api/appointments` or `/api/appointments/batch` | PENDING → APPROVED / REJECTED / COMPLETED / CANCELLED |
-| **Internal Meetings** | `internal_meetings` + `internal_meeting_participants` | Faculty ↔ Faculty only | `/api/meetings` | CONFIRMED / CANCELLED |
+This document outlines the system architecture, core workflows, data models, and feature roadmap for the E-Consultation management system.
 
 ---
 
-## Faculty Pages
+## 1. System Overview & Architecture
 
-### 1. Dashboard (`/faculty`)
-- **Server component** — fetches all appointments via `listFacultyAppointments(facultyId)`
-- **Metric cards**: Total, Pending, Completed (in-memory computed)
-- **Upcoming Section**: `date >= today` + `APPROVED` or `PENDING`
-- **Requests Section**: Tab-filtered (All/Pending/Accepted/Completed/Cancelled) via `<FacultyAppointmentTabs>`
-- Each item is an `<AppointmentCard>` with Accept/Decline/Mark Complete/Cancel actions
-- Link to `/faculty/availability` for configuring availability rules
+The E-Consultation system is an academic consultation and internal meeting management platform built using a modern stack of **Next.js 16**, **Supabase** (PostgreSQL in production), **SQLite** (via Prisma in local development), and **Tailwind CSS 4**.
 
-### 2. Appointment Detail (`/appointments/[id]`)
-- Accessed via "View Details" link from dashboard or appointment card
-- Shows full appointment data with the same action buttons
+```mermaid
+graph TD
+    User([User: Student/Faculty/Dean/Admin]) -->|NextAuth.js| App[Next.js App Router]
+    App -->|Repository Factory| DBRepo[Repository Layer]
+    DBRepo -->|DB_PROVIDER=supabase| Supabase[(Supabase REST API)]
+    DBRepo -->|DB_PROVIDER=sqlite| SQLite[(Prisma SQLite)]
+    App -->|Optional Feature Flag| MSTeams[MS Teams Sync Orchestration]
+```
 
-### 3. Internal Meetings (`/faculty/meetings`)
-- Separate system — uses `internal_meetings` table, not `appointments`
-- List with filter pills: All / This Week / This Month / Created by Me / Declined
-- Create form (`/faculty/meetings/new`) with "From Appointment" time-slot borrowing
-- Detail page (`/faculty/meetings/[id]`) with Accept/Decline for participants, Cancel for organizer
-
-### 4. Availability (`/faculty/availability`)
-- Per-day-of-week rules with date-range scoping
-- Weekdays default `08:00–18:00` unblocked, weekends default blocked
-- Optimistic saves via `POST /api/availability-rules`
+### Core Repository Pattern
+To maintain flexibility and clean data access patterns, a Repository Factory (`lib/repositories/factory.ts`) dynamically resolves the data provider based on environment variables:
+- **Supabase Provider** (`lib/repositories/supabase.ts`): Resolves queries via PostgREST/Supabase client, eliminating heavy ORM overhead in serverless production environments.
+- **SQLite Provider** (`lib/repositories/prisma.ts`): Utilizes Prisma client locally, perfect for lightweight, offline-first development.
 
 ---
 
-## API Actions
+## 2. Unified Meeting Architecture
 
-| Action | Endpoint | Controller | Effect |
-|---|---|---|---|
-| Accept | `POST /api/appointments/[id]/accept` | `acceptAppointment()` | Sets APPROVED + fires .ics email |
-| Decline | `POST /api/appointments/[id]/decline` | `declineAppointment()` | Sets REJECTED |
-| Complete | `POST /api/appointments/[id]/complete` | `completeAppointment()` | Sets COMPLETED |
-| Cancel | `POST /api/appointments/[id]/cancel` | `cancelAppointment()` | Creator or faculty can cancel |
-| Teams Link | `POST /api/appointments/[id]/teams-link` | `updateTeamsLink()` | Saves Teams meeting URL |
-| Retry Sync | `POST /api/appointments/[id]/retry-sync` | `retryTeamsSync()` | Resets sync for Teams |
+A major architectural update has been implemented to unify all appointment and meeting systems. The legacy `internal_meetings` and `internal_meeting_participants` tables are deprecated. 
 
----
+Now, both **student consultations** and **faculty internal meetings** are handled by a single unified table: `appointments`.
 
-## Key Observations
-
-1. **Two separate systems do not interoperate** — appointments don't appear in `/faculty/meetings`, internal meetings don't appear on the dashboard.
-2. **No notification/acknowledgment** — new requests just appear in the filtered list. No unread badge or toast.
-3. **Availability only affects student bookings** — noted on the availability page.
-4. **Optimistic updates** — `AppointmentCard` uses local state for instant UI feedback, shows 3-second error on failure.
-5. **Fire-and-forget email** — `acceptAppointment` sends `.ics` calendar email but swallows failures.
+| Scenario | `meetingType` | `studentId` | Attendees (`appointment_attendees`) | Status Flow |
+| :--- | :--- | :--- | :--- | :--- |
+| **Student Consultation** | `CONSULTATION` | Required (Student User) | Faculty & Student (Auto-joined) | `PENDING` &rarr; `APPROVED` / `REJECTED` &rarr; `COMPLETED` / `CANCELLED` |
+| **Faculty Internal Meeting** | `INTERNAL` | Null (or unused) | Invited Faculty/Deans/Admins | `PENDING` &rarr; `APPROVED` (or `CONFIRMED`) / `REJECTED` &rarr; `COMPLETED` / `CANCELLED` |
 
 ---
 
-## Data Model (appointments table)
+## 3. Core Features & Workflows
+
+### A. Availability Rules Engine (`/faculty/availability`)
+- Faculty can customize availability rules per day of the week (0 = Sunday, 6 = Saturday).
+- Supports date-range scoping (`startDate`, `endDate`), blocking/unblocking slots, and custom time limits.
+- Weekdays default to `08:00–18:00` unblocked; weekends default to blocked.
+- Optimistically saved to the database via `POST /api/availability-rules`.
+- *Note*: Availability rules solely impact **Student bookings** to prevent conflicts; they do not block administrative scheduling.
+
+### B. Student Booking Workflow (`/student`)
+- Students can browse available slots for selected faculty based on availability rules.
+- Supports single booking as well as **staggered & multi-faculty bookings**.
+- Displays descriptive inputs including Title, Description, and invited Attendees.
+- Supports conflict-checking (both for student and faculty) during the reservation process.
+
+### C. Faculty Dashboard & Management Workflow (`/faculty`)
+- **Metric Cards**: Offers quick computations for Total, Pending, and Completed consultations.
+- **Appointment Tabs**: Filterable list (`All`, `Pending`, `Accepted`, `Completed`, `Cancelled`) via `<FacultyAppointmentTabs>`.
+- **Details Page** (`/appointments/[id]`): Displays detailed information including uploaded attachments, action notes, and Teams synchronization progress.
+- **Actions**:
+  - **Accept**: Moves status to `APPROVED` and generates a Microsoft Teams link (if enabled).
+  - **Decline**: Moves status to `REJECTED`.
+  - **Complete**: Moves status to `COMPLETED` and prompts for "Action Taken" / "Additional Remarks".
+  - **Cancel**: Available for the creator or faculty to cancel meetings, triggering notification logic.
+
+### D. Microsoft Teams Integration
+- Controlled via `FEATURE_CREATE_TEAMS_MEETING` master toggle.
+- When an appointment is approved, the system queues MS Teams sync state.
+- **Sync Tracking Fields**:
+  - `teamsSyncStatus` (`UNWRITTEN`, `WRITTEN`, `FAILED`)
+  - `teamsSyncRetries`, `teamsSyncError`, `teamsSyncLastAttempt`
+- **Orchestration**: A cron-triggerable endpoint at `POST /api/admin/sync-teams` acts as an out-of-band processor to reconcile failed or pending meeting creations in Microsoft Entra.
+
+---
+
+## 4. Key UI & Performance Patterns
+
+1. **Double-Click Prevention**:
+   All form submissions and action buttons leverage `SubmitButton` (`components/SubmitButton.tsx`), backed by a custom `useRef` lock. It disables input re-entry for 500ms after the first click, avoiding race conditions or duplicated API calls before React completes its re-render.
+2. **Skeleton UI Placeholders**:
+   Client-side pages that fetch data on mount display structured skeleton skeletons (`components/Skeleton.tsx`) instead of generic loading spinners or text.
+3. **Redirect Guard on Login**:
+   The login page verifies the user's active session (`useSession()`) on mount. Authenticated users are immediately routed to their role-specific dashboard (`/student`, `/faculty`, `/dean`, `/admin`), creating a seamless transition.
+
+---
+
+## 5. Unified Data Model
 
 ```
 appointments
-├── id, studentId, facultyId, createdByEmail
-├── meetingType: CONSULTATION | INTERNAL
-├── date, startTime, endTime
-├── sessionGroupId (links batch bookings)
-├── title, description
-├── status: PENDING | APPROVED | REJECTED | COMPLETED | CANCELLED
-├── teamsLink, teamsSyncStatus, teamsSyncRetries, teamsSyncError, teamsSyncLastAttempt
-├── requestedAt, updatedAt
-├── actionTaken, additionalRemarks
-└── (joined via query: student, faculty, attendees)
-
-appointment_attendees
-├── id, appointmentId, userId
-├── status: INVITED | ACCEPTED | DECLINED
-└── isMandatory
+├── id (UUID)
+├── studentId (FK users, nullable for INTERNAL)
+├── facultyId (FK users)
+├── sessionGroupId (Text, links batch bookings)
+├── createdByEmail (Text)
+├── meetingType (CONSULTATION | INTERNAL)
+├── date (Text, YYYY-MM-DD)
+├── startTime (Text, HH:MM)
+├── endTime (Text, HH:MM)
+├── title (Text)
+├── description (Text)
+├── status (PENDING | APPROVED | REJECTED | COMPLETED | CANCELLED)
+├── actionTaken (Text)
+├── additionalRemarks (Text)
+├── teamsLink (Text)
+├── teamsSyncStatus (UNWRITTEN | WRITTEN | FAILED)
+├── teamsSyncRetries (Int)
+├── teamsSyncError (Text)
+├── teamsSyncLastAttempt (Timestamptz)
+├── requestedAt (Timestamptz)
+└── updatedAt (Timestamptz)
 
 appointment_time_slots
-├── id, appointmentId
-├── date, startTime, endTime
-└── createdAt
+├── id (UUID)
+├── appointmentId (FK appointments, ON DELETE CASCADE)
+├── date (Text)
+├── startTime (Text)
+├── endTime (Text)
+├── teamsLink (Text)
+└── createdAt (Timestamptz)
+
+appointment_attendees
+├── id (UUID)
+├── appointmentId (FK appointments, ON DELETE CASCADE)
+├── userId (FK users)
+├── status (INVITED | ACCEPTED | DECLINED)
+└── isMandatory (Boolean)
+
+appointment_files
+├── id (UUID)
+├── appointmentId (FK appointments, ON DELETE CASCADE)
+├── fileName (Text)
+├── fileType (Text)
+├── fileData (Text / Base64 payload)
+├── fileSize (Int)
+└── createdAt (Timestamptz)
 ```
+
+---
+
+## 6. Feature Roadmap
+
+Based on current progress, here is the feature execution progress:
+
+- [x] **Phase 1: Availability Rules Engine** — Custom rules and date-scoped configurations.
+- [x] **Phase 2: Faculty Dashboard Tabs** — Filtered appointment lists with interactive cards.
+- [x] **Phase 3: Faculty Cancel Flow** — Cancellation rules and user interfaces.
+- [x] **Phase 4: Student Cancellation** — Allowing student-initiated cancel flows.
+- [x] **Phase 5: Faculty-to-Faculty Meetings** — Fully integrated into unified `appointments` system.
+- [x] **Phase 6: Sync Tracking Fields** — Built columns tracking Teams syncing.
+- [x] **Phase 7: Teams Sync Orchestration** — Out-of-band cron triggers for sync.
+- [x] **Phase 8: Conflict Detection w/ Teams** — Overlap warnings and blocking.
+- [x] **Phase 9: Enhanced Booking** — Booking with Title, Description, and Attendees.
+- [x] **Phase 10: Department & Dean Role** — Added `DEAN` views, `departments` tables.
+- [x] **Phase 11: ETL — Bulk User Import (CSV)** — Administrative CSV upload system.
+- [x] **Phase 12: Email-based Auth & Password Setup** — Accounts activation flow at `/activate`.
+- [x] **Phase 13: Consultation Completion** — Actions taken notes and reports input.
+- [ ] **Phase 14: Attendee Permissions** — Granular meeting access and response permissions.
+- [ ] **Phase 15: Reports & Export** — Summarization metrics, printable reports, and CSV outputs.
+- [x] **Phase 16: Staggered & Multi-Faculty Booking** — Comprehensive multi-slot bookings.
