@@ -10,6 +10,7 @@ const roleColors: Record<string, { bg: string; label: string }> = {
   DEAN: { bg: "bg-amber-500/20 text-amber-300", label: "Dean" },
   FACULTY: { bg: "bg-emerald-500/20 text-emerald-300", label: "Faculty" },
   STUDENT: { bg: "bg-blue-500/20 text-blue-300", label: "Student" },
+  GUEST: { bg: "bg-slate-500/20 text-slate-300", label: "Guest" },
 }
 
 function getInitial(name: string) {

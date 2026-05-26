@@ -48,7 +48,7 @@ CREATE TABLE users (
   "passwordHash" TEXT,
 
   role TEXT NOT NULL DEFAULT 'STUDENT'
-    CHECK (role IN ('STUDENT','FACULTY','DEAN','ADMIN')),
+    CHECK (role IN ('STUDENT','FACULTY','DEAN','ADMIN','GUEST')),
 
   "departmentId" TEXT,
 

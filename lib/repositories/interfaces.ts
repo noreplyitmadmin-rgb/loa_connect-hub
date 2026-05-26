@@ -3,7 +3,7 @@ export interface UserData {
   name: string
   email: string
   passwordHash: string | null
-  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN"
+  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN" | "GUEST"
   departmentId: string | null
   course: string | null
   isDisabled: boolean
@@ -17,7 +17,7 @@ export interface CreateUserInput {
   name: string
   email: string
   passwordHash?: string | null
-  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN"
+  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN" | "GUEST"
   departmentId?: string | null
   course?: string | null
 }

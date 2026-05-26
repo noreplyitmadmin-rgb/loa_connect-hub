@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import "./globals.css"
 import SessionWrapper from "@/components/SessionWrapper"
-import Sidebar from "@/components/Sidebar"
-import Breadcrumbs from "@/components/Breadcrumbs"
+import AppShell from "@/components/AppShell"
 
 export const metadata: Metadata = {
   title: "E-Consultation",
@@ -23,13 +22,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-slate-50 font-sans antialiased">
         <SessionWrapper>
-          <div className="flex h-screen">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Breadcrumbs />
-              <main className="flex-1 overflow-y-auto p-6">{children}</main>
-            </div>
-          </div>
+          <AppShell>{children}</AppShell>
         </SessionWrapper>
       </body>
     </html>

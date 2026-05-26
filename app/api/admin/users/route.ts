@@ -10,18 +10,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
 
+  const departments = await departmentRepository.listAll()
+
   if (role === "ADMIN") {
     const users = await userRepository.listAll()
-    return NextResponse.json({ users })
+    return NextResponse.json({ users, departments })
   }
 
   // Dean: only see faculty in their department
   const dept = await departmentRepository.findByDeanId((session!.user as any).id)
-  if (!dept) return NextResponse.json({ users: [] })
+  if (!dept) return NextResponse.json({ users: [], departments })
 
   const deptFaculty = await userRepository.listByDepartment(dept.id)
   const facultyOnly = deptFaculty.filter((u) => u.role === "FACULTY" || u.role === "DEAN")
-  return NextResponse.json({ users: facultyOnly })
+  return NextResponse.json({ users: facultyOnly, departments })
 }
 
 export async function PATCH(request: NextRequest) {
@@ -32,11 +34,26 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { userId, isDisabled } = body
+  const { userId, isDisabled, role: newRole } = body
   const currentUserId = (session!.user as any).id
+  const VALID_ROLES = ["STUDENT", "FACULTY", "DEAN", "ADMIN", "GUEST"]
 
   const target = await userRepository.findById(userId)
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 })
+
+  // Only ADMIN can change roles (not DEAN)
+  if (newRole !== undefined) {
+    if (role !== "ADMIN") {
+      return NextResponse.json({ error: "Only admins can change user roles" }, { status: 403 })
+    }
+    if (!VALID_ROLES.includes(newRole)) {
+      return NextResponse.json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}` }, { status: 400 })
+    }
+    // Admin cannot change their own role
+    if (target.id === currentUserId) {
+      return NextResponse.json({ error: "You cannot change your own role" }, { status: 400 })
+    }
+  }
 
   // Admin cannot disable themselves
   if (role === "ADMIN" && target.id === currentUserId && isDisabled) {
@@ -62,13 +79,32 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // Build update payload
+  const updateData: Record<string, any> = {}
+  const auditActions: string[] = []
+
+  if (newRole !== undefined) {
+    updateData.role = newRole
+    auditActions.push(`changed role from ${target.role} to ${newRole}`)
+  }
+
+  if (isDisabled !== undefined) {
+    updateData.isDisabled = !!isDisabled
+    auditActions.push(isDisabled ? "disabled" : "enabled")
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: "No changes provided" }, { status: 400 })
+  }
+
   // Increment tokenVersion so all existing JWT sessions are invalidated
-  const tokenVersion = (target.tokenVersion ?? 0) + 1
-  const user = await userRepository.update(userId, { isDisabled: !!isDisabled, tokenVersion })
+  updateData.tokenVersion = (target.tokenVersion ?? 0) + 1
+
+  const user = await userRepository.update(userId, updateData)
   await logAuditEvent({
     userId: currentUserId,
-    action: isDisabled ? "DISABLE_USER" : "ENABLE_USER",
-    details: `${isDisabled ? "Disabled" : "Enabled"} user ${target.name} (${target.email})`,
+    action: "UPDATE_USER",
+    details: `Updated user ${target.name} (${target.email}): ${auditActions.join("; ")}`,
   })
   return NextResponse.json({ user })
 }

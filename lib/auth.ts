@@ -23,6 +23,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user.passwordHash) return null
         if (user.isDisabled) return null
+        if (user.role === "GUEST") return null
 
         const isValid = await compare(credentials.password as string, user.passwordHash)
         if (!isValid) return null
@@ -96,6 +97,12 @@ export async function auth() {
     // User was disabled mid-session
     if (dbUser.isDisabled) {
       console.warn(`[auth] Session user ${userId} is disabled — returning null`)
+      return null
+    }
+
+    // User was demoted to GUEST mid-session
+    if (dbUser.role === "GUEST") {
+      console.warn(`[auth] Session user ${userId} is GUEST — returning null`)
       return null
     }
 

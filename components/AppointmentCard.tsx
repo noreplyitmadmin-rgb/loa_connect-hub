@@ -6,6 +6,14 @@ import { TeamsLinkInput } from "./TeamsLinkInput"
 import Link from "next/link"
 import SubmitButton from "@/components/SubmitButton"
 
+interface TimeSlot {
+  id: string
+  date: string
+  startTime: string
+  endTime: string
+  teamsLink?: string | null
+}
+
 interface AppointmentCardProps {
   appointment: {
     id: string
@@ -24,6 +32,7 @@ interface AppointmentCardProps {
     student?: { name: string; email: string }
     faculty?: { name: string; email: string }
     attendees?: Array<{ id: string; userId: string; status: string; isMandatory?: boolean; user?: { name: string; email: string } }>
+    timeSlots?: TimeSlot[]
   }
   role: "STUDENT" | "FACULTY"
 }
@@ -165,13 +174,35 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
             </div>
           )}
 
-          {appointment.date && (
+          {/* Time slots */}
+          {appointment.timeSlots && appointment.timeSlots.length > 0 ? (
+            <div className="space-y-1.5">
+              {(() => {
+                const grouped: Record<string, typeof appointment.timeSlots> = {}
+                for (const slot of appointment.timeSlots) {
+                  if (!grouped[slot.date]) grouped[slot.date] = []
+                  grouped[slot.date].push(slot)
+                }
+                return Object.entries(grouped).map(([date, slots]) => (
+                  <div key={date}>
+                    <p className="text-xs font-semibold text-slate-600 mb-0.5">{date}</p>
+                    {slots.map((slot) => (
+                      <div key={slot.id} className="flex items-center gap-2 text-xs ml-2">
+                        <span className="text-slate-300">\u2022</span>
+                        <span className="text-slate-600 font-medium">{slot.startTime} &ndash; {slot.endTime}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              })()}
+            </div>
+          ) : appointment.date ? (
             <div className="flex items-center gap-2 text-xs flex-wrap">
               <span className="font-medium text-slate-700">{appointment.date}</span>
               <span className="text-slate-300">\u2022</span>
               <span className="text-slate-600 font-medium">{appointment.startTime} &ndash; {appointment.endTime}</span>
             </div>
-          )}
+          ) : null}
 
           {/* Title */}
           {appointment.title && (

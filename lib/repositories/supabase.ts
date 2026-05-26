@@ -89,7 +89,8 @@ const appointmentSelect = `
   *,
   student:users!appointments_studentId_fkey(*),
   faculty:users!appointments_facultyId_fkey(*),
-  attendees:appointment_attendees(*, user:users(*))
+  attendees:appointment_attendees(*, user:users(*)),
+  timeSlots:appointment_time_slots(*)
 `
 
 export const appointmentRepository: IAppointmentRepository = {

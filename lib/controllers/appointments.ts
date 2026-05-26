@@ -601,13 +601,17 @@ export async function getAppointmentDetail(id: string) {
   const appointment: any = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
 
-  let timeSlots: any[] = []
-  let files: any[] = []
-  try {
-    timeSlots = await appointmentRepository.listTimeSlots(id)
-  } catch {
-    // appointment_time_slots table may not exist yet
+  // Use embedded time slots from the query join (avoids extra fetch)
+  let timeSlots: any[] = appointment.timeSlots || []
+  // If the join didn't return them (e.g. older data), fetch separately
+  if (timeSlots.length === 0) {
+    try {
+      timeSlots = await appointmentRepository.listTimeSlots(id)
+    } catch {
+      // appointment_time_slots table may not exist yet
+    }
   }
+  let files: any[] = []
   try {
     files = await appointmentRepository.listFiles(id)
   } catch {

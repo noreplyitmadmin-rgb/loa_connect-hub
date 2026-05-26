@@ -20,7 +20,7 @@ const LABELS: Record<string, string> = {
 
 export default function Breadcrumbs() {
   const pathname = usePathname()
-  if (!pathname || pathname === "/login" || pathname === "/register") return null
+  if (!pathname || pathname === "/login" || pathname === "/register" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/change-password") || pathname.startsWith("/setup-password")) return null
 
   const segments = pathname.split("/").filter(Boolean)
   if (segments.length === 0) return null
