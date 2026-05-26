@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import StatusDropdown from "@/components/StatusDropdown"
 import { getMeetingsForUser } from "@/lib/controllers/meetings"
+import { getWeekRange, getMonthRange } from "@/lib/utils/date"
 
 function getInitial(name: string) {
   return name?.charAt(0)?.toUpperCase() || "?"
@@ -20,24 +21,6 @@ const participantStatusColors: Record<string, string> = {
   PENDING: "bg-amber-500/20 text-amber-400",
   ACCEPTED: "bg-emerald-500/20 text-emerald-400",
   DECLINED: "bg-red-500/20 text-red-400",
-}
-
-function getWeekRange(date: Date): { start: Date; end: Date } {
-  const day = date.getDay()
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
-  const start = new Date(date)
-  start.setDate(diff)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
-  end.setHours(23, 59, 59, 999)
-  return { start, end }
-}
-
-function getMonthRange(date: Date): { start: Date; end: Date } {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1)
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999)
-  return { start, end }
 }
 
 const filterLabels: Record<string, string> = {

@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge"
 import SubmitButton from "@/components/SubmitButton"
 import { TeamsLinkInput } from "@/components/TeamsLinkInput"
 import TeamsLinkForm from "@/components/TeamsLinkForm"
-import Skeleton from "@/components/Skeleton"
+import AppointmentDetailSkeleton from "@/components/AppointmentDetailSkeleton"
 import type { AppointmentDetailDto } from "@/lib/dtos/Appointments"
 
 function getInitial(name: string) {
@@ -241,14 +241,7 @@ export default function AppointmentDetail() {
   }
 
   // ── Loading ──────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-4">
-      <Skeleton variant="card" className="h-48" />
-      <Skeleton variant="text" className="w-1/3" />
-      <Skeleton variant="text" className="w-1/2" />
-      <Skeleton variant="card" className="h-32" />
-    </div>
-  )
+  if (loading) return <AppointmentDetailSkeleton />
 
   if (error || !appointment) return (
     <div className="p-6 md:p-8 max-w-3xl mx-auto">

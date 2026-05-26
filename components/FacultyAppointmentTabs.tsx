@@ -44,10 +44,14 @@ export function FacultyAppointmentTabs({
             ? totalCount
             : counts[tab.countKey]
 
-        const href =
-          tab.key === "all"
-            ? basePath
-            : `${basePath}?tab=${tab.key}`
+        const params = new URLSearchParams(searchParams.toString())
+        if (tab.key === "all") {
+          params.delete("tab")
+        } else {
+          params.set("tab", tab.key)
+        }
+        const qs = params.toString()
+        const href = qs ? `${basePath}?${qs}` : basePath
 
         return (
           <Link
