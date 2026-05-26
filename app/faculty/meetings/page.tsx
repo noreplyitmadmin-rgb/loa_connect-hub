@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import StatusDropdown from "@/components/StatusDropdown"
+// TODO: Replace getMeetingsForUser with listFacultyAppointments + attendee query
+// from appointments controller to remove the meetingRepository entirely.
+// Need to match the MeetingData shape used in the template below.
 import { getMeetingsForUser } from "@/lib/controllers/meetings"
 import { getWeekRange, getMonthRange } from "@/lib/utils/date"
 

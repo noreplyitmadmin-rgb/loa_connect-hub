@@ -255,6 +255,8 @@ CREATE TABLE faculty_availability_rules (
 
 -- =========================================================
 -- INTERNAL MEETINGS
+-- TODO: Remove this table — no longer used. The appointments
+-- table handles both consultations and internal meetings.
 -- =========================================================
 
 CREATE TABLE internal_meetings (
@@ -287,6 +289,7 @@ CREATE TABLE internal_meetings (
 
 -- =========================================================
 -- INTERNAL MEETING PARTICIPANTS
+-- TODO: Remove this table — no longer used.
 -- =========================================================
 
 CREATE TABLE internal_meeting_participants (
@@ -431,9 +434,11 @@ CREATE INDEX idx_timeslot_date
 CREATE INDEX idx_availability_faculty
   ON faculty_availability_rules("facultyId");
 
+-- TODO: Remove this index (table deprecated)
 CREATE INDEX idx_internal_meetings_organizer
   ON internal_meetings("organizerId");
 
+-- TODO: Remove this index (table deprecated)
 CREATE INDEX idx_meeting_participants_user
   ON internal_meeting_participants("userId");
 

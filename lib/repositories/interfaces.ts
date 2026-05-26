@@ -186,15 +186,6 @@ export interface MeetingData {
   participants?: MeetingParticipantData[]
 }
 
-export interface CreateMeetingInput {
-  title: string
-  description?: string | null
-  date: string
-  startTime: string
-  endTime: string
-  organizerId: string
-}
-
 export interface MeetingParticipantData {
   id: string
   meetingId: string
@@ -204,7 +195,6 @@ export interface MeetingParticipantData {
 }
 
 export interface IMeetingRepository {
-  create(input: CreateMeetingInput): Promise<MeetingData>
   findById(id: string): Promise<MeetingData | null>
   listByOrganizer(organizerId: string): Promise<MeetingData[]>
   listByParticipant(userId: string): Promise<MeetingData[]>

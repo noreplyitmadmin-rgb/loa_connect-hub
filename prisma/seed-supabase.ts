@@ -9,8 +9,7 @@ async function main() {
     "appointment_attendees",
     "appointments",
     "faculty_availability_rules",
-    "internal_meeting_participants",
-    "internal_meetings",
+
     "password_reset_tokens",
     "sessions",
     "accounts",

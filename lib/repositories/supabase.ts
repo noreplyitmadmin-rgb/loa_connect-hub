@@ -4,7 +4,7 @@ import type {
   MeetingData, MeetingParticipantData, UserData,
   DepartmentData, AvailabilityRuleData,
   PasswordResetTokenData, AuditLogData,
-  CreateAppointmentInput, CreateUserInput, CreateMeetingInput,
+  CreateAppointmentInput, CreateUserInput,
   AppointmentFileData,
   IUserRepository, IDepartmentRepository, IAppointmentRepository,
   IMeetingRepository, IAvailabilityRuleRepository,
@@ -307,12 +307,6 @@ export const appointmentRepository: IAppointmentRepository = {
   },
 }
 
-const meetingSelect = `
-  *,
-  organizer:users!internal_meetings_organizerId_fkey(*),
-  participants:internal_meeting_participants(*, user:users(*))
-`
-
 function mapAppointmentToMeetingData(appointment: any) {
   const participants = (appointment.attendees || []).map((att: any) => ({
     id: att.id,
@@ -348,11 +342,6 @@ function mapAppointmentToMeetingData(appointment: any) {
 }
 
 export const meetingRepository: IMeetingRepository = {
-  async create(input) {
-    const { data, error } = await supabase.from("internal_meetings").insert(input).select(meetingSelect).single()
-    if (error) throw error
-    return data as any
-  },
   async findById(id) {
     const { data, error } = await supabase
       .from("appointments")
