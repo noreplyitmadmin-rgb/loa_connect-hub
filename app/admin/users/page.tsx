@@ -340,7 +340,7 @@ export default function AdminUsersPage() {
                   const currentRoles = VALID_ROLES.filter((vr) => hasRole(u.role, vr))
                   const hasStudent = currentRoles.includes("STUDENT")
                   const hasNonStudent = currentRoles.some((r) => r !== "STUDENT" && r !== "GUEST" && STUDENT_BLOCKED.has(r))
-                  const isDefaultAdmin = u.email === "admin@econsult.com"
+                  const isDefaultAdmin = u.email === "admin@lyceumalabang.ph"
 
                   return (
                     <tr key={u.id} className="border-b border-slate-100">
@@ -350,9 +350,9 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-3 pr-4 relative">
                         <button
-                          onClick={() => setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
-                          disabled={changingRole === u.id}
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full border-0 cursor-pointer ${roleColors[u.role.split("|")[0]] || "bg-slate-100 text-slate-600"}`}
+                          onClick={() => !isDefaultAdmin && setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
+                          disabled={changingRole === u.id || isDefaultAdmin}
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-full border-0 ${isDefaultAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${roleColors[u.role.split("|")[0]] || "bg-slate-100 text-slate-600"}`}
                         >
                           {u.role.split("|").join(", ")}
                         </button>
@@ -424,33 +424,42 @@ export default function AdminUsersPage() {
                         {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "—"}
                       </td>
                       <td className="py-3 pr-4">
-                        <div className="flex items-center gap-1.5">
-                          <SubmitButton
-                            onClick={() => openEditModal(u)}
-                            variant="primary"
-                            className="text-[10px] font-semibold px-2 py-1 rounded-lg"
-                          >
-                            Edit
-                          </SubmitButton>
-                          {!isDefaultAdmin && (
+                        {isDefaultAdmin ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-lg bg-slate-100 text-slate-400 border border-slate-200">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Default
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
                             <SubmitButton
-                              onClick={() => handleToggle(u.id, u.isDisabled)}
-                              variant={u.isDisabled ? "primary" : "danger"}
+                              onClick={() => openEditModal(u)}
+                              variant="primary"
                               className="text-[10px] font-semibold px-2 py-1 rounded-lg"
                             >
-                              {u.isDisabled ? "Enable" : "Disable"}
+                              Edit
                             </SubmitButton>
-                          )}
-                          {!u.hasLoggedInBefore && !isDefaultAdmin && (
-                            <SubmitButton
-                              onClick={() => handleResetOnboarding(u.id)}
-                              variant="danger"
-                              className="text-[10px] font-semibold px-2 py-1 rounded-lg"
-                            >
-                              Reset
-                            </SubmitButton>
-                          )}
-                        </div>
+                            {!isDefaultAdmin && (
+                              <SubmitButton
+                                onClick={() => handleToggle(u.id, u.isDisabled)}
+                                variant={u.isDisabled ? "primary" : "danger"}
+                                className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                              >
+                                {u.isDisabled ? "Enable" : "Disable"}
+                              </SubmitButton>
+                            )}
+                            {!u.hasLoggedInBefore && !isDefaultAdmin && (
+                              <SubmitButton
+                                onClick={() => handleResetOnboarding(u.id)}
+                                variant="danger"
+                                className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                              >
+                                Reset
+                              </SubmitButton>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )
@@ -515,7 +524,7 @@ export default function AdminUsersPage() {
               value={editEmail}
               onChange={(e) => setEditEmail(e.target.value)}
               className="input text-sm w-full"
-              disabled={editUser.email === "admin@econsult.com"}
+              disabled={editUser.email === "admin@lyceumalabang.ph"}
             />
 
             <label className="block text-xs font-medium text-slate-700">Department</label>

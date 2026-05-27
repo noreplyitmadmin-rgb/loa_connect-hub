@@ -78,14 +78,12 @@ DB_PROVIDER=sqlite npm run dev
 
 ## Seed Accounts
 
-All passwords: `password123`
-
-| Role | Email | Activated |
-|------|-------|-----------|
-| Admin | admin@econsult.com | Yes |
-| Dean | regie@itmlyceumalabang.onmicrosoft.com | No |
-| Faculty | nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com | No |
-| Student | nin.alamo@outlook.com | No |
+| Role | Email | Password | Activated |
+|------|-------|----------|-----------|
+| Admin | admin@lyceumalabang.ph | `a7Kx9mPq4Rz2wY8b` | Yes |
+| Dean | regie@itmlyceumalabang.onmicrosoft.com | `password123` | No |
+| Faculty | nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com | `password123` | No |
+| Student | nin.alamo@outlook.com | `password123` | No |
 
 Non-activated accounts must use the activation flow at `/activate`.
 

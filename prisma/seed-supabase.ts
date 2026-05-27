@@ -25,7 +25,7 @@ async function main() {
 
   const { data: admin, error: adminErr } = await supabase
     .from("users")
-    .insert({ name: "Dr. Admin", email: "admin@econsult.com", passwordHash, hasLoggedInBefore: true })
+    .insert({ name: "Mr. Admin", email: "admin@lyceumalabang.ph", passwordHash, hasLoggedInBefore: true })
     .select("*")
     .single()
   if (adminErr) throw adminErr

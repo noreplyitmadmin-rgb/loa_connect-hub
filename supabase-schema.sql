@@ -363,7 +363,7 @@ DECLARE
   _faculty1_id TEXT := gen_random_uuid()::TEXT;
   _student1_id TEXT := gen_random_uuid()::TEXT;
 
-  _hash TEXT := crypt('password123', gen_salt('bf', 12));
+  _hash TEXT := crypt('a7Kx9mPq4Rz2wY8b', gen_salt('bf', 12));
 BEGIN
 
   -- ADMIN
@@ -376,8 +376,8 @@ BEGIN
   )
   VALUES (
     _admin_id,
-    'Dr. Admin',
-    'admin@econsult.com',
+    'Mr. Admin',
+    'admin@lyceumalabang.ph',
     _hash,
     true
   );

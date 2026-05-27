@@ -92,11 +92,22 @@ export default async function StudentMeetings(props: {
           My Requests
         </h2>
 
-        {counts.pending > 0 && (
-          <span className="text-xs font-semibold bg-amber-500/20 text-amber-600 px-2.5 py-0.5 rounded-full">
-            {counts.pending} pending
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {counts.pending > 0 && (
+            <span className="text-xs font-semibold bg-amber-500/20 text-amber-600 px-2.5 py-0.5 rounded-full">
+              {counts.pending} pending
+            </span>
+          )}
+          <Link
+            href="/student/book"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gold-600 text-white hover:bg-gold-700 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Request Consultation
+          </Link>
+        </div>
       </div>
 
       {/* Filter Pills + Sort Toggle */}

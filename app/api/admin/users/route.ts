@@ -4,7 +4,7 @@ import { userRepository, departmentRepository } from "@/lib/repositories/factory
 import { logAuditEvent } from "@/lib/services/audit"
 import { hasRole, getRoleList } from "@/lib/utils/roles"
 
-const DEFAULT_ADMIN_EMAIL = "admin@econsult.com"
+const DEFAULT_ADMIN_EMAIL = "admin@lyceumalabang.ph"
 const VALID_ROLES = ["STUDENT", "FACULTY", "DEAN", "ADMIN", "GUEST"]
 
 export async function GET() {
