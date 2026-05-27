@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import TeamsLinkForm from "@/components/TeamsLinkForm"
 import { useRouter } from "next/navigation"
 
-const router = useRouter()
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
@@ -109,6 +108,8 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   const now = useMemo(() => new Date(serverNow || Date.now()), [serverNow])
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
+  const router = useRouter()
+
 
   // Faculty selection
   const [primaryFacultyId, setPrimaryFacultyId] = useState<string | null>(
