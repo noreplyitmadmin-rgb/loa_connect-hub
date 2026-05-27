@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ConsultationsTimeline } from "@/components/ConsultationsTimeline"
 import { listFacultyAppointments } from "@/lib/controllers/appointments"
 import { userRepository, departmentRepository } from "@/lib/repositories/factory"
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
 
 export default async function DeanDashboard() {
   const session = await auth()
@@ -11,6 +12,8 @@ export default async function DeanDashboard() {
   if ((session.user as any).role !== "DEAN") redirect("/login")
 
   const deanId = (session.user as any).id
+  const dbUser = await userRepository.findById(deanId)
+  const needsOnboarding = dbUser?.onboardingVersion === 0
   const department = await departmentRepository.findByDeanId(deanId)
 
   const facultyUsers = department
@@ -53,6 +56,10 @@ export default async function DeanDashboard() {
   timelineEvents.sort((a, b) => a.date.localeCompare(b.date))
 
   return (
+    <>
+      {needsOnboarding && (
+        <OnboardingWalkthrough role="DEAN" userId={deanId} />
+      )}
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
       <div>
@@ -100,5 +107,6 @@ export default async function DeanDashboard() {
         <ConsultationsTimeline events={timelineEvents} variant="meetings" />
       </section>
     </div>
+    </>
   )
 }

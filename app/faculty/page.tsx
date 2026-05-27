@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { ConsultationsTimeline } from "@/components/ConsultationsTimeline"
 import { listFacultyAppointments } from "@/lib/controllers/appointments"
+import { userRepository } from "@/lib/repositories/factory"
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
 
 export default async function FacultyDashboard() {
   const session = await auth()
@@ -11,6 +13,8 @@ export default async function FacultyDashboard() {
   if (role !== "FACULTY" && role !== "DEAN") redirect("/login")
 
   const facultyId = (session.user as any).id
+  const dbUser = await userRepository.findById(facultyId)
+  const needsOnboarding = dbUser?.onboardingVersion === 0 && role === "FACULTY"
   const appointments = await listFacultyAppointments(facultyId)
 
   const upcomingCount = appointments.filter(
@@ -31,8 +35,11 @@ export default async function FacultyDashboard() {
   }))
 
   return (
+    <>
+      {needsOnboarding && (
+        <OnboardingWalkthrough role="FACULTY" userId={facultyId} />
+      )}
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="card p-5 bg-white">
           <p className="text-3xl font-bold text-slate-900">{upcomingCount}</p>
@@ -66,5 +73,6 @@ export default async function FacultyDashboard() {
         <ConsultationsTimeline events={timelineEvents} variant="meetings" />
       </section>
     </div>
+    </>
   )
 }

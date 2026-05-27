@@ -59,6 +59,8 @@ CREATE TABLE users (
 
   "tokenVersion" INTEGER NOT NULL DEFAULT 0,
 
+  "onboardingVersion" INTEGER NOT NULL DEFAULT 0,
+
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

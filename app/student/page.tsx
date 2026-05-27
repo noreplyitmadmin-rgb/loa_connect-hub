@@ -3,11 +3,17 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { ConsultationsTimeline } from "@/components/ConsultationsTimeline"
 import { listStudentAppointments } from "@/lib/controllers/appointments"
+import { userRepository } from "@/lib/repositories/factory"
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
 
 export default async function StudentDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
   if ((session.user as any).role !== "STUDENT") redirect("/login")
+
+  const userId = (session.user as any).id
+  const dbUser = await userRepository.findById(userId)
+  const needsOnboarding = dbUser?.onboardingVersion === 0
 
   const appointments = await listStudentAppointments((session.user as any).id)
 
@@ -27,8 +33,11 @@ export default async function StudentDashboard() {
   }))
 
   return (
-      // <div className="p-6 md:p-8 max-w-6xl">
-    <div className="max-w-6xl mx-auto space-y-8 pb-12"> 
+    <>
+      {needsOnboarding && (
+        <OnboardingWalkthrough role="STUDENT" userId={userId} />
+      )}
+      <div className="max-w-6xl mx-auto space-y-8 pb-12"> 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="card p-5 bg-white">
@@ -63,5 +72,6 @@ export default async function StudentDashboard() {
         <ConsultationsTimeline events={timelineEvents} />
       </section>
     </div>
+    </>
   )
 }

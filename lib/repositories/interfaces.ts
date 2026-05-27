@@ -10,6 +10,7 @@ export interface UserData {
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null
   tokenVersion: number
+  onboardingVersion: number
   createdAt: Date
 }
 
