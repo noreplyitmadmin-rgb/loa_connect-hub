@@ -229,15 +229,16 @@ export default async function MeetingsPage(props: {
                       </svg>
                       {meeting.startTime} &ndash; {meeting.endTime}
                     </span>
-                    <span className="flex items-center gap-1.5 text-slate-400">
+                    {/* TODO: Add back participant status counts if needed */}
+                    {/* <span className="flex items-center gap-1.5 text-slate-400">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
                       </svg>
                       {acceptedCount}/{participantCount} accepted
-                    </span>
+                    </span> */}
                   </div>
                 </div>
-                <div className="flex -space-x-2 shrink-0">
+                {/* <div className="flex -space-x-2 shrink-0">
                   {meeting.participants?.slice(0, 4).map((p: any) => (
                     <div
                       key={p.id}
@@ -249,7 +250,7 @@ export default async function MeetingsPage(props: {
                       {getInitial(p.user?.name || "")}
                     </div>
                   ))}
-                </div>
+                </div> */}
               </Link>
             )
           })}
