@@ -5,6 +5,7 @@ import { StatusBadge } from "./StatusBadge"
 import { TeamsLinkInput } from "./TeamsLinkInput"
 import Link from "next/link"
 import SubmitButton from "@/components/SubmitButton"
+import { hasRole } from "@/lib/utils/roles"
 
 interface TimeSlot {
   id: string
@@ -23,7 +24,7 @@ interface AppointmentCardProps {
     endTime: string
     title?: string | null
     description?: string | null
-    meetingType?: "CONSULTATION" | "INTERNAL" | string
+    meetingType?: string
     teamsLink: string | null
     teamsSyncStatus?: string
     teamsSyncRetries?: number
@@ -34,7 +35,7 @@ interface AppointmentCardProps {
     attendees?: Array<{ id: string; userId: string; status: string; isMandatory?: boolean; user?: { name: string; email: string } }>
     timeSlots?: TimeSlot[]
   }
-  role: "STUDENT" | "FACULTY"
+  role: string
 }
 
 const avatarGradients: Record<string, string> = {
@@ -127,12 +128,8 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={effectiveStatus} />
             {(appointment as any).meetingType && (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                (appointment as any).meetingType === "CONSULTATION"
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-purple-50 text-purple-700 border-purple-200"
-              }`}>
-                {(appointment as any).meetingType === "CONSULTATION" ? "Consultation" : "Internal"}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-700 border-blue-200">
+                Consultation
               </span>
             )}
 
@@ -151,7 +148,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
             )}
           </div>
 
-          {role === "STUDENT" && appointment.faculty && (
+          {hasRole(role, "STUDENT") && appointment.faculty && (
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getAvatarClass(appointment.faculty.name)} flex items-center justify-center text-sm font-bold shadow-sm shrink-0`}>
                 {getInitial(appointment.faculty.name)}
@@ -162,7 +159,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
               </div>
             </div>
           )}
-          {role === "FACULTY" && appointment.student && (
+          {hasRole(role, "FACULTY") && appointment.student && (
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getAvatarClass(appointment.student.name)} flex items-center justify-center text-sm font-bold shadow-sm shrink-0`}>
                 {getInitial(appointment.student.name)}
@@ -256,7 +253,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
           </p>
         </div>
 
-        {role === "STUDENT" && effectiveStatus === "PENDING" && (
+        {hasRole(role, "STUDENT") && effectiveStatus === "PENDING" && (
           <div className="shrink-0 self-end md:self-center">
             <SubmitButton
               onClick={async () => {
@@ -287,7 +284,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
           </div>
         )}
 
-        {role === "FACULTY" && effectiveStatus === "PENDING" && (
+        {hasRole(role, "FACULTY") && effectiveStatus === "PENDING" && (
           <div className="flex md:flex-col lg:flex-row gap-2 shrink-0 self-end md:self-center">
             <SubmitButton
               onClick={() => handleAction("accept")}
@@ -308,7 +305,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
           </div>
         )}
 
-        {role === "FACULTY" && effectiveStatus === "APPROVED" && (
+        {hasRole(role, "FACULTY") && effectiveStatus === "APPROVED" && (
           <div className="flex flex-col gap-3 shrink-0 self-stretch md:self-center md:max-w-xs w-full">
             <div className="flex gap-2">
               <SubmitButton
@@ -374,7 +371,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
 
       <div className="mt-4 pt-3 border-t border-slate-100">
         <Link
-          href={role === "STUDENT" ? `/student/meetings/${appointment.id}` : `/appointments/${appointment.id}`}
+          href={hasRole(role, "STUDENT") ? `/student/meetings/${appointment.id}` : `/appointments/${appointment.id}`}
           className="text-xs font-semibold text-gold-600 hover:text-gold-700 inline-flex items-center gap-1"
         >
           View Details

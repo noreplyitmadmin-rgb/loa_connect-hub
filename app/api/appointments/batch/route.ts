@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { requestAppointment } from "@/lib/controllers/appointments"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
   const role = (session.user as any).role
   const currentUserId = (session.user as any).id
 
-  if (role !== "STUDENT" && role !== "FACULTY" && role !== "DEAN") {
+  if (!hasRole(role, "STUDENT") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
   // ✅ FIX: determine student correctly
   let studentId: string = ""
 
-  if (role === "STUDENT") {
+  if (hasRole(role, "STUDENT")) {
     // Creator is student → NOT stored as studentId
     studentId = "";
   } else {

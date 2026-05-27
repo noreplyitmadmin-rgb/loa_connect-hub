@@ -9,6 +9,7 @@ import { TeamsLinkInput } from "@/components/TeamsLinkInput"
 import TeamsLinkForm from "@/components/TeamsLinkForm"
 import AppointmentDetailSkeleton from "@/components/AppointmentDetailSkeleton"
 import type { AppointmentDetailDto } from "@/lib/dtos/Appointments"
+import { hasRole } from "@/lib/utils/roles"
 
 function getInitial(name: string) {
   return name?.charAt(0)?.toUpperCase() || "?"
@@ -249,9 +250,9 @@ export default function AppointmentDetail() {
     </div>
   )
 
-  const isStudent = role === "STUDENT" && appointment.student?.id === userId
-  const isFaculty = role === "FACULTY" && appointment.faculty?.id === userId
-  const isDean = role === "DEAN" && appointment.faculty?.id === userId
+  const isStudent = hasRole(role, "STUDENT") && appointment.student?.id === userId
+  const isFaculty = hasRole(role, "FACULTY") && appointment.faculty?.id === userId
+  const isDean = hasRole(role, "DEAN") && appointment.faculty?.id === userId
   const isOrganizer = !!(appointment.organizer && userEmail && appointment.organizer.email === userEmail)
   const studentIsOrganizer = !!(appointment.organizer && appointment.student?.email === appointment.organizer.email)
   const facultyIsOrganizer = !!(appointment.organizer && appointment.faculty?.email === appointment.organizer.email)
@@ -268,12 +269,8 @@ export default function AppointmentDetail() {
           </h1>
           <div className="flex items-center gap-2">
             {appointment.meetingType && (
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                appointment.meetingType === "CONSULTATION"
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-purple-50 text-purple-700 border-purple-200"
-              }`}>
-                {appointment.meetingType === "CONSULTATION" ? "Consultation" : "Internal"}
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border bg-blue-50 text-blue-700 border-blue-200">
+                Consultation
               </span>
             )}
             { (isFaculty || isDean)  && isOrganizer ? (
@@ -336,7 +333,7 @@ export default function AppointmentDetail() {
         )}
 
         {/* Microsoft Teams Links (input: only before accept) */}
-        {(role === "FACULTY" || role === "DEAN") && effectiveStatus === "PENDING" && showTeamsLinkForm && (
+        {(hasRole(role, "FACULTY") || hasRole(role, "DEAN")) && effectiveStatus === "PENDING" && showTeamsLinkForm && (
           <TeamsLinkForm
             teamsLinkMode={teamsLinkMode}
             onModeChange={setTeamsLinkMode}
@@ -666,7 +663,7 @@ export default function AppointmentDetail() {
           )}
 
           {/* Faculty/Dean: retry Teams sync */}
-          {(role === "FACULTY" || role === "DEAN") && effectiveStatus === "APPROVED" && appointment.teamsSyncStatus === "FAILED" && (
+          {(hasRole(role, "FACULTY") || hasRole(role, "DEAN")) && effectiveStatus === "APPROVED" && appointment.teamsSyncStatus === "FAILED" && (
             <SubmitButton
               onClick={() => handleAction("retry-sync", `/api/appointments/${appointmentId}/retry-sync`)}
               loading={actionLoading === "retry-sync"}

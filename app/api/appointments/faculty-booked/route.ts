@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { getFacultyBookedAppointments } from "@/lib/controllers/appointments"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
 
   const role = (session.user as any).role
-  if (role !== "STUDENT") {
+  if (!hasRole(role, "STUDENT")) {
     return NextResponse.json({ error: "Only students can check faculty availability" }, { status: 403 })
   }
 

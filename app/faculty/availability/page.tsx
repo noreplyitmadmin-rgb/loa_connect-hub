@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
 import { redirect } from "next/navigation"
+import { hasRole } from "@/lib/utils/roles"
 
 const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -51,7 +52,7 @@ export default function AvailabilityPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") redirect("/login")
-    if (status === "authenticated" && (session?.user as any)?.role !== "FACULTY" && (session?.user as any)?.role !== "DEAN") redirect("/login")
+    if (status === "authenticated" && !hasRole((session?.user as any)?.role, "FACULTY") && !hasRole((session?.user as any)?.role, "DEAN")) redirect("/login")
 
     if (status === "authenticated") {
       fetch("/api/availability-rules")

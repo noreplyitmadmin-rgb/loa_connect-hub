@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import SubmitButton from "@/components/SubmitButton"
+import { hasRole } from "@/lib/utils/roles"
 
 type ImportType = "users" | "students"
 
@@ -182,8 +183,8 @@ export default function DeanUploadPage() {
                         <td className="py-2 pr-4 text-slate-600 text-xs">{u.email}</td>
                         <td className="py-2 pr-4">
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            u.role === "DEAN" ? "bg-amber-100 text-amber-700" :
-                            u.role === "FACULTY" ? "bg-emerald-100 text-emerald-700" :
+                            hasRole(u.role, "DEAN") ? "bg-amber-100 text-amber-700" :
+                            hasRole(u.role, "FACULTY") ? "bg-emerald-100 text-emerald-700" :
                             "bg-blue-100 text-blue-700"
                           }`}>{u.role}</span>
                         </td>

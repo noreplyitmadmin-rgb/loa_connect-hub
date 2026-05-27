@@ -3,14 +3,11 @@
 -- Consolidated Supabase/Postgres Schema
 -- =========================================================
 
-BEGIN;
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 -- =========================================================
--- DROP TABLES (reverse dependency order)
+-- 1. DROP ALL TABLES (reverse dependency order)
 -- =========================================================
 
+DROP TABLE IF EXISTS userrole CASCADE;
 DROP TABLE IF EXISTS appointment_time_slots CASCADE;
 DROP TABLE IF EXISTS appointment_attendees CASCADE;
 DROP TABLE IF EXISTS faculty_availability_rules CASCADE;
@@ -21,53 +18,56 @@ DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS verification_tokens CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS role CASCADE;
 DROP TABLE IF EXISTS departments CASCADE;
+DROP TABLE IF EXISTS internal_meeting_participants;
+DROP TABLE IF EXISTS internal_meetings;
 
 -- =========================================================
--- DEPARTMENTS
+-- 2. REFERENCE / LOOKUP TABLES
 -- =========================================================
 
-CREATE TABLE departments (
+CREATE TABLE IF NOT EXISTS departments (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   name TEXT NOT NULL,
   code TEXT NOT NULL UNIQUE,
   "deanId" TEXT
 );
 
+CREATE TABLE IF NOT EXISTS role (
+  name TEXT PRIMARY KEY
+);
+
+INSERT INTO role (name) VALUES
+  ('ADMIN'), ('DEAN'), ('FACULTY'), ('STUDENT'), ('GUEST')
+ON CONFLICT (name) DO NOTHING;
+
 -- =========================================================
--- USERS
+-- 3. CORE ENTITY TABLES
 -- =========================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   "passwordHash" TEXT,
-
-  role TEXT NOT NULL DEFAULT 'STUDENT'
-    CHECK (role IN ('STUDENT','FACULTY','DEAN','ADMIN','GUEST')),
-
   "departmentId" TEXT,
-
   course TEXT,
-
   "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE,
   "hasLoggedInBefore" BOOLEAN NOT NULL DEFAULT FALSE,
-
   "lastLoginAt" TIMESTAMPTZ,
-
   "tokenVersion" INTEGER NOT NULL DEFAULT 0,
-
   "onboardingVersion" INTEGER NOT NULL DEFAULT 0,
-
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =========================================================
--- CIRCULAR FOREIGN KEYS
--- =========================================================
+CREATE TABLE IF NOT EXISTS userrole (
+  "userId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "roleName" TEXT NOT NULL REFERENCES role(name) ON DELETE CASCADE,
+  PRIMARY KEY ("userId", "roleName")
+);
 
+-- Circular FK between departments and users
 ALTER TABLE departments
 ADD CONSTRAINT fk_departments_dean
 FOREIGN KEY ("deanId")
@@ -83,10 +83,10 @@ ON DELETE SET NULL
 DEFERRABLE;
 
 -- =========================================================
--- APPOINTMENTS
+-- 4. WORKING / TRANSACTIONAL TABLES
 -- =========================================================
 
-CREATE TABLE appointments (
+CREATE TABLE IF NOT EXISTS appointments (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "studentId" TEXT NOT NULL
@@ -149,14 +149,7 @@ CREATE TABLE appointments (
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =========================================================
--- APPOINTMENT TIME SLOTS
--- IMPORTANT:
--- FK enables PostgREST embedding:
--- appointment_time_slots -> appointments
--- =========================================================
-
-CREATE TABLE appointment_time_slots (
+CREATE TABLE IF NOT EXISTS appointment_time_slots (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "appointmentId" TEXT NOT NULL
@@ -176,11 +169,7 @@ CREATE TABLE appointment_time_slots (
     UNIQUE ("appointmentId", date, "startTime")
 );
 
--- =========================================================
--- APPOINTMENT ATTENDEES
--- =========================================================
-
-CREATE TABLE appointment_attendees (
+CREATE TABLE IF NOT EXISTS appointment_attendees (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "appointmentId" TEXT NOT NULL
@@ -206,11 +195,7 @@ CREATE TABLE appointment_attendees (
     UNIQUE ("appointmentId", "userId")
 );
 
--- =========================================================
--- APPOINTMENT FILES (screen captures, attachments)
--- =========================================================
-
-CREATE TABLE appointment_files (
+CREATE TABLE IF NOT EXISTS appointment_files (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "appointmentId" TEXT NOT NULL
@@ -225,14 +210,7 @@ CREATE TABLE appointment_files (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_appointment_files_appointment
-  ON appointment_files("appointmentId");
-
--- =========================================================
--- FACULTY AVAILABILITY
--- =========================================================
-
-CREATE TABLE faculty_availability_rules (
+CREATE TABLE IF NOT EXISTS faculty_availability_rules (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "facultyId" TEXT NOT NULL
@@ -253,11 +231,7 @@ CREATE TABLE faculty_availability_rules (
     UNIQUE ("facultyId", "dayOfWeek", "startDate")
 );
 
--- =========================================================
--- PASSWORD RESET TOKENS
--- =========================================================
-
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   email TEXT NOT NULL,
@@ -271,10 +245,10 @@ CREATE TABLE password_reset_tokens (
 );
 
 -- =========================================================
--- NEXTAUTH ACCOUNTS
+-- 5. NEXTAUTH TABLES
 -- =========================================================
 
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "userId" TEXT NOT NULL
@@ -300,11 +274,7 @@ CREATE TABLE accounts (
     UNIQUE (provider, "providerAccountId")
 );
 
--- =========================================================
--- NEXTAUTH SESSIONS
--- =========================================================
-
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "sessionToken" TEXT NOT NULL UNIQUE,
@@ -316,11 +286,7 @@ CREATE TABLE sessions (
   expires TIMESTAMPTZ NOT NULL
 );
 
--- =========================================================
--- NEXTAUTH VERIFICATION TOKENS
--- =========================================================
-
-CREATE TABLE verification_tokens (
+CREATE TABLE IF NOT EXISTS verification_tokens (
   identifier TEXT NOT NULL,
 
   token TEXT NOT NULL UNIQUE,
@@ -331,11 +297,7 @@ CREATE TABLE verification_tokens (
     UNIQUE (identifier, token)
 );
 
--- =========================================================
--- AUDIT LOGS
--- =========================================================
-
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
 
   "userId" TEXT,
@@ -350,41 +312,47 @@ CREATE TABLE audit_logs (
 );
 
 -- =========================================================
--- INDEXES
+-- 6. INDEXES
 -- =========================================================
 
-CREATE INDEX idx_appointments_student
+CREATE INDEX IF NOT EXISTS idx_appointments_student
   ON appointments("studentId");
 
-CREATE INDEX idx_appointments_faculty
+CREATE INDEX IF NOT EXISTS idx_appointments_faculty
   ON appointments("facultyId");
 
-CREATE INDEX idx_appointments_status
+CREATE INDEX IF NOT EXISTS idx_appointments_status
   ON appointments(status);
 
-CREATE INDEX idx_timeslot_appointment
+CREATE INDEX IF NOT EXISTS idx_timeslot_appointment
   ON appointment_time_slots("appointmentId");
 
-CREATE INDEX idx_timeslot_date
+CREATE INDEX IF NOT EXISTS idx_timeslot_date
   ON appointment_time_slots(date);
 
-CREATE INDEX idx_availability_faculty
+CREATE INDEX IF NOT EXISTS idx_availability_faculty
   ON faculty_availability_rules("facultyId");
 
-CREATE INDEX idx_users_email
+CREATE INDEX IF NOT EXISTS idx_users_email
   ON users(email);
 
-CREATE INDEX idx_users_role
-  ON users(role);
+CREATE INDEX IF NOT EXISTS idx_userrole_user
+  ON userrole("userId");
 
-CREATE INDEX idx_users_department
+CREATE INDEX IF NOT EXISTS idx_userrole_role
+  ON userrole("roleName");
+
+CREATE INDEX IF NOT EXISTS idx_users_department
   ON users("departmentId");
 
-CREATE INDEX idx_password_reset_tokens_token
+CREATE INDEX IF NOT EXISTS idx_appointment_files_appointment
+  ON appointment_files("appointmentId");
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token
   ON password_reset_tokens(token);
 
 -- =========================================================
--- SEED DATA
+-- 7. SEED DATA
 -- =========================================================
 
 DO $$
@@ -404,7 +372,6 @@ BEGIN
     name,
     email,
     "passwordHash",
-    role,
     "hasLoggedInBefore"
   )
   VALUES (
@@ -412,25 +379,26 @@ BEGIN
     'Dr. Admin',
     'admin@econsult.com',
     _hash,
-    'ADMIN',
     true
   );
+
+  INSERT INTO userrole ("userId", "roleName") VALUES (_admin_id, 'ADMIN');
 
   -- DEAN
   INSERT INTO users (
     id,
     name,
     email,
-    "passwordHash",
-    role
+    "passwordHash"
   )
   VALUES (
     _dean_id,
     'Regie Ellana',
     'regie@itmlyceumalabang.onmicrosoft.com',
-    _hash,
-    'DEAN'
+    _hash
   );
+
+  INSERT INTO userrole ("userId", "roleName") VALUES (_dean_id, 'DEAN');
 
   -- DEPARTMENT
   INSERT INTO departments (
@@ -456,7 +424,6 @@ BEGIN
     name,
     email,
     "passwordHash",
-    role,
     "departmentId"
   )
   VALUES (
@@ -464,25 +431,26 @@ BEGIN
     'Nin Alamo',
     'nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com',
     _hash,
-    'FACULTY',
     _dept_id
   );
+
+  INSERT INTO userrole ("userId", "roleName") VALUES (_faculty1_id, 'FACULTY');
 
   -- STUDENT
   INSERT INTO users (
     id,
     name,
     email,
-    "passwordHash",
-    role
+    "passwordHash"
   )
   VALUES (
     _student1_id,
     'Nino Francisco Alamo',
     'nin.alamo@outlook.com',
-    _hash,
-    'STUDENT'
+    _hash
   );
+
+  INSERT INTO userrole ("userId", "roleName") VALUES (_student1_id, 'STUDENT');
 
   -- FACULTY AVAILABILITY
   FOR i IN 0..6 LOOP
@@ -506,10 +474,8 @@ BEGIN
 
 END $$;
 
-COMMIT;
-
 -- =========================================================
--- POST-SCHEMA MIGRATIONS
+-- 8. POST-SCHEMA MIGRATIONS
 -- Apply these *after* the main schema above, against an
 -- existing database that needs to be upgraded.
 -- =========================================================
@@ -602,5 +568,63 @@ BEGIN;
 
 ALTER TABLE appointments
 ALTER COLUMN "studentId" DROP NOT NULL;
+
+COMMIT;
+
+-- =========================================================
+-- Migration 7: Remove role CHECK constraint for multi-role support
+-- =========================================================
+
+BEGIN;
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+
+COMMIT;
+
+-- =========================================================
+-- Migration 8: Create role + userrole tables, migrate existing data
+-- Run this after the main schema (or against an existing DB)
+-- to move role data from users.role into userrole.
+--
+-- Uses EXCEPTION-based approach — tries the migration and
+-- gracefully catches "column does not exist" errors.
+-- This avoids schema-scope pitfalls with information_schema.
+-- =========================================================
+
+BEGIN;
+
+-- Create role table if not exists (idempotent for fresh schema runs)
+CREATE TABLE IF NOT EXISTS role (
+  name TEXT PRIMARY KEY
+);
+
+INSERT INTO role (name) VALUES
+  ('ADMIN'), ('DEAN'), ('FACULTY'), ('STUDENT'), ('GUEST')
+ON CONFLICT (name) DO NOTHING;
+
+-- Create userrole table if not exists
+CREATE TABLE IF NOT EXISTS userrole (
+  "userId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "roleName" TEXT NOT NULL REFERENCES role(name) ON DELETE CASCADE,
+  PRIMARY KEY ("userId", "roleName")
+);
+
+-- Migrate existing users.role data into userrole
+-- Uses EXECUTE + EXCEPTION: if the `role` column doesn't exist
+-- (fresh schema), the error is caught and migration is skipped.
+DO $$
+BEGIN
+  EXECUTE '
+    INSERT INTO userrole ("userId", "roleName")
+    SELECT id, role FROM users
+    WHERE role IS NOT NULL
+    ON CONFLICT ("userId", "roleName") DO NOTHING;
+  ';
+  DROP INDEX IF EXISTS idx_users_role;
+  ALTER TABLE users DROP COLUMN IF EXISTS role;
+EXCEPTION
+  WHEN undefined_column THEN
+    RAISE NOTICE 'Migration 8: column "role" does not exist on users — skipping data migration';
+END $$;
 
 COMMIT;

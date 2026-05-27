@@ -1,4 +1,4 @@
-export type Role = "STUDENT" | "FACULTY" | "DEAN" | "ADMIN" | "GUEST"
+export type Role = string
 export type AppointmentStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED" | "CANCELLED"
 export type TeamsSyncStatus = "UNWRITTEN" | "WRITTEN" | "FAILED"
 export type MeetingStatus = "CONFIRMED" | "CANCELLED"

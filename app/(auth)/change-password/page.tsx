@@ -2,23 +2,25 @@
 
 import SubmitButton from "@/components/SubmitButton"
 import { useState, FormEvent, use, useEffect } from "react"
-import { signIn } from "next-auth/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface ChangePasswordProps {
-  searchParams: Promise<{ token?: string; callbackUrl?: string }>
+  searchParams: Promise<{ token?: string }>
 }
 
 export default function ChangePasswordPage({ searchParams }: ChangePasswordProps) {
+  const router = useRouter()
   const params = use(searchParams)
   const token = params.token
-  const callbackUrl = params.callbackUrl || "/"
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [validating, setValidating] = useState(true)
+  const [success, setSuccess] = useState(false)
+  const [successName, setSuccessName] = useState("")
 
   useEffect(() => {
     if (!token) {
@@ -74,6 +76,33 @@ export default function ChangePasswordPage({ searchParams }: ChangePasswordProps
     )
   }
 
+  if (success) {
+    return (
+      <div className="w-full max-w-sm space-y-6">
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold text-emerald-800 mb-1">Password Set!</h2>
+          <p className="text-sm text-emerald-700">
+            {successName ? `Welcome, ${successName}! ` : ""}Your password has been saved and a confirmation email has been sent to your inbox.
+          </p>
+          <p className="text-xs text-emerald-600 mt-3">
+            If you did not authorize this change, contact your administrator immediately.
+          </p>
+        </div>
+        <Link
+          href="/login"
+          className="block text-center w-full py-2.5 rounded-lg bg-gold-600 text-white text-sm font-semibold hover:bg-gold-700 transition-colors"
+        >
+          Go to Login
+        </Link>
+      </div>
+    )
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (loading) return
@@ -105,11 +134,8 @@ export default function ChangePasswordPage({ searchParams }: ChangePasswordProps
         return
       }
 
-      await signIn("credentials", {
-        email: data.email,
-        password,
-        callbackUrl,
-      })
+      setSuccessName(data.name || "")
+      setSuccess(true)
     } catch {
       setError("Network error. Please try again.")
     } finally {

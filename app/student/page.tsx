@@ -5,11 +5,12 @@ import { ConsultationsTimeline } from "@/components/ConsultationsTimeline"
 import { listStudentAppointments } from "@/lib/controllers/appointments"
 import { userRepository } from "@/lib/repositories/factory"
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
+import { hasRole } from "@/lib/utils/roles"
 
 export default async function StudentDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session.user as any).role !== "STUDENT") redirect("/login")
+  if (!hasRole((session.user as any).role, "STUDENT")) redirect("/login")
 
   const userId = (session.user as any).id
   const dbUser = await userRepository.findById(userId)

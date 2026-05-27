@@ -5,6 +5,7 @@ import { AppointmentCard } from "@/components/AppointmentCard"
 import { FacultyAppointmentTabs } from "@/components/FacultyAppointmentTabs"
 import { listStudentAppointments } from "@/lib/controllers/appointments"
 import { getWeekRange, getMonthRange } from "@/lib/utils/date"
+import { hasRole } from "@/lib/utils/roles"
 
 const filterLabels: Record<string, string> = {
   all: "All Consultations",
@@ -18,7 +19,7 @@ export default async function StudentMeetings(props: {
   const session = await auth()
 
   if (!session?.user) redirect("/login")
-  if ((session.user as any).role !== "STUDENT") redirect("/login")
+  if (!hasRole((session.user as any).role, "STUDENT")) redirect("/login")
 
   const searchParams = await props.searchParams
   const hasQueryParams = !!searchParams && Object.keys(searchParams).length > 0

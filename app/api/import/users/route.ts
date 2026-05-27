@@ -4,6 +4,7 @@ import { parseCsv, getCsvTemplate } from "@/lib/services/csvParser"
 import { importUsers } from "@/lib/services/userImport"
 import { departmentRepository } from "@/lib/repositories/factory"
 import { logAuditEvent } from "@/lib/services/audit"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function GET() {
   const csv = getCsvTemplate("full")
@@ -18,7 +19,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await auth()
   const role = (session?.user as any)?.role
-  if (!role || (role !== "DEAN" && role !== "ADMIN")) {
+  if (!role || (!hasRole(role, "DEAN") && !hasRole(role, "ADMIN"))) {
     return NextResponse.json({ error: "Unauthorized — Dean or Admin only" }, { status: 403 })
   }
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   const userId = (session!.user as any).id
   let departmentId: string | null = null
-  if (role === "DEAN") {
+  if (hasRole(role, "DEAN")) {
     const dept = await departmentRepository.findByDeanId(userId)
     departmentId = dept?.id ?? null
   }

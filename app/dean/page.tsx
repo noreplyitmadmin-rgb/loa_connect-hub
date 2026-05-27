@@ -5,11 +5,12 @@ import { ConsultationsTimeline } from "@/components/ConsultationsTimeline"
 import { listFacultyAppointments } from "@/lib/controllers/appointments"
 import { userRepository, departmentRepository } from "@/lib/repositories/factory"
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
+import { hasRole } from "@/lib/utils/roles"
 
 export default async function DeanDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session.user as any).role !== "DEAN") redirect("/login")
+  if (!hasRole((session.user as any).role, "DEAN")) redirect("/login")
 
   const deanId = (session.user as any).id
   const dbUser = await userRepository.findById(deanId)
@@ -21,7 +22,7 @@ export default async function DeanDashboard() {
     : []
 
   const facultyMembers = facultyUsers.filter(
-    (u: any) => u.role === "FACULTY" || u.role === "DEAN"
+    (u: any) => hasRole(u.role, "FACULTY") || hasRole(u.role, "DEAN")
   )
 
   let upcomingCount = 0

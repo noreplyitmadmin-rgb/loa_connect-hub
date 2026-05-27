@@ -8,51 +8,162 @@ import type {
   IAvailabilityRuleRepository, IPasswordResetTokenRepository, IAuditLogRepository, IReportsRepository,
 } from "./interfaces"
 
+const USER_SELECT = "*, userrole(roleName)"
+
+function toUserWithRole(item: any): UserData {
+  const roles = item.userrole?.map((r: any) => r.roleName) || []
+  const { userrole, ...rest } = item
+  return { ...rest, role: roles.length > 0 ? roles.join("|") : "GUEST" } as UserData
+}
+
+function toUsersWithRoles(items: any[]): UserData[] {
+  return (items || []).map(toUserWithRole)
+}
+
 async function singleQuery<T>(builder: any): Promise<T | null> {
   const { data, error } = await builder.single()
   if (error) {
-    if (error.code === "PGRST116") return null // not found
+    if (error.code === "PGRST116") return null
     throw error
   }
   return data as T
 }
 
+async function singleQueryWithRoles(builder: any): Promise<UserData | null> {
+  const { data, error } = await builder.single()
+  if (error) {
+    if (error.code === "PGRST116") return null
+    throw error
+  }
+  return toUserWithRole(data)
+}
+
+/**
+ * Execute a query with userrole embedding. If the userrole table doesn't
+ * exist yet (migration not run), fall back to selecting without roles.
+ */
+function isMissingUserrole(err: any): boolean {
+  return err?.message?.includes('relation "userrole" does not exist') || err?.message?.includes('"userrole"')
+}
+
 export const userRepository: IUserRepository = {
   async findByEmail(email) {
-    return singleQuery<UserData>(supabase.from("users").select("*").eq("email", email))
+    try {
+      return await singleQueryWithRoles(supabase.from("users").select(USER_SELECT).eq("email", email))
+    } catch (err) {
+      if (isMissingUserrole(err)) {
+        const { data } = await supabase.from("users").select("*").eq("email", email).single()
+        return data ? { ...data, role: "GUEST" } as UserData : null
+      }
+      throw err
+    }
   },
   async findById(id) {
-    return singleQuery<UserData>(supabase.from("users").select("*").eq("id", id))
+    try {
+      return await singleQueryWithRoles(supabase.from("users").select(USER_SELECT).eq("id", id))
+    } catch (err) {
+      if (isMissingUserrole(err)) {
+        const { data } = await supabase.from("users").select("*").eq("id", id).single()
+        return data ? { ...data, role: "GUEST" } as UserData : null
+      }
+      throw err
+    }
   },
   async create(input) {
-    const { data, error } = await supabase.from("users").insert(input).select("*").single()
+    const { role, ...userFields } = input as any
+    const { data, error } = await supabase.from("users").insert(userFields).select("*").single()
     if (error) throw error
-    return data as UserData
+
+    // Insert role(s)
+    if (role) {
+      const roleNames = role.split("|")
+      for (const roleName of roleNames) {
+        const { error: roleErr } = await supabase.from("userrole").insert({ userId: data.id, roleName })
+        if (roleErr) throw roleErr
+      }
+    }
+
+    // Re-fetch with roles attached
+    const { data: withRoles } = await supabase.from("users").select(USER_SELECT).eq("id", data.id).single()
+    return toUserWithRole(withRoles)
   },
   async listByRole(role) {
-    const { data, error } = await supabase.from("users").select("*").eq("role", role)
-    if (error) throw error
-    return data as UserData[]
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select(USER_SELECT)
+        .eq("userrole.roleName", role)
+      if (error) throw error
+      return toUsersWithRoles(data)
+    } catch (err) {
+      if (isMissingUserrole(err)) {
+        console.warn("[repo] userrole table not found — listByRole returns empty")
+        return []
+      }
+      throw err
+    }
   },
   async listByDepartment(departmentId) {
-    const { data, error } = await supabase.from("users").select("*").eq("departmentId", departmentId)
-    if (error) throw error
-    return data as UserData[]
+    try {
+      const { data, error } = await supabase.from("users").select(USER_SELECT).eq("departmentId", departmentId)
+      if (error) throw error
+      return toUsersWithRoles(data)
+    } catch (err) {
+      if (isMissingUserrole(err)) {
+        const { data } = await supabase.from("users").select("*").eq("departmentId", departmentId)
+        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+      }
+      throw err
+    }
   },
   async listByIds(ids) {
-    const { data, error } = await supabase.from("users").select("*").in("id", ids)
-    if (error) throw error
-    return data as UserData[]
+    try {
+      const { data, error } = await supabase.from("users").select(USER_SELECT).in("id", ids)
+      if (error) throw error
+      return toUsersWithRoles(data)
+    } catch (err) {
+      if (isMissingUserrole(err)) {
+        const { data } = await supabase.from("users").select("*").in("id", ids)
+        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+      }
+      throw err
+    }
   },
   async listAll() {
-    const { data, error } = await supabase.from("users").select("*").order("createdAt", { ascending: false })
-    if (error) throw error
-    return data as UserData[]
+    try {
+      const { data, error } = await supabase.from("users").select(USER_SELECT).order("createdAt", { ascending: false })
+      if (error) throw error
+      return toUsersWithRoles(data)
+    } catch (err) {
+      if (isMissingUserrole(err)) {
+        const { data } = await supabase.from("users").select("*").order("createdAt", { ascending: false })
+        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+      }
+      throw err
+    }
   },
   async update(id, data) {
-    const { data: updated, error } = await supabase.from("users").update(data).eq("id", id).select("*").single()
-    if (error) throw error
-    return updated as UserData
+    const { role, ...userFields } = data as any
+    // Update user fields (without role)
+    if (Object.keys(userFields).length > 0) {
+      const { error } = await supabase.from("users").update(userFields).eq("id", id)
+      if (error) throw error
+    }
+    // Update roles if provided
+    if (role) {
+      // Delete existing roles and re-insert
+      const { error: delErr } = await supabase.from("userrole").delete().eq("userId", id)
+      if (delErr) throw delErr
+      const roleNames = role.split("|")
+      for (const roleName of roleNames) {
+        const { error: roleErr } = await supabase.from("userrole").insert({ userId: id, roleName })
+        if (roleErr) throw roleErr
+      }
+    }
+    // Re-fetch with roles
+    const { data: updated, error: fetchErr } = await supabase.from("users").select(USER_SELECT).eq("id", id).single()
+    if (fetchErr) throw fetchErr
+    return toUserWithRole(updated)
   },
 }
 
@@ -440,12 +551,9 @@ export const auditLogRepository: IAuditLogRepository = {
 export const reportsRepository: IReportsRepository = {
   async getDepartmentConsultationStats(departmentId, filters) {
     // 1. Fetch all FACULTY users in this department
-    const { data: facultyUsers, error: facultyError } = await supabase
-      .from("users")
-      .select("id, name")
-      .eq("departmentId", departmentId)
-      .eq("role", "FACULTY")
-    if (facultyError) throw facultyError
+    const facultyUsers = (await userRepository.listByDepartment(departmentId))
+      .filter((u) => u.role.includes("FACULTY"))
+      .map(({ id, name }) => ({ id, name }))
 
     const facultyIds = (facultyUsers || []).map((u: any) => u.id)
     if (facultyIds.length === 0) return []
@@ -524,12 +632,9 @@ export const reportsRepository: IReportsRepository = {
   },
 
   async getDepartmentConsultationAppointments(departmentId, filters) {
-    const { data: facultyUsers, error: facultyError } = await supabase
-      .from("users")
-      .select("id, name")
-      .eq("departmentId", departmentId)
-      .eq("role", "FACULTY")
-    if (facultyError) throw facultyError
+    const facultyUsers = (await userRepository.listByDepartment(departmentId))
+      .filter((u) => u.role.includes("FACULTY"))
+      .map(({ id, name }) => ({ id, name }))
 
     const facultyIds = (facultyUsers || []).map((u: any) => u.id)
     if (facultyIds.length === 0) return []

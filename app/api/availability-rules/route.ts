@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { listAvailabilityRules, upsertAvailabilityRule } from "@/lib/controllers/availabilityRules"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function GET() {
   const session = await auth()
   const role = (session?.user as any)?.role
-  if (!role || (role !== "FACULTY" && role !== "DEAN")) {
+  if (!role || (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -17,7 +18,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await auth()
   const role = (session?.user as any)?.role
-  if (!role || (role !== "FACULTY" && role !== "DEAN")) {
+  if (!role || (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

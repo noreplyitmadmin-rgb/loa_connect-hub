@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { userRepository, passwordResetTokenRepository } from "@/lib/repositories/factory"
 import { hash } from "bcryptjs"
+import { sendPasswordChangedEmail } from "@/lib/services/email"
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,7 +39,12 @@ export async function POST(req: NextRequest) {
     await userRepository.update(user.id, { passwordHash, hasLoggedInBefore: true })
     await passwordResetTokenRepository.markUsed(resetToken.id)
 
-    return NextResponse.json({ success: true, email: resetToken.email })
+    // Send notification email (fire-and-forget — don't block response)
+    sendPasswordChangedEmail(user.email, user.name).catch((err) =>
+      console.error("Failed to send password changed email:", err)
+    )
+
+    return NextResponse.json({ success: true, email: resetToken.email, name: user.name })
   } catch (error) {
     console.error("Change password error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

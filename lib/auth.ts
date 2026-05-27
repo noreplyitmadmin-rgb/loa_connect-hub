@@ -2,6 +2,7 @@ import { NextAuthOptions, getServerSession } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { userRepository } from "@/lib/repositories/factory"
 import { compare } from "bcryptjs"
+import { hasRole } from "@/lib/utils/roles"
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -23,7 +24,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user.passwordHash) return null
         if (user.isDisabled) return null
-        if (user.role === "GUEST") return null
+        if (hasRole(user.role, "GUEST")) return null
 
         const isValid = await compare(credentials.password as string, user.passwordHash)
         if (!isValid) return null
@@ -101,7 +102,7 @@ export async function auth() {
     }
 
     // User was demoted to GUEST mid-session
-    if (dbUser.role === "GUEST") {
+    if (hasRole(dbUser.role, "GUEST")) {
       console.warn(`[auth] Session user ${userId} is GUEST — returning null`)
       return null
     }
@@ -117,7 +118,11 @@ export async function auth() {
     }
   } catch (err) {
     // DB transient error — leave session intact to avoid redirect loop
-    console.error(`[auth] DB error during session validation for ${userId}:`, err)
+    const msg = (err as any)?.message || String(err)
+    console.error(`[auth] DB error during session validation for ${userId}: ${msg}`)
+    if (msg.includes('relation "userrole" does not exist')) {
+      console.warn("[auth] Run the 'userrole' migration: ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT; CREATE TABLE IF NOT EXISTS userrole (...)")
+    }
   }
 
   return session

@@ -5,7 +5,7 @@ export async function registerUser(input: {
   name: string
   email: string
   password: string
-  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN" | "GUEST"
+  role: string
 }) {
   const existing = await userRepository.findByEmail(input.email)
   if (existing) {

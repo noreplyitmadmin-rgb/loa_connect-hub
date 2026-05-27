@@ -2,6 +2,7 @@ import { appointmentRepository, userRepository } from "@/lib/repositories/factor
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
 import { generateICal } from "@/lib/services/ical"
 import { sendConsultationInvite, sendMeetingInviteWithICS } from "@/lib/services/email"
+import { hasRole } from "@/lib/utils/roles"
 
 export interface TimeSlot {
   date: string
@@ -36,7 +37,7 @@ export async function requestAppointment(input: {
   attendeeOptions?: { userId: string; isMandatory: boolean }[]
   teamsLink?: string
   slotLinks?: Record<string, string>
-  meetingType?: "CONSULTATION" | "INTERNAL"
+  meetingType?: "CONSULTATION"
 }) {
 
   // 1. Determine the timeslots
@@ -59,10 +60,10 @@ export async function requestAppointment(input: {
   // 4. Determine meetingType & Enforce Conflicts
   let meetingType = input.meetingType
 
-  if (creator.role === "STUDENT") {
+  if (hasRole(creator.role, "STUDENT")) {
     meetingType = "CONSULTATION"
   } else if (!meetingType) {
-    meetingType = "INTERNAL"
+    meetingType = "CONSULTATION"
   }
 
   // 5. Always Check Faculty Conflicts (Cannot double-book the target faculty)
@@ -107,17 +108,17 @@ export async function requestAppointment(input: {
     }))
 
   // Students cannot invite other students as attendees
-  if (creator.role === "STUDENT") {
+  if (hasRole(creator.role, "STUDENT")) {
     for (const uid of attendeeIds) {
       if (uid === input.createdByUserId) continue
       const user = await userRepository.findById(uid)
-      if (user?.role === "STUDENT") {
+      if (user && hasRole(user.role, "STUDENT")) {
         throw new Error("Students cannot invite other students to appointments")
       }
     }
   }
 
-  if (creator.role === "STUDENT") {
+  if (hasRole(creator.role, "STUDENT")) {
     // Student checks own consultation conflicts (PENDING or APPROVED) → block
     for (const slot of timeSlots) {
       const conflictingSlots = await appointmentRepository.listStudentConflictingSlots(
@@ -165,7 +166,7 @@ export async function requestAppointment(input: {
         throw err
       }
     }
-  } else if (creator.role === "FACULTY" || creator.role === "DEAN") {
+  } else if (hasRole(creator.role, "FACULTY") || hasRole(creator.role, "DEAN")) {
     // Faculty/Dean checks own meeting conflicts (PENDING or APPROVED) → block
     for (const slot of timeSlots) {
       const conflictingSlots = await appointmentRepository.listConflictingSlots(
@@ -178,7 +179,6 @@ export async function requestAppointment(input: {
         const apt = s.appointment
         return apt &&
           apt.sessionGroupId !== input.sessionGroupId &&
-          apt.meetingType === "INTERNAL" &&
           (apt.status === "PENDING" || apt.status === "APPROVED")
       })
       if (actualConflicts.length > 0) {
@@ -197,7 +197,7 @@ export async function requestAppointment(input: {
   // C. Consultation-specific Student check
   if (meetingType === "CONSULTATION") {
     // 1. Verify that the person requesting the meeting is a Student
-    if (creator.role !== "STUDENT") {
+    if (!hasRole(creator.role, "STUDENT")) {
       // Optional: If you want to allow Faculty to book FOR students, 
       // remove this check and keep the loop below.
       throw new Error("Consultations can only be created by students");
@@ -211,7 +211,7 @@ export async function requestAppointment(input: {
   }
 
   // 8. Faculty/Dean meetings require at least one attendee
-  if (creator.role !== "STUDENT" && (!input.attendeeOptions || input.attendeeOptions.length === 0)) {
+  if (!hasRole(creator.role, "STUDENT") && (!input.attendeeOptions || input.attendeeOptions.length === 0)) {
     throw new Error("Meetings must have at least one attendee")
   }
 
@@ -239,7 +239,7 @@ export async function requestAppointment(input: {
     description: input.description ?? null,
   }
   if (input.teamsLink) createData.teamsLink = input.teamsLink
-  if (creator.role !== "STUDENT") {
+  if (!hasRole(creator.role, "STUDENT")) {
     createData.status = "APPROVED"
   }
 

@@ -6,13 +6,14 @@ import { ReportCharts } from "@/components/reports/ReportCharts"
 import { ReportsView } from "@/components/reports/ReportsView"
 import { CsvExport } from "@/components/reports/CsvExport"
 import { Suspense } from "react"
+import { hasRole } from "@/lib/utils/roles"
 
 export default async function DeanReportsPage(props: {
   searchParams?: Promise<{ startDate?: string; endDate?: string; status?: string }>
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session.user as any).role !== "DEAN") redirect("/login")
+  if (!hasRole((session.user as any).role, "DEAN")) redirect("/login")
 
   const searchParams = await props.searchParams
   const deanId = (session.user as any).id

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import SubmitButton from "@/components/SubmitButton"
+import { hasRole } from "@/lib/utils/roles"
 
 interface SlotInfo {
   id: string
@@ -42,7 +43,7 @@ export default function BookingForm({ slot, sessionGroupId, onClose, onSuccess }
         if (data.users) {
           setFacultyList(
             data.users
-              .filter((u: any) => u.role === "FACULTY" && u.id !== slot.facultyId && !u.isDisabled)
+              .filter((u: any) => hasRole(u.role, "FACULTY") && u.id !== slot.facultyId && !u.isDisabled)
           )
         }
       })

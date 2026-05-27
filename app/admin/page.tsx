@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { userRepository } from "@/lib/repositories/factory"
 import { auditLogRepository } from "@/lib/repositories/factory"
+import { hasRole } from "@/lib/utils/roles"
 
 async function getUsers() {
   const users = await userRepository.listAll()
@@ -15,17 +16,17 @@ async function getAuditLogs() {
 export default async function AdminDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session.user as any).role !== "ADMIN") redirect("/login")
+  if (!hasRole((session.user as any).role, "ADMIN")) redirect("/login")
 
   const [users, auditLogs] = await Promise.all([
     getUsers(),
     getAuditLogs(),
   ])
 
-  const adminCount = users.filter((u: any) => u.role === "ADMIN").length
-  const deanCount = users.filter((u: any) => u.role === "DEAN").length
-  const facultyCount = users.filter((u: any) => u.role === "FACULTY").length
-  const studentCount = users.filter((u: any) => u.role === "STUDENT").length
+  const adminCount = users.filter((u: any) => hasRole(u.role, "ADMIN")).length
+  const deanCount = users.filter((u: any) => hasRole(u.role, "DEAN")).length
+  const facultyCount = users.filter((u: any) => hasRole(u.role, "FACULTY")).length
+  const studentCount = users.filter((u: any) => hasRole(u.role, "STUDENT")).length
   const pendingCount = users.filter((u: any) => !u.hasLoggedInBefore).length
   const disabledCount = users.filter((u: any) => u.isDisabled).length
 
@@ -80,9 +81,9 @@ export default async function AdminDashboard() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">{user.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                      user.role === "ADMIN" ? "bg-purple-50 text-purple-700 border-purple-200/50" :
-                      user.role === "DEAN" ? "bg-amber-50 text-amber-700 border-amber-200/50" :
-                      user.role === "FACULTY" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
+                      hasRole(user.role, "ADMIN") ? "bg-purple-50 text-purple-700 border-purple-200/50" :
+                      hasRole(user.role, "DEAN") ? "bg-amber-50 text-amber-700 border-amber-200/50" :
+                      hasRole(user.role, "FACULTY") ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
                       "bg-blue-50 text-blue-700 border-blue-200/50"
                     }`}>
                       {user.role}

@@ -281,3 +281,26 @@ export async function sendForgotPasswordEmail(email: string, name: string, reset
     `,
   })
 }
+
+export async function sendPasswordChangedEmail(email: string, name: string) {
+  if (!isEmailEnabled()) {
+    console.log("[DEV] Password changed notification (EMAIL_FEATURE_FLAG=false):")
+    console.log(`  To: ${email}`)
+    console.log(`  Name: ${name}`)
+    return
+  }
+
+  if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
+
+  await transporter.sendMail({
+    from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject: "Your e-Consultation Password Has Been Changed",
+    html: `
+      <p>Hello ${name},</p>
+      <p>Your e-Consultation account password was successfully changed.</p>
+      <p>If you did this, you can ignore this email.</p>
+      <p style="color:#dc2626;font-size:14px;margin-top:16px;"><strong>If you did NOT authorize this change, please contact your system administrator immediately to secure your account.</strong></p>
+    `,
+  })
+}

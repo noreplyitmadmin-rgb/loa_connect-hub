@@ -5,16 +5,17 @@ import { ConsultationsTimeline } from "@/components/ConsultationsTimeline"
 import { listFacultyAppointments } from "@/lib/controllers/appointments"
 import { userRepository } from "@/lib/repositories/factory"
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
+import { hasRole } from "@/lib/utils/roles"
 
 export default async function FacultyDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
   const role = (session.user as any).role
-  if (role !== "FACULTY" && role !== "DEAN") redirect("/login")
+  if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) redirect("/login")
 
   const facultyId = (session.user as any).id
   const dbUser = await userRepository.findById(facultyId)
-  const needsOnboarding = dbUser?.onboardingVersion === 0 && role === "FACULTY"
+  const needsOnboarding = dbUser?.onboardingVersion === 0 && hasRole(role, "FACULTY")
   const appointments = await listFacultyAppointments(facultyId)
 
   const upcomingCount = appointments.filter(

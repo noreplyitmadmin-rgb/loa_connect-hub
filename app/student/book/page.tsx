@@ -2,11 +2,12 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import StudentBooking from "@/components/StudentBooking"
 import { userRepository, availabilityRuleRepository, departmentRepository } from "@/lib/repositories/factory"
+import { hasRole } from "@/lib/utils/roles"
 
 export default async function StudentBookPage() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session.user as any).role !== "STUDENT") redirect("/login")
+  if (!hasRole((session.user as any).role, "STUDENT")) redirect("/login")
 
   const facultyUsers = await userRepository.listByRole("FACULTY")
   const deanUsers = await userRepository.listByRole("DEAN")

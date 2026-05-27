@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { appointmentRepository } from "@/lib/repositories/factory"
+import { hasRole } from "@/lib/utils/roles"
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"]
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const role = (session.user as any).role
-  if (role !== "FACULTY" && role !== "DEAN") {
+  if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Only faculty can upload files" }, { status: 403 })
   }
 

@@ -3,7 +3,7 @@ export interface UserData {
   name: string
   email: string
   passwordHash: string | null
-  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN" | "GUEST"
+  role: string
   departmentId: string | null
   course: string | null
   isDisabled: boolean
@@ -18,7 +18,7 @@ export interface CreateUserInput {
   name: string
   email: string
   passwordHash?: string | null
-  role: "STUDENT" | "FACULTY" | "DEAN" | "ADMIN" | "GUEST"
+  role: string
   departmentId?: string | null
   course?: string | null
 }
@@ -28,7 +28,7 @@ export interface AppointmentData {
   studentId: string
   facultyId: string
   createdByEmail: string
-  meetingType: "CONSULTATION" | "INTERNAL"
+  meetingType: "CONSULTATION"
   sessionGroupId: string | null
   date: string
   startTime: string
@@ -78,7 +78,7 @@ export interface AppointmentData {
   studentId: string
   facultyId: string
   createdByEmail: string
-  meetingType: "CONSULTATION" | "INTERNAL"
+  meetingType: "CONSULTATION"
   date: string
   startTime: string
   endTime: string
@@ -98,7 +98,7 @@ export interface CreateAppointmentInput {
   studentId: string | null
   facultyId: string
   createdByEmail: string
-  meetingType?: "CONSULTATION" | "INTERNAL"
+  meetingType?: "CONSULTATION"
   sessionGroupId?: string | null
   date: string
   startTime: string

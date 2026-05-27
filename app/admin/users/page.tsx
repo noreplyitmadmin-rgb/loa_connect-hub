@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react"
 import Skeleton from "@/components/Skeleton"
 import SubmitButton from "@/components/SubmitButton"
+import { hasRole } from "@/lib/utils/roles"
 
 interface User {
   id: string
@@ -14,6 +15,7 @@ interface User {
   hasLoggedInBefore: boolean
   lastLoginAt: string | null
   createdAt: string
+  onboardingVersion?: number
 }
 
 interface Department {
@@ -23,7 +25,9 @@ interface Department {
 }
 
 const PAGE_SIZES = [10, 25, 50]
+
 const VALID_ROLES = ["STUDENT", "FACULTY", "DEAN", "ADMIN", "GUEST"]
+const STUDENT_BLOCKED = new Set(["ADMIN", "DEAN", "FACULTY"])
 
 const roleColors: Record<string, string> = {
   ADMIN: "bg-purple-100 text-purple-700",
@@ -44,6 +48,23 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
   const [changingRole, setChangingRole] = useState<string | null>(null)
+  const [roleMenuOpen, setRoleMenuOpen] = useState<string | null>(null)
+
+  // Edit modal state
+  const [editUser, setEditUser] = useState<User | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editDept, setEditDept] = useState("")
+  const [editSaving, setEditSaving] = useState(false)
+
+  // Create modal state
+  const [showCreate, setShowCreate] = useState(false)
+  const [createName, setCreateName] = useState("")
+  const [createEmail, setCreateEmail] = useState("")
+  const [createRoles, setCreateRoles] = useState<string[]>([])
+  const [createDept, setCreateDept] = useState("")
+  const [createError, setCreateError] = useState("")
+  const [createSaving, setCreateSaving] = useState(false)
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -77,21 +98,121 @@ export default function AdminUsersPage() {
     }
   }
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
+  const handleRoleChange = async (userId: string, newRoles: string[]) => {
     setChangingRole(userId)
+    const pipeRoles = newRoles.join("|")
     try {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, role: newRole }),
+        body: JSON.stringify({ userId, role: pipeRoles }),
       })
       if (res.ok) {
         setUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+          prev.map((u) => (u.id === userId ? { ...u, role: pipeRoles } : u))
         )
       }
     } finally {
       setChangingRole(null)
+    }
+  }
+
+  const openEditModal = (u: User) => {
+    setEditUser(u)
+    setEditName(u.name)
+    setEditEmail(u.email)
+    setEditDept(u.departmentId || "")
+  }
+
+  const handleEditSave = async () => {
+    if (!editUser) return
+    setEditSaving(true)
+    try {
+      const body: Record<string, any> = { userId: editUser.id }
+      if (editName !== editUser.name) body.name = editName
+      if (editEmail !== editUser.email) body.email = editEmail
+      if ((editDept || null) !== editUser.departmentId) body.departmentId = editDept || null
+
+      if (Object.keys(body).length <= 1) {
+        setEditUser(null)
+        return
+      }
+
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.user) {
+          setUsers((prev) => prev.map((u) => (u.id === editUser.id ? data.user : u)))
+        }
+        setEditUser(null)
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to update user")
+      }
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleResetOnboarding = async (userId: string) => {
+    if (!confirm("Reset onboarding version to 0 for this user?")) return
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, onboardingVersion: 0 }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.user) {
+          setUsers((prev) => prev.map((u) => (u.id === userId ? data.user : u)))
+        }
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to reset onboarding")
+      }
+    } catch {}
+  }
+
+  const handleCreateUser = async () => {
+    setCreateError("")
+    if (!createName.trim() || !createEmail.trim()) {
+      setCreateError("Name and email are required")
+      return
+    }
+    if (createRoles.length === 0) {
+      setCreateError("At least one role is required")
+      return
+    }
+    setCreateSaving(true)
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createName.trim(),
+          email: createEmail.trim(),
+          role: createRoles.join("|"),
+          departmentId: createDept || null,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setUsers((prev) => [data.user, ...prev])
+        setShowCreate(false)
+        setCreateName("")
+        setCreateEmail("")
+        setCreateRoles([])
+        setCreateDept("")
+      } else {
+        setCreateError(data.error || "Failed to create user")
+      }
+    } finally {
+      setCreateSaving(false)
     }
   }
 
@@ -103,7 +224,7 @@ export default function AdminUsersPage() {
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false
+      if (roleFilter !== "all" && !hasRole(u.role, roleFilter)) return false
       if (deptFilter !== "all" && u.departmentId !== deptFilter) return false
       if (statusFilter === "active" && u.isDisabled) return false
       if (statusFilter === "disabled" && !u.isDisabled) return false
@@ -146,9 +267,15 @@ export default function AdminUsersPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Manage Users</h1>
-        <p className="text-xs text-slate-500">{filtered.length} user(s)</p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-slate-500">{filtered.length} user(s)</p>
+          <SubmitButton onClick={() => setShowCreate(true)} variant="primary" className="text-xs font-semibold px-3 py-1.5 rounded-lg">
+            + Create User
+          </SubmitButton>
+        </div>
       </div>
 
       {/* Filters */}
@@ -209,56 +336,125 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginated.map((u) => (
-                  <tr key={u.id} className="border-b border-slate-100">
-                    <td className="py-3 pr-4">
-                      <p className="text-slate-800 font-medium">{u.name}</p>
-                      <p className="text-slate-400 text-xs">{u.email}</p>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <select
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                        disabled={changingRole === u.id}
-                        className={`text-xs font-semibold px-2 py-0.5 rounded-full border-0 cursor-pointer ${roleColors[u.role] || "bg-slate-100 text-slate-600"}`}
-                      >
-                        {VALID_ROLES.map((r) => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 pr-4 text-xs text-slate-500">
-                      {u.departmentId ? deptMap[u.departmentId] || "—" : "—"}
-                    </td>
-                    <td className="py-3 pr-4">
-                      {u.isDisabled ? (
-                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Disabled</span>
-                      ) : (
-                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
-                      )}
-                    </td>
-                    <td className="py-3 pr-4 text-slate-500 text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>
-                    <td className="py-3 pr-4">
-                      {u.hasLoggedInBefore ? (
-                        <span className="text-xs text-emerald-600">Yes</span>
-                      ) : (
-                        <span className="text-xs text-amber-600">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-3 pr-4 text-slate-500 text-xs">
-                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "—"}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <SubmitButton
-                        onClick={() => handleToggle(u.id, u.isDisabled)}
-                        variant={u.isDisabled ? "primary" : "danger"}
-                        className="text-xs font-semibold px-3 py-1 rounded-lg"
-                      >
-                        {u.isDisabled ? "Enable" : "Disable"}
-                      </SubmitButton>
-                    </td>
-                  </tr>
-                ))}
+                {paginated.map((u) => {
+                  const currentRoles = VALID_ROLES.filter((vr) => hasRole(u.role, vr))
+                  const hasStudent = currentRoles.includes("STUDENT")
+                  const hasNonStudent = currentRoles.some((r) => r !== "STUDENT" && r !== "GUEST" && STUDENT_BLOCKED.has(r))
+                  const isDefaultAdmin = u.email === "admin@econsult.com"
+
+                  return (
+                    <tr key={u.id} className="border-b border-slate-100">
+                      <td className="py-3 pr-4">
+                        <p className="text-slate-800 font-medium">{u.name}</p>
+                        <p className="text-slate-400 text-xs">{u.email}</p>
+                      </td>
+                      <td className="py-3 pr-4 relative">
+                        <button
+                          onClick={() => setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
+                          disabled={changingRole === u.id}
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-full border-0 cursor-pointer ${roleColors[u.role.split("|")[0]] || "bg-slate-100 text-slate-600"}`}
+                        >
+                          {u.role.split("|").join(", ")}
+                        </button>
+                        {roleMenuOpen === u.id && (
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 min-w-[150px] space-y-1">
+                            {VALID_ROLES.map((r) => {
+                              const checked = hasRole(u.role, r)
+                              const isConflicting =
+                                (r === "STUDENT" && hasNonStudent) ||
+                                (STUDENT_BLOCKED.has(r) && hasStudent)
+                              return (
+                                <label
+                                  key={r}
+                                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                                    isConflicting ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50 cursor-pointer"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={isConflicting}
+                                    onChange={() => {
+                                      if (isConflicting) return
+                                      const toggled = VALID_ROLES.filter((vr) =>
+                                        vr === r ? !checked : hasRole(u.role, vr)
+                                      )
+                                      // Enforce student exclusivity on the client side
+                                      const finalRoles = r === "STUDENT" && !checked
+                                        ? toggled.filter((vr) => !STUDENT_BLOCKED.has(vr))
+                                        : STUDENT_BLOCKED.has(r) && !checked
+                                          ? toggled.filter((vr) => vr !== "STUDENT")
+                                          : toggled
+                                      handleRoleChange(u.id, finalRoles)
+                                    }}
+                                    className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                                  />
+                                  {r}
+                                </label>
+                              )
+                            })}
+                            <button
+                              onClick={() => setRoleMenuOpen(null)}
+                              className="w-full mt-1 text-[10px] font-semibold text-slate-400 hover:text-slate-600 py-1"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-slate-500">
+                        {u.departmentId ? deptMap[u.departmentId] || "—" : "—"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {u.isDisabled ? (
+                          <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Disabled</span>
+                        ) : (
+                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-slate-500 text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>
+                      <td className="py-3 pr-4">
+                        {u.hasLoggedInBefore ? (
+                          <span className="text-xs text-emerald-600">Yes</span>
+                        ) : (
+                          <span className="text-xs text-amber-600">Pending</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-slate-500 text-xs">
+                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <SubmitButton
+                            onClick={() => openEditModal(u)}
+                            variant="primary"
+                            className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                          >
+                            Edit
+                          </SubmitButton>
+                          {!isDefaultAdmin && (
+                            <SubmitButton
+                              onClick={() => handleToggle(u.id, u.isDisabled)}
+                              variant={u.isDisabled ? "primary" : "danger"}
+                              className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                            >
+                              {u.isDisabled ? "Enable" : "Disable"}
+                            </SubmitButton>
+                          )}
+                          {!u.hasLoggedInBefore && !isDefaultAdmin && (
+                            <SubmitButton
+                              onClick={() => handleResetOnboarding(u.id)}
+                              variant="danger"
+                              className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                            >
+                              Reset
+                            </SubmitButton>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -302,6 +498,135 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Edit User Modal ── */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => !editSaving && setEditUser(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-slate-900">Edit User</h2>
+            <p className="text-xs text-slate-500">{editUser.email}</p>
+
+            <label className="block text-xs font-medium text-slate-700">Name</label>
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} className="input text-sm w-full" />
+
+            <label className="block text-xs font-medium text-slate-700">Email</label>
+            <input
+              value={editEmail}
+              onChange={(e) => setEditEmail(e.target.value)}
+              className="input text-sm w-full"
+              disabled={editUser.email === "admin@econsult.com"}
+            />
+
+            <label className="block text-xs font-medium text-slate-700">Department</label>
+            <select value={editDept} onChange={(e) => setEditDept(e.target.value)} className="input text-sm w-full">
+              <option value="">— None —</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => handleResetOnboarding(editUser.id)}
+                className="text-xs font-semibold text-red-600 hover:text-red-700 underline"
+              >
+                Reset Onboarding
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditUser(null)}
+                  disabled={editSaving}
+                  className="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <SubmitButton onClick={handleEditSave} variant="primary" className="text-xs font-semibold px-4 py-2 rounded-lg" disabled={editSaving}>
+                  {editSaving ? "Saving..." : "Save"}
+                </SubmitButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create User Modal ── */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => !createSaving && setShowCreate(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-slate-900">Create User</h2>
+
+            <label className="block text-xs font-medium text-slate-700">Name *</label>
+            <input value={createName} onChange={(e) => setCreateName(e.target.value)} className="input text-sm w-full" placeholder="Full name" />
+
+            <label className="block text-xs font-medium text-slate-700">Email *</label>
+            <input value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} className="input text-sm w-full" placeholder="email@example.com" type="email" />
+
+            <label className="block text-xs font-medium text-slate-700">Roles *</label>
+            <div className="flex flex-wrap gap-3">
+              {VALID_ROLES.map((r) => {
+                const checked = createRoles.includes(r)
+                const hasStudent = createRoles.includes("STUDENT")
+                const hasNonStudent = createRoles.some((cr) => STUDENT_BLOCKED.has(cr))
+                const isConflicting =
+                  (r === "STUDENT" && hasNonStudent) ||
+                  (STUDENT_BLOCKED.has(r) && hasStudent)
+                return (
+                  <label
+                    key={r}
+                    className={`flex items-center gap-1.5 text-xs ${
+                      isConflicting ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isConflicting}
+                      onChange={() => {
+                        if (isConflicting) return
+                        const next = checked
+                          ? createRoles.filter((cr) => cr !== r)
+                          : [...createRoles, r]
+                        // Enforce student exclusivity
+                        const final = r === "STUDENT" && !checked
+                          ? next.filter((cr) => !STUDENT_BLOCKED.has(cr))
+                          : STUDENT_BLOCKED.has(r) && !checked
+                            ? next.filter((cr) => cr !== "STUDENT")
+                            : next
+                        setCreateRoles(final)
+                      }}
+                      className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                    />
+                    {r}
+                  </label>
+                )
+              })}
+            </div>
+
+            <label className="block text-xs font-medium text-slate-700">Department</label>
+            <select value={createDept} onChange={(e) => setCreateDept(e.target.value)} className="input text-sm w-full">
+              <option value="">— None —</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+
+            {createError && <p className="text-xs text-red-600">{createError}</p>}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => { setShowCreate(false); setCreateError("") }}
+                disabled={createSaving}
+                className="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <SubmitButton onClick={handleCreateUser} variant="primary" className="text-xs font-semibold px-4 py-2 rounded-lg" disabled={createSaving}>
+                {createSaving ? "Creating..." : "Create"}
+              </SubmitButton>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

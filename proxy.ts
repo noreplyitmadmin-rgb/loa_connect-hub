@@ -1,25 +1,26 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import { hasRole } from "@/lib/utils/roles"
 
 export default withAuth(
   function proxy(req) {
     const { pathname } = req.nextUrl
     const token = req.nextauth.token
-    const role = token?.role as string | undefined
+    const role = (token?.role as string) || ""
 
-    if (pathname.startsWith("/student") && role !== "STUDENT") {
+    if (pathname.startsWith("/student") && !hasRole(role, "STUDENT")) {
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
-    if (pathname.startsWith("/faculty") && role !== "FACULTY" && role !== "DEAN") {
+    if (pathname.startsWith("/faculty") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
-    if (pathname.startsWith("/dean") && role !== "DEAN") {
+    if (pathname.startsWith("/dean") && !hasRole(role, "DEAN")) {
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
-    if (pathname.startsWith("/admin") && role !== "ADMIN") {
+    if (pathname.startsWith("/admin") && !hasRole(role, "ADMIN")) {
       return NextResponse.redirect(new URL("/login", req.url))
     }
 

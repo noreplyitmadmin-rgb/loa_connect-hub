@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { appointmentRepository } from "@/lib/repositories/factory"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function POST(request: Request, { params }: { params: Promise<{ slotId: string }> }) {
   const session = await auth()
@@ -9,7 +10,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slo
   }
 
   const role = (session.user as any).role
-  if (role !== "FACULTY" && role !== "DEAN") {
+  if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Only faculty can update meeting links" }, { status: 403 })
   }
 

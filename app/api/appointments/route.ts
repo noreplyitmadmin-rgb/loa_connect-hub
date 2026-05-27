@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { requestAppointment, listStudentAppointments, listFacultyAppointments } from "@/lib/controllers/appointments"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     
     const role = (session.user as any).role
     const userId = (session.user as any).id
-    let appointments = role === "FACULTY"
+    let appointments = hasRole(role, "FACULTY") || hasRole(role, "DEAN")
       ? await listFacultyAppointments(userId)
       : await listStudentAppointments(userId)
     
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   const body = await request.json()
 
   const role = (session.user as any).role
-  if (role !== "STUDENT" && role !== "FACULTY" && role !== "DEAN") {
+  if (!hasRole(role, "STUDENT") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   // If the creator is FACULTY/DEAN, they might be booking on behalf of a student 
   // (via body.studentId) or creating an internal meeting (studentId = null).
   let studentId: string | null = null
-  if (user.role === "STUDENT") {
+  if (hasRole(user.role, "STUDENT")) {
     studentId = user.id
   } else {
     studentId = body.studentId || null 

@@ -70,6 +70,17 @@ Now, both **student consultations** and **faculty internal meetings** are handle
   - `teamsSyncRetries`, `teamsSyncError`, `teamsSyncLastAttempt`
 - **Orchestration**: A cron-triggerable endpoint at `POST /api/admin/sync-teams` acts as an out-of-band processor to reconcile failed or pending meeting creations in Microsoft Entra.
 
+### E. Interactive Onboarding Walkthrough
+- First-time users see a role-based step-by-step tour on their dashboard after login.
+- Detection via `onboardingVersion` column on the `users` table (`0` = unseen, `1` = completed).
+- Three role-specific walks:
+  - **Student**: Book a consultation → Track appointments → Done.
+  - **Faculty**: Manage consultations → Set availability → Create meetings → Done.
+  - **Dean**: Dashboard overview → Department reports → Import users → Done.
+- Modal overlay with backdrop blur, step dots, icons, and Next/Back/Skip navigation.
+- On dismiss, `POST /api/auth/onboarding` sets `onboardingVersion = 1` and refreshes the page.
+- No auth flow changes — decoupled from `hasLoggedInBefore` and activation logic.
+
 ---
 
 ## 4. Key UI & Performance Patterns
@@ -154,6 +165,6 @@ Based on current progress, here is the feature execution progress:
 - [x] **Phase 11: ETL — Bulk User Import (CSV)** — Administrative CSV upload system.
 - [x] **Phase 12: Email-based Auth & Password Setup** — Accounts activation flow at `/activate`.
 - [x] **Phase 13: Consultation Completion** — Actions taken notes and reports input.
-- [ ] **Phase 14: Attendee Permissions** — Granular meeting access and response permissions.
+- [x] **Phase 14: Interactive Onboarding Walkthrough** — Role-based step-by-step tour for first-time users (Student, Faculty, Dean) triggered by `onboardingVersion` field.
 - [x] **Phase 15: Reports & Export** — Summarization metrics, printable reports, and CSV outputs.
 - [x] **Phase 16: Staggered & Multi-Faculty Booking** — Comprehensive multi-slot bookings.

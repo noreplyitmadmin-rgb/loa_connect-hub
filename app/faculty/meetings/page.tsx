@@ -4,6 +4,7 @@ import Link from "next/link"
 import StatusDropdown from "@/components/StatusDropdown"
 import { getMeetingsForUser } from "@/lib/controllers/appointments"
 import { getWeekRange, getMonthRange } from "@/lib/utils/date"
+import { hasRole } from "@/lib/utils/roles"
 
 function getInitial(name: string) {
   return name?.charAt(0)?.toUpperCase() || "?"
@@ -46,7 +47,7 @@ export default async function MeetingsPage(props: {
   const session = await auth()
   if (!session?.user) redirect("/login")
   const role = (session.user as any).role
-  if (role !== "FACULTY" && role !== "DEAN") redirect("/login")
+  if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) redirect("/login")
 
   const searchParams = await props.searchParams
   const hasQueryParams = !!searchParams && Object.keys(searchParams).length > 0

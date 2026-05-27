@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { parseCsv, getCsvTemplate } from "@/lib/services/csvParser"
 import { importUsers } from "@/lib/services/userImport"
 import { logAuditEvent } from "@/lib/services/audit"
+import { hasRole } from "@/lib/utils/roles"
 
 export async function GET() {
   const csv = getCsvTemplate("students")
@@ -17,7 +18,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await auth()
   const role = (session?.user as any)?.role
-  if (!role || (role !== "FACULTY" && role !== "DEAN")) {
+  if (!role || (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized — Faculty or Dean only" }, { status: 403 })
   }
 

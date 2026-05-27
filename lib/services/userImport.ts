@@ -1,5 +1,6 @@
 import { userRepository, departmentRepository, availabilityRuleRepository } from "@/lib/repositories/factory"
 import type { CsvRow } from "./csvParser"
+import { hasRole } from "@/lib/utils/roles"
 
 const TODAY = new Date().toISOString().split("T")[0]
 
@@ -80,7 +81,7 @@ export async function importUsers(
       }
 
       // Determine role
-      let role: "STUDENT" | "FACULTY" | "DEAN"
+      let role: string
 
       if (uploaderRole === "DEAN") {
         if (row.department && row.isDean) {
@@ -95,12 +96,12 @@ export async function importUsers(
       }
 
       // Faculty uploading students — ensure no department override
-      if (uploaderRole === "FACULTY" && role !== "STUDENT") {
+      if (hasRole(uploaderRole, "FACULTY") && !hasRole(role, "STUDENT")) {
         result.errors.push({ row: rowNum, email: row.email, message: "Faculty can only upload students (no department column or isDean must be false)" })
         continue
       }
 
-      const deptForCreate = role === "STUDENT" ? null : departmentId
+      const deptForCreate = hasRole(role, "STUDENT") ? null : departmentId
 
       const user = await userRepository.create({
         name: row.name,
@@ -111,7 +112,7 @@ export async function importUsers(
         course: row.course,
       })
 
-      if (role === "FACULTY" || role === "DEAN") {
+      if (hasRole(role, "FACULTY") || hasRole(role, "DEAN")) {
         await createDefaultAvailabilityRules(user.id)
       }
 
