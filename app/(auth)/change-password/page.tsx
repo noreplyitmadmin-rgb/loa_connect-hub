@@ -23,10 +23,7 @@ export default function ChangePasswordPage({ searchParams }: ChangePasswordProps
   const [successName, setSuccessName] = useState("")
 
   useEffect(() => {
-    if (!token) {
-      setValidating(false)
-      return
-    }
+    if (!token) return
     fetch(`/api/auth/change-password/validate?token=${encodeURIComponent(token)}`)
       .then((res) => {
         if (!res.ok) return res.json().then((d) => { throw new Error(d.error) })

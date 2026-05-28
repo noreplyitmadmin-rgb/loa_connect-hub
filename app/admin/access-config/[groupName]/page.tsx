@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import Skeleton from "@/components/Skeleton"
 import SubmitButton from "@/components/SubmitButton"
@@ -35,7 +35,6 @@ const ADMIN_LOCKED_PAGES = new Set(["/admin", "/admin/users", "/admin/access-con
 
 export default function EditAccessGroupPage() {
   const params = useParams()
-  const router = useRouter()
   const groupName = params.groupName as string
 
   const [group, setGroup] = useState<GroupAccess | null>(null)

@@ -129,7 +129,7 @@ function buildCatalog() {
 
 async function requireAdmin() {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as { role?: string })?.role
   if (!role || !hasRole(role, "ADMIN")) {
     return null
   }
@@ -180,7 +180,7 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const updateData: Record<string, any> = { updatedAt: new Date().toISOString() }
+  const updateData: Record<string, string | string[]> = { updatedAt: new Date().toISOString() }
   if (pages !== undefined) updateData.pages = pages
   if (apis !== undefined) updateData.apis = apis
 

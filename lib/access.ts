@@ -36,16 +36,18 @@ interface CacheData {
   ts: number
 }
 
+const G = globalThis as Record<string, CacheData | undefined>
+
 function getCache(): CacheData | null {
-  return (globalThis as any)[CACHE_KEY] ?? null
+  return G[CACHE_KEY] ?? null
 }
 
 function setCache(data: Record<string, GroupAccessEntry>) {
-  ;(globalThis as any)[CACHE_KEY] = { data, ts: Date.now() }
+  G[CACHE_KEY] = { data, ts: Date.now() }
 }
 
 export function clearAccessConfigCache() {
-  delete (globalThis as any)[CACHE_KEY]
+  delete G[CACHE_KEY]
 }
 
 export async function loadAccessConfig(): Promise<Record<string, GroupAccessEntry>> {
@@ -70,7 +72,7 @@ export async function loadAccessConfig(): Promise<Record<string, GroupAccessEntr
     setCache(map)
     return map
   } catch (err) {
-    console.error("[access] Failed to load from DB, using defaults:", (err as any)?.message)
+    console.error("[access] Failed to load from DB, using defaults:", err instanceof Error ? err.message : String(err))
     if (cached) return cached.data
     return DEFAULT_CONFIG
   }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useMemo } from "react"
+import { useRef, useState, useMemo } from "react"
 import Skeleton from "@/components/Skeleton"
 import SubmitButton from "@/components/SubmitButton"
 import { hasRole } from "@/lib/utils/roles"
@@ -247,7 +247,6 @@ export default function AdminUsersPage() {
   const paginated = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize)
 
   // Reset page when filters change
-  useEffect(() => { setPage(0) }, [roleFilter, deptFilter, statusFilter, search, pageSize])
 
   if (loading) {
     return (
@@ -291,12 +290,12 @@ export default function AdminUsersPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
             placeholder="Search by name or email..."
             className="input text-xs pl-9 w-full"
           />
         </div>
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input text-xs w-auto py-1.5">
+        <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(0) }} className="input text-xs w-auto py-1.5">
           <option value="all">All Roles</option>
           <option value="ADMIN">Admin</option>
           <option value="DEAN">Dean</option>
@@ -304,13 +303,13 @@ export default function AdminUsersPage() {
           <option value="STUDENT">Student</option>
           <option value="GUEST">Guest</option>
         </select>
-        <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-xs w-auto py-1.5">
+        <select value={deptFilter} onChange={(e) => { setDeptFilter(e.target.value); setPage(0) }} className="input text-xs w-auto py-1.5">
           <option value="all">All Departments</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs w-auto py-1.5">
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }} className="input text-xs w-auto py-1.5">
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="disabled">Disabled</option>
@@ -478,7 +477,7 @@ export default function AdminUsersPage() {
               <span>Rows per page:</span>
               <select
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0) }}
                 className="input text-xs w-auto py-1"
               >
                 {PAGE_SIZES.map((s) => (
