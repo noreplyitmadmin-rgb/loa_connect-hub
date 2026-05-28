@@ -1,42 +1,65 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import { hasRole } from "@/lib/utils/roles"
+import { hasPageAccess, hasApiAccess } from "@/lib/access"
+
+const PUBLIC_PAGES = new Set([
+  "/login", "/activate", "/forgot-password",
+  "/change-password", "/setup-password", "/403",
+])
+
+const PUBLIC_API_PREFIXES = [
+  "/api/auth/signin", "/api/auth/callback",
+  "/api/auth/session", "/api/auth/csrf",
+  "/api/auth/providers", "/api/auth/signout",
+  "/api/auth/activate", "/api/auth/forgot-password",
+  "/api/auth/change-password",
+  "/api/auth/access",
+  "/api/import/users",
+  "/api/import/students",
+]
 
 export default withAuth(
-  function proxy(req) {
-    const { pathname } = req.nextUrl
-    const token = req.nextauth.token
-    const role = (token?.role as string) || ""
+  async function proxy(req) {
+    try {
+      const { pathname } = req.nextUrl
 
-    if (pathname.startsWith("/student") && !hasRole(role, "STUDENT")) {
-      return NextResponse.redirect(new URL("/login", req.url))
+      // Skip access checks for public paths (auth bypass already handled above)
+      if (PUBLIC_PAGES.has(pathname)) return NextResponse.next()
+      if (PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) return NextResponse.next()
+
+      const token = req.nextauth.token
+      const role = (token?.role as string) || ""
+
+      if (!role) {
+        return NextResponse.redirect(new URL("/login", req.url))
+      }
+
+      const isApi = pathname.startsWith("/api/")
+
+      if (isApi) {
+        if (!(await hasApiAccess(role, pathname))) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+        }
+      } else {
+        if (!(await hasPageAccess(role, pathname))) {
+          return NextResponse.redirect(new URL("/403", req.url))
+        }
+      }
+
+      return NextResponse.next()
+    } catch (err) {
+      console.error("[proxy] Error:", err)
+      return NextResponse.next()
     }
-
-    if (pathname.startsWith("/faculty") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
-      return NextResponse.redirect(new URL("/login", req.url))
-    }
-
-    if (pathname.startsWith("/dean") && !hasRole(role, "DEAN")) {
-      return NextResponse.redirect(new URL("/login", req.url))
-    }
-
-    if (pathname.startsWith("/admin") && !hasRole(role, "ADMIN")) {
-      return NextResponse.redirect(new URL("/login", req.url))
-    }
-
-    return NextResponse.next()
   },
   {
     callbacks: {
       authorized({ req, token }) {
         const { pathname } = req.nextUrl
-        if (pathname.startsWith("/login") || pathname.startsWith("/activate") || pathname.startsWith("/forgot-password") || pathname.startsWith("/change-password") || pathname.startsWith("/setup-password") || pathname.startsWith("/api/auth")) {
-          return true
-        }
-        // Allow public static files
-        if (pathname === "/logo-blk.png" || pathname === "/favicon.ico") {
-          return true
-        }
+        if (pathname === "/favicon.ico" || pathname === "/logo-blk.png") return true
+        if (pathname.startsWith("/_next/")) return true
+        if (PUBLIC_PAGES.has(pathname)) return true
+        if (PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true
         return !!token
       },
     },

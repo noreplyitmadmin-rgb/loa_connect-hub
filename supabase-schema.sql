@@ -628,3 +628,34 @@ EXCEPTION
 END $$;
 
 COMMIT;
+
+-- =========================================================
+-- Migration 9: Create group_access table for access control
+-- Run this after Migration 8 (or against any existing DB).
+-- Stores per-group allowed pages and API endpoints.
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS group_access (
+  "groupName" TEXT PRIMARY KEY,
+  pages JSONB NOT NULL DEFAULT '[]',
+  apis JSONB NOT NULL DEFAULT '[]',
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO group_access ("groupName", pages, apis) VALUES
+  ('ADMIN',
+   '["/admin","/admin/users","/admin/access-config","/faq"]'::JSONB,
+   '["/api/admin"]'::JSONB),
+  ('DEAN',
+   '["/dean","/dean/upload","/faculty/meetings","/faculty/availability","/faculty/reports","/faq"]'::JSONB,
+   '["/api/admin/users","/api/import/users","/api/appointments","/api/availability-rules"]'::JSONB),
+  ('FACULTY',
+   '["/faculty","/faculty/meetings","/faculty/availability","/faculty/upload","/faq"]'::JSONB,
+   '["/api/appointments","/api/availability-rules","/api/import/students"]'::JSONB),
+  ('STUDENT',
+   '["/student","/student/book","/student/meetings","/faq"]'::JSONB,
+   '["/api/appointments","/api/appointments/faculty-booked"]'::JSONB),
+  ('GUEST',
+   '[]'::JSONB,
+   '[]'::JSONB)
+ON CONFLICT ("groupName") DO NOTHING;
