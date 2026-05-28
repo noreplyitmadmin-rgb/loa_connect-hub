@@ -55,6 +55,7 @@ export default function AdminUsersPage() {
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editDept, setEditDept] = useState("")
+  const [editRoles, setEditRoles] = useState<string[]>([])
   const [editSaving, setEditSaving] = useState(false)
 
   // Create modal state
@@ -122,6 +123,7 @@ export default function AdminUsersPage() {
     setEditName(u.name)
     setEditEmail(u.email)
     setEditDept(u.departmentId || "")
+    setEditRoles(VALID_ROLES.filter((r) => hasRole(u.role, r)))
   }
 
   const handleEditSave = async () => {
@@ -132,6 +134,8 @@ export default function AdminUsersPage() {
       if (editName !== editUser.name) body.name = editName
       if (editEmail !== editUser.email) body.email = editEmail
       if ((editDept || null) !== editUser.departmentId) body.departmentId = editDept || null
+      const editRolesStr = editRoles.join("|")
+      if (editRolesStr !== editUser.role) body.role = editRolesStr
 
       if (Object.keys(body).length <= 1) {
         setEditUser(null)
@@ -534,6 +538,47 @@ export default function AdminUsersPage() {
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
+
+            <label className="block text-xs font-medium text-slate-700">Roles</label>
+            <div className="flex flex-wrap gap-3">
+              {VALID_ROLES.map((r) => {
+                const checked = editRoles.includes(r)
+                const hasStudent = editRoles.includes("STUDENT")
+                const hasNonStudent = editRoles.some((er) => STUDENT_BLOCKED.has(er))
+                const isConflicting =
+                  (r === "STUDENT" && hasNonStudent) ||
+                  (STUDENT_BLOCKED.has(r) && hasStudent)
+                const isDefaultAdminEdit = editUser?.email === "admin@lyceumalabang.ph"
+                return (
+                  <label
+                    key={r}
+                    className={`flex items-center gap-1.5 text-xs ${
+                      isConflicting || isDefaultAdminEdit ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isConflicting || isDefaultAdminEdit}
+                      onChange={() => {
+                        if (isConflicting || isDefaultAdminEdit) return
+                        const next = checked
+                          ? editRoles.filter((er) => er !== r)
+                          : [...editRoles, r]
+                        const final = r === "STUDENT" && !checked
+                          ? next.filter((er) => !STUDENT_BLOCKED.has(er))
+                          : STUDENT_BLOCKED.has(r) && !checked
+                            ? next.filter((er) => er !== "STUDENT")
+                            : next
+                        setEditRoles(final)
+                      }}
+                      className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                    />
+                    {r}
+                  </label>
+                )
+              })}
+            </div>
 
             <div className="flex items-center justify-between pt-2">
               <button

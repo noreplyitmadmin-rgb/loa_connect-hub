@@ -151,6 +151,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Cannot change the default admin email" }, { status: 403 })
   }
 
+  // Prevent changing the default admin's role
+  if (isDefaultAdmin(target) && newRole !== undefined) {
+    return NextResponse.json({ error: "Cannot change the default admin role" }, { status: 403 })
+  }
+
   if (hasRole(role, "DEAN")) {
     const dept = await departmentRepository.findByDeanId((session!.user as any).id)
     if (!dept || (target.departmentId !== dept.id && target.id !== currentUserId)) {
