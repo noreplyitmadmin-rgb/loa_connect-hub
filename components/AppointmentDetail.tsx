@@ -178,10 +178,10 @@ export default function AppointmentDetail() {
       return
     }
 
-    if (completeFiles.length === 0) {
-      setCompleteError("Please upload at least one screenshot as proof")
-      return
-    }
+    // if (completeFiles.length === 0) {
+    //   setCompleteError("Please upload at least one screenshot as proof")
+    //   return
+    // }
 
     setActionLoading("complete")
 
@@ -234,8 +234,9 @@ export default function AppointmentDetail() {
       } else {
         setCompleteError(data.error || "Failed to complete appointment")
       }
-    } catch {
+    } catch (err){
       setCompleteError("An error occurred")
+      console.error(err)
     } finally {
       setActionLoading("")
     }
