@@ -1,6 +1,6 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import { hasPageAccess, hasApiAccess } from "@/lib/access"
+import { hasPageAccess } from "@/lib/access"
 
 const PUBLIC_PAGES = new Set([
   "/login", "/activate", "/forgot-password",
@@ -35,13 +35,9 @@ export default withAuth(
         return NextResponse.redirect(new URL("/login", req.url))
       }
 
-      const isApi = pathname.startsWith("/api/")
-
-      if (isApi) {
-        if (!(await hasApiAccess(role, pathname))) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-        }
-      } else {
+      // Server-side API routes are protected by the JWT check above;
+      // only UI pages need per-role access gating.
+      if (!pathname.startsWith("/api/")) {
         if (!(await hasPageAccess(role, pathname))) {
           return NextResponse.redirect(new URL("/403", req.url))
         }

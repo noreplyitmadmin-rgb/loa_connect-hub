@@ -2,29 +2,23 @@ import { getPrimaryRole } from "@/lib/utils/roles"
 
 interface GroupAccessEntry {
   pages: string[]
-  apis: string[]
 }
 
 const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
   ADMIN: {
     pages: ["/", "/admin", "/admin/data-management", "/admin/users", "/admin/users/deleted", "/admin/access-config", "/admin/departments", "/admin/reports", "/faq"],
-    apis: ["/api/admin"],
   },
   DEAN: {
     pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/faq"],
-    apis: ["/api/admin/users", "/api/import/users", "/api/appointments", "/api/availability-rules"],
   },
   FACULTY: {
     pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faq"],
-    apis: ["/api/appointments", "/api/availability-rules", "/api/import/students"],
   },
   STUDENT: {
     pages: ["/", "/student", "/student/book", "/student/meetings", "/faq"],
-    apis: ["/api/appointments", "/api/appointments/faculty-booked"],
   },
   GUEST: {
     pages: [],
-    apis: [],
   },
 }
 
@@ -63,7 +57,6 @@ export async function loadAccessConfig(): Promise<Record<string, GroupAccessEntr
     for (const row of data || []) {
       map[row.groupName] = {
         pages: row.pages || [],
-        apis: row.apis || [],
       }
     }
 
@@ -85,11 +78,4 @@ export async function hasPageAccess(role: string, path: string): Promise<boolean
   const entry = config[userGroup(role)]
   if (!entry) return false
   return entry.pages.some((p: string) => path === p || path.startsWith(p + "/"))
-}
-
-export async function hasApiAccess(role: string, path: string): Promise<boolean> {
-  const config = await loadAccessConfig()
-  const entry = config[userGroup(role)]
-  if (!entry) return false
-  return entry.apis.some((p: string) => path === p || path.startsWith(p + "/"))
 }

@@ -7,7 +7,6 @@ import Skeleton from "@/components/Skeleton"
 interface GroupAccess {
   groupName: string
   pages: string[]
-  apis: string[]
 }
 
 const badgeColors: Record<string, string> = {
@@ -127,7 +126,6 @@ export default function AdminAccessConfigPage() {
                 </div>
                 <div className="flex items-center gap-4 text-xs text-slate-400">
                   <span>{group.pages.length} pages</span>
-                  <span>{group.apis.length} APIs</span>
                   <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>

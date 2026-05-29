@@ -9,7 +9,6 @@ import SubmitButton from "@/components/SubmitButton"
 interface GroupAccess {
   groupName: string
   pages: string[]
-  apis: string[]
 }
 
 interface CatalogItem {
@@ -20,7 +19,6 @@ interface CatalogItem {
 
 interface Catalog {
   pages: Record<string, CatalogItem[]>
-  apis: Record<string, CatalogItem[]>
 }
 
 const badgeColors: Record<string, string> = {
@@ -45,7 +43,6 @@ export default function EditAccessGroupPage() {
   const [saved, setSaved] = useState(false)
 
   const [selectedPages, setSelectedPages] = useState<string[]>([])
-  const [selectedApis, setSelectedApis] = useState<string[]>([])
 
   useEffect(() => {
     fetch("/api/admin/access-config")
@@ -55,7 +52,6 @@ export default function EditAccessGroupPage() {
         if (g) {
           setGroup(g)
           setSelectedPages(g.pages)
-          setSelectedApis(g.apis)
         }
         if (data.catalog) setCatalog(data.catalog)
       })
@@ -73,12 +69,6 @@ export default function EditAccessGroupPage() {
     )
   }
 
-  const toggleApi = (path: string) => {
-    setSelectedApis((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
-    )
-  }
-
   const handleSave = async () => {
     if (!group) return
     setSaving(true)
@@ -88,7 +78,7 @@ export default function EditAccessGroupPage() {
       const res = await fetch("/api/admin/access-config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupName: group.groupName, pages: selectedPages, apis: selectedApis }),
+        body: JSON.stringify({ groupName: group.groupName, pages: selectedPages }),
       })
 
       if (res.ok) {
@@ -96,7 +86,6 @@ export default function EditAccessGroupPage() {
         if (data.group) {
           setGroup(data.group)
           setSelectedPages(data.group.pages)
-          setSelectedApis(data.group.apis)
         }
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
@@ -111,8 +100,7 @@ export default function EditAccessGroupPage() {
 
   const hasChanges =
     group &&
-    (JSON.stringify([...selectedPages].sort()) !== JSON.stringify([...group.pages].sort()) ||
-     JSON.stringify([...selectedApis].sort()) !== JSON.stringify([...group.apis].sort()))
+    JSON.stringify([...selectedPages].sort()) !== JSON.stringify([...group.pages].sort())
 
   if (loading) {
     return (
@@ -198,41 +186,7 @@ export default function EditAccessGroupPage() {
           <p className="text-[10px] text-slate-400 mt-1">Child routes are automatically allowed.</p>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-2">Allowed API Prefixes</label>
-          {catalog && (
-            <div className="space-y-1 mb-3">
-              {Object.entries(catalog.apis).map(([category, items]) => (
-                <div key={category}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1 mt-2 first:mt-0">
-                    {category}
-                  </p>
-                  {items.map((item) => (
-                    <label
-                      key={item.path}
-                      className="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-slate-50 cursor-pointer text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedApis.includes(item.path)}
-                        onChange={() => toggleApi(item.path)}
-                        className="mt-0.5 rounded border-slate-300 text-gold-600 focus:ring-gold-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span>{item.label}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{item.path}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 truncate">{item.description}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="text-[10px] text-slate-400 mt-1">All sub-routes are automatically allowed.</p>
-        </div>
+
 
         <div className="flex items-center justify-end gap-3 pt-1 border-t border-slate-100">
           {saved && (

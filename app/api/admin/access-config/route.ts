@@ -6,13 +6,12 @@ import { clearAccessConfigCache } from "@/lib/access"
 import fs from "fs"
 import path from "path"
 
-let scannedRoutesCache: { pages: string[]; apis: string[] } | null = null
+let scannedRoutesCache: { pages: string[] } | null = null
 
-function scanRoutes(): { pages: string[]; apis: string[] } {
+function scanRoutes(): { pages: string[] } {
   if (scannedRoutesCache) return scannedRoutesCache
 
   const pages: string[] = ["/"]
-  const apis: string[] = []
   const appDir = path.join(process.cwd(), "app")
 
   function walk(dir: string) {
@@ -32,17 +31,13 @@ function scanRoutes(): { pages: string[]; apis: string[] } {
         const relative = path.relative(appDir, path.dirname(fullPath))
         const urlPath = "/" + relative.replace(/\\/g, "/")
         if (!urlPath.startsWith("/api/")) pages.push(urlPath)
-      } else if (entry.name === "route.ts" || entry.name === "route.js") {
-        const relative = path.relative(appDir, path.dirname(fullPath))
-        const urlPath = "/" + relative.replace(/\\/g, "/")
-        if (urlPath.startsWith("/api/") && !urlPath.startsWith("/api/auth")) apis.push(urlPath)
       }
     }
   }
 
   walk(appDir)
 
-  scannedRoutesCache = { pages: [...new Set(pages)].sort(), apis: [...new Set(apis)].sort() }
+  scannedRoutesCache = { pages: [...new Set(pages)].sort() }
   return scannedRoutesCache
 }
 
@@ -53,14 +48,6 @@ function pageCategory(p: string): string {
   if (p.startsWith("/faculty")) return "Faculty"
   if (p.startsWith("/dean")) return "Dean"
   if (p.startsWith("/faq")) return "Information"
-  return "Other"
-}
-
-function apiCategory(p: string): string {
-  if (p.startsWith("/api/admin")) return "Admin"
-  if (p.startsWith("/api/import")) return "Import"
-  if (p.startsWith("/api/appointments")) return "Appointments"
-  if (p.startsWith("/api/availability")) return "Availability"
   return "Other"
 }
 
@@ -86,23 +73,6 @@ function pageLabel(p: string): string {
   return map[p] || p.split("/").filter(Boolean).map(capitalize).join(" / ") || p
 }
 
-function apiLabel(p: string): string {
-  const map: Record<string, string> = {
-    "/api/admin": "Admin API",
-    "/api/admin/users": "Admin Users",
-    "/api/admin/audit-logs": "Audit Logs",
-    "/api/import/users": "Import Users",
-    "/api/import/students": "Import Students",
-    "/api/appointments": "Appointments",
-    "/api/appointments/faculty-booked": "Faculty Booked",
-    "/api/availability-rules": "Availability Rules",
-    "/api/auth/access": "Auth Access",
-    "/api/auth/users": "Auth Users",
-    "/api/test-auth": "Test Auth",
-  }
-  return map[p] || p.split("/").filter(Boolean).map(capitalize).join(" / ") || p
-}
-
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -117,14 +87,7 @@ function buildCatalog() {
     pageCatalog[cat].push({ path: p, label: pageLabel(p), description: "" })
   }
 
-  const apiCatalog: Record<string, { path: string; label: string; description: string }[]> = {}
-  for (const p of scanned.apis) {
-    const cat = apiCategory(p)
-    if (!apiCatalog[cat]) apiCatalog[cat] = []
-    apiCatalog[cat].push({ path: p, label: apiLabel(p), description: "" })
-  }
-
-  return { pages: pageCatalog, apis: apiCatalog }
+  return { pages: pageCatalog }
 }
 
 async function requireAdmin() {
@@ -157,7 +120,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { groupName, pages, apis } = body
+  const { groupName, pages } = body
 
   if (!groupName) {
     return NextResponse.json({ error: "groupName is required" }, { status: 400 })
@@ -165,9 +128,6 @@ export async function PATCH(request: NextRequest) {
 
   if (pages !== undefined && !Array.isArray(pages)) {
     return NextResponse.json({ error: "pages must be an array" }, { status: 400 })
-  }
-  if (apis !== undefined && !Array.isArray(apis)) {
-    return NextResponse.json({ error: "apis must be an array" }, { status: 400 })
   }
 
   if (groupName === "ADMIN" && pages !== undefined) {
@@ -182,7 +142,6 @@ export async function PATCH(request: NextRequest) {
 
   const updateData: Record<string, any> = { updatedAt: new Date().toISOString() }
   if (pages !== undefined) updateData.pages = pages
-  if (apis !== undefined) updateData.apis = apis
 
   const { data, error } = await supabase
     .from("group_access")
@@ -226,7 +185,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("group_access")
-    .insert({ groupName: name, pages: [], apis: [], updatedAt: new Date().toISOString() })
+    .insert({ groupName: name, pages: [], updatedAt: new Date().toISOString() })
     .select("*")
     .single()
 

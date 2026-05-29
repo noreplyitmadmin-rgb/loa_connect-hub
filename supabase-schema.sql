@@ -642,25 +642,19 @@ COMMIT;
 CREATE TABLE IF NOT EXISTS group_access (
   "groupName" TEXT PRIMARY KEY,
   pages JSONB NOT NULL DEFAULT '[]',
-  apis JSONB NOT NULL DEFAULT '[]',
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-INSERT INTO group_access ("groupName", pages, apis) VALUES
+INSERT INTO group_access ("groupName", pages) VALUES
   ('ADMIN',
-   '["/admin","/admin/data-management","/admin/users","/admin/users/deleted","/admin/access-config","/admin/departments","/admin/reports","/faq"]'::JSONB,
-   '["/api/admin"]'::JSONB),
+   '["/admin","/admin/data-management","/admin/users","/admin/users/deleted","/admin/access-config","/admin/departments","/admin/reports","/faq"]'::JSONB),
   ('DEAN',
-   '["/dean","/dean/upload","/dean/departments","/faculty/meetings","/faculty/availability","/faculty/reports","/faq"]'::JSONB,
-   '["/api/admin/users","/api/import/users","/api/appointments","/api/availability-rules"]'::JSONB),
+   '["/dean","/dean/upload","/dean/departments","/faculty/meetings","/faculty/availability","/faculty/reports","/faq"]'::JSONB),
   ('FACULTY',
-   '["/faculty","/faculty/meetings","/faculty/availability","/faculty/upload","/faq"]'::JSONB,
-   '["/api/appointments","/api/availability-rules","/api/import/students"]'::JSONB),
+   '["/faculty","/faculty/meetings","/faculty/availability","/faculty/upload","/faq"]'::JSONB),
   ('STUDENT',
-   '["/student","/student/book","/student/meetings","/faq"]'::JSONB,
-   '["/api/appointments","/api/appointments/faculty-booked"]'::JSONB),
+   '["/student","/student/book","/student/meetings","/faq"]'::JSONB),
   ('GUEST',
-   '[]'::JSONB,
    '[]'::JSONB)
 ON CONFLICT ("groupName") DO NOTHING;
 

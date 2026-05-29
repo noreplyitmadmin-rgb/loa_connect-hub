@@ -11,7 +11,6 @@ export default async function AdminReports(props: {
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if (!hasRole((session.user as any).role, "ADMIN")) redirect("/login")
 
   const searchParams = await props.searchParams
 

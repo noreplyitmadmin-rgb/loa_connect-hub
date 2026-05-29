@@ -13,7 +13,6 @@ export default async function DeanReportsPage(props: {
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if (!hasRole((session.user as any).role, "DEAN")) redirect("/login")
 
   const searchParams = await props.searchParams
   const deanId = (session.user as any).id
