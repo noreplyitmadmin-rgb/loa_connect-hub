@@ -677,14 +677,14 @@ export default function AppointmentDetail() {
           {!isOrganizer && myAttendeeRecord?.status === "PENDING" && effectiveStatus === "APPROVED" && (
             <div className="flex flex-wrap gap-2">
               <SubmitButton
-                onClick={() => handleAction("accept")}
+                onClick={() => handleAction("attendee-accept")}
                 loading={actionLoading === "accept"}
                 variant="success"
               >
                 Accept
               </SubmitButton>
               <SubmitButton
-                onClick={() => handleAction("decline")}
+                onClick={() => handleAction("attendee-decline")}
                 loading={actionLoading === "decline"}
                 variant="danger"
               >
