@@ -23,7 +23,8 @@ export default withAuth(
     try {
       const { pathname } = req.nextUrl
 
-      // Skip access checks for public paths (auth bypass already handled above)
+      // Allow static assets and public pages through
+      if (pathname === "/logo-blk.png" || pathname === "/favicon.ico") return NextResponse.next()
       if (PUBLIC_PAGES.has(pathname)) return NextResponse.next()
       if (PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) return NextResponse.next()
 
