@@ -2,6 +2,7 @@ import { appointmentRepository, userRepository } from "@/lib/repositories/factor
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
 import { generateICal } from "@/lib/services/ical"
 import { sendConsultationInvite, sendMeetingInviteWithICS } from "@/lib/services/email"
+import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow } from "@/lib/workflows/email-workflows"
 import { hasRole } from "@/lib/utils/roles"
 import type { AppointmentData } from "@/lib/repositories/interfaces"
 
@@ -307,7 +308,7 @@ export async function requestAppointment(input: {
     // 9. Fetch full data & trigger emails
     const fullAppointment = await appointmentRepository.findById(appointment.id)
     if (fullAppointment) {
-      sendAppointmentCreatedEmail(fullAppointment, input.createdByUserId).catch((err) => {
+      sendAppointmentCreatedWorkflow(fullAppointment as unknown as Record<string, unknown>, input.createdByUserId).catch((err) => {
         console.error("Failed to send appointment creation email:", err)
       })
     }
@@ -345,7 +346,7 @@ export async function requestAppointment(input: {
 
 // ─── Email helpers ────────────────────────────
 
-interface ApptWithJoins extends AppointmentData {
+export interface ApptWithJoins extends AppointmentData {
   student?: { id: string; name: string; email: string; role: string }
   faculty?: { id: string; name: string; email: string; role: string }
   attendees?: Array<{
@@ -358,7 +359,7 @@ interface ApptWithJoins extends AppointmentData {
   timeSlots?: Array<{ id: string; date: string; startTime: string; endTime: string; teamsLink?: string }>
 }
 
-async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, creatorId: string) {
+export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, creatorId: string) {
   if (!appointment) return
 
   // ── Determine primary recipient (the TO) ──
@@ -475,7 +476,9 @@ export async function acceptAppointment(id: string, facultyId: string) {
   const result = await appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
 
   // Fire-and-forget consultation approval email with .ics attachment
-  sendConsultationApprovedEmail(result as unknown as ApptWithJoins).catch(() => { })
+  sendConsultationApprovedWorkflow(result as unknown as Record<string, unknown>).catch((err) => {
+    console.error("Failed to send consultation approved email:", err)
+  })
 
   return result
 }
@@ -578,7 +581,7 @@ export async function studentResendInvitation(id: string, userId: string) {
   if (faculty && student) {
     const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
     const viewUrl = `${host}/appointments/${id}`
-    sendConsultationInvite(
+    sendConsultationInviteWorkflow(
       { email: faculty.email, name: faculty.name },
       {
         studentName: student.name,
@@ -592,7 +595,9 @@ export async function studentResendInvitation(id: string, userId: string) {
         description: appointment.description,
         viewUrl,
       }
-    ).catch(() => {})
+    ).catch((err) => {
+      console.error("Failed to resend invitation email:", err)
+    })
   }
 
   return updated
@@ -740,7 +745,7 @@ export async function getAppointmentDetail(id: string) {
 
 // ─── Email helpers (fire-and-forget) ────────────────────────────
 
-async function sendConsultationApprovedEmail(appointment: ApptWithJoins) {
+export async function sendConsultationApprovedEmail(appointment: ApptWithJoins) {
   const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
   const viewUrl = `${host}/appointments/${appointment.id}`
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { userRepository, passwordResetTokenRepository } from "@/lib/repositories/factory"
 import { hash } from "bcryptjs"
-import { sendPasswordChangedEmail } from "@/lib/services/email"
+import { sendPasswordChangedWorkflow } from "@/lib/workflows/email-workflows"
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     await passwordResetTokenRepository.markUsed(resetToken.id)
 
     // Send notification email (fire-and-forget — don't block response)
-    sendPasswordChangedEmail(user.email, user.name).catch((err) =>
+    sendPasswordChangedWorkflow(user.email, user.name).catch((err) =>
       console.error("Failed to send password changed email:", err)
     )
 
