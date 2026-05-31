@@ -8,7 +8,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "ADMIN") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }

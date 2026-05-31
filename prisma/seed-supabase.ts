@@ -67,7 +67,7 @@ async function main() {
     { name: "Maria Santos", email: "maria.santos@itmlyceumalabang.onmicrosoft.com" },
     { name: "Juan Dela Cruz", email: "juan.delacruz@itmlyceumalabang.onmicrosoft.com" },
   ]
-  const facultyUsers: any[] = []
+  const facultyUsers: Record<string, unknown>[] = []
   for (const f of facultyData) {
     const { data: user, error: err } = await supabase
       .from("users")
@@ -87,7 +87,7 @@ async function main() {
     { name: "Diana Lopez", email: "diana.lopez@itmlyceumalabang.onmicrosoft.com", course: "BSCS" },
     { name: "Ethan Fernandez", email: "ethan.fernandez@itmlyceumalabang.onmicrosoft.com", course: "BSIT" },
   ]
-  const studentUsers: any[] = []
+  const studentUsers: Record<string, unknown>[] = []
   for (const s of studentData) {
     const { data: user, error: err } = await supabase
       .from("users")
@@ -120,8 +120,8 @@ async function main() {
   }
 
   console.log({
-    admin: { name: admin.name, role: (admin as any).role },
-    dean: { name: dean.name, role: (dean as any).role, department: department.name },
+    admin: { name: admin.name, role: (admin as Record<string, unknown>).role },
+    dean: { name: dean.name, role: (dean as Record<string, unknown>).role, department: department.name },
     faculty: facultyUsers.map((f) => f.name),
     students: studentUsers.map((s) => ({ name: s.name, email: s.email, course: s.course })),
     totalUsers: 1 + 1 + facultyUsers.length + studentUsers.length,

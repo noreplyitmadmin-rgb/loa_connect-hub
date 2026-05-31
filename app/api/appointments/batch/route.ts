@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const role = (session.user as any).role
-  const currentUserId = (session.user as any).id
+  const role = (session.user as Record<string, unknown>).role as string
+  const currentUserId = (session.user as Record<string, unknown>).id as string
 
   if (!hasRole(role, "STUDENT") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   const additionalFacultyAttendees = facultyIds
     .filter((id: string) => id !== primaryFacultyId)
     .map((id: string) => {
-      const opt = attendeeOptions?.find((o: any) => o.userId === id)
+      const opt = attendeeOptions?.find((o: Record<string, unknown>) => o.userId === id)
       return {
         userId: id,
         isMandatory: opt?.isMandatory ?? true,
@@ -78,13 +78,10 @@ export async function POST(request: NextRequest) {
   // Combine attendees
   const allAttendees = [
     ...additionalFacultyAttendees,
-    ...(attendeeOptions || []).filter((o: any) => !facultyIds.includes(o.userId))
+    ...(attendeeOptions || []).filter((o: Record<string, unknown>) => !facultyIds.includes(o.userId as string))
   ]
 
   const sessionGroupId = crypto.randomUUID()
-
-  const results: { facultyId: string; appointment: any }[] = []
-  const errors: { facultyId: string; error: string }[] = []
 
   try {
     const result = await requestAppointment({
@@ -106,13 +103,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ appointment: result.appointment, sessionGroupId, conflicts: result.conflicts }, { status: 201 })
     
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("--- APPOINTMENT CREATION FAILED ---");
     console.error(err); 
     console.error("-----------------------------------");
 
-    const body: any = { error: err.message || "Failed to create appointment" }
-    if (err.conflicts) body.conflicts = err.conflicts
+    const errObj = err as Record<string, unknown>
+    const body: Record<string, unknown> = { error: errObj.message || "Failed to create appointment" }
+    if (errObj.conflicts) body.conflicts = errObj.conflicts
     return NextResponse.json(body, { status: 400 })
   }
 }

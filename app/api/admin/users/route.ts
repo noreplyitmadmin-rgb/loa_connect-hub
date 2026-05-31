@@ -5,11 +5,9 @@ import { logAuditEvent } from "@/lib/services/audit"
 import { hasRole, getRoleList } from "@/lib/utils/roles"
 
 const DEFAULT_ADMIN_EMAIL = "admin@lyceumalabang.ph"
-const VALID_ROLES = ["STUDENT", "FACULTY", "DEAN", "ADMIN", "GUEST"]
-
 export async function GET() {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "ADMIN") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
@@ -22,7 +20,7 @@ export async function GET() {
   }
 
   // Dean: only see faculty in their department
-  const dept = await departmentRepository.findByDeanId((session!.user as any).id)
+  const dept = await departmentRepository.findByDeanId((session!.user as Record<string, unknown>).id as string)
   if (!dept) return NextResponse.json({ users: [], departments })
 
   const deptFaculty = await userRepository.listByDepartment(dept.id)
@@ -54,14 +52,14 @@ function isDefaultAdmin(target: { email: string }): boolean {
 
 export async function POST(request: NextRequest) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || !hasRole(role, "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized — Admin only" }, { status: 403 })
   }
 
   const body = await request.json()
   const { name, email, role: newRole, departmentId } = body
-  const currentUserId = (session!.user as any).id
+  const currentUserId = (session!.user as Record<string, unknown>).id as string
 
   if (!name || !email) {
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
@@ -102,14 +100,14 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "ADMIN") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
 
   const body = await request.json()
   const { userId, isDisabled, role: newRole, name, email, departmentId, onboardingVersion } = body
-  const currentUserId = (session!.user as any).id
+  const currentUserId = (session!.user as Record<string, unknown>).id as string
 
   const target = await userRepository.findById(userId)
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -140,7 +138,7 @@ export async function PATCH(request: NextRequest) {
   // Cannot disable the last active Admin (excluding default admin guard above)
   if (hasRole(target.role, "ADMIN") && isDisabled) {
     const allAdmins = await userRepository.listByRole("ADMIN")
-    const activeAdmins = allAdmins.filter((a: any) => !a.isDisabled)
+    const activeAdmins = allAdmins.filter((a) => !a.isDisabled)
     if (activeAdmins.length <= 1 && activeAdmins[0]?.id === target.id) {
       return NextResponse.json({ error: "Cannot disable the only active admin" }, { status: 400 })
     }
@@ -157,7 +155,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (hasRole(role, "DEAN")) {
-    const dept = await departmentRepository.findByDeanId((session!.user as any).id)
+    const dept = await departmentRepository.findByDeanId((session!.user as Record<string, unknown>).id as string)
     if (!dept || (target.departmentId !== dept.id && target.id !== currentUserId)) {
       return NextResponse.json({ error: "Cannot manage users outside your department" }, { status: 403 })
     }
@@ -167,7 +165,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   // ── Build update payload ────────────────────────────────
-  const updateData: Record<string, any> = {}
+  const updateData: Record<string, unknown> = {}
   const auditActions: string[] = []
 
   // Role change

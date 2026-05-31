@@ -3,14 +3,12 @@
 import SubmitButton from "@/components/SubmitButton"
 import { useState, FormEvent, use, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 interface ChangePasswordProps {
   searchParams: Promise<{ token?: string }>
 }
 
 export default function ChangePasswordPage({ searchParams }: ChangePasswordProps) {
-  const router = useRouter()
   const params = use(searchParams)
   const token = params.token
 
@@ -23,16 +21,26 @@ export default function ChangePasswordPage({ searchParams }: ChangePasswordProps
   const [successName, setSuccessName] = useState("")
 
   useEffect(() => {
-    if (!token) {
-      setValidating(false)
-      return
+    let cancelled = false
+    const doFetch = async () => {
+      if (!token) {
+        if (!cancelled) setValidating(false)
+        return
+      }
+      try {
+        const res = await fetch(`/api/auth/change-password/validate?token=${encodeURIComponent(token)}`)
+        if (!res.ok) {
+          const d = await res.json()
+          throw new Error(d.error)
+        }
+      } catch (err) {
+        if (!cancelled) setError((err as { message?: string }).message ?? "Validation failed")
+      } finally {
+        if (!cancelled) setValidating(false)
+      }
     }
-    fetch(`/api/auth/change-password/validate?token=${encodeURIComponent(token)}`)
-      .then((res) => {
-        if (!res.ok) return res.json().then((d) => { throw new Error(d.error) })
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setValidating(false))
+    doFetch()
+    return () => { cancelled = true }
   }, [token])
 
   if (!token) {

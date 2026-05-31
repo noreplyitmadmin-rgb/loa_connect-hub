@@ -23,18 +23,23 @@ export default function AdminAccessConfigPage() {
   const [creating, setCreating] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
 
-  const loadGroups = () => {
-    setLoading(true)
-    fetch("/api/admin/access-config")
+  const doFetch = () => {
+    return fetch("/api/admin/access-config")
       .then((r) => r.json())
       .then((data) => {
         if (data.groups) setGroups(data.groups)
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
   }
 
-  useEffect(loadGroups, [])
+  const loadGroups = () => {
+    setLoading(true)
+    doFetch().finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    doFetch().finally(() => setLoading(false))
+  }, [])
 
   const handleAddGroup = async () => {
     const name = newGroupName.trim()

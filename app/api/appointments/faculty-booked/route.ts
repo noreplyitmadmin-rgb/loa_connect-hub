@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!hasRole(role, "STUDENT")) {
     return NextResponse.json({ error: "Only students can check faculty availability" }, { status: 403 })
   }
@@ -29,13 +29,13 @@ export async function GET(request: NextRequest) {
   try {
     const appointments = await getFacultyBookedAppointments(facultyId, startDate, endDate)
     // Return only lightweight data needed for the calendar
-    const slots = appointments.map((a: any) => ({
+    const slots = appointments.map((a) => ({
       date: a.date,
       startTime: a.startTime,
       endTime: a.endTime,
     }))
     return NextResponse.json({ appointments: slots })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch faculty booked appointments" },
       { status: 500 }

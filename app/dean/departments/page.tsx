@@ -29,33 +29,63 @@ export default function DeanDepartmentsPage() {
   const [newCode, setNewCode] = useState("")
   const [saving, setSaving] = useState(false)
 
+  const doFetch = async () => {
+    const userId = (session?.user as Record<string, unknown>)?.id as string
+    const deptRes = await fetch("/api/admin/users")
+    if (!deptRes.ok) throw new Error("Failed to load data")
+    const data = await deptRes.json()
+    const myDept = (data.departments || []).find((d: Department) => d.deanId === userId)
+    if (!myDept) {
+      setDepartment(null)
+      setCourses([])
+      return
+    }
+    setDepartment(myDept)
+
+    const coursesRes = await fetch("/api/admin/department-courses")
+    if (!coursesRes.ok) throw new Error("Failed to load courses")
+    const allCourses: DepartmentCourse[] = await coursesRes.json()
+    setCourses(allCourses.filter((c) => c.departmentId === myDept.id))
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      const userId = (session?.user as any)?.id
-      const deptRes = await fetch("/api/admin/users")
-      if (!deptRes.ok) throw new Error("Failed to load data")
-      const data = await deptRes.json()
-      const myDept = (data.departments || []).find((d: Department) => d.deanId === userId)
-      if (!myDept) {
-        setDepartment(null)
-        setCourses([])
-        return
-      }
-      setDepartment(myDept)
-
-      const coursesRes = await fetch("/api/admin/department-courses")
-      if (!coursesRes.ok) throw new Error("Failed to load courses")
-      const allCourses: DepartmentCourse[] = await coursesRes.json()
-      setCourses(allCourses.filter((c) => c.departmentId === myDept.id))
-    } catch (err: any) {
-      setError(err.message)
+      await doFetch()
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { if (session) fetchData() }, [session])
+  useEffect(() => {
+    if (!session) return
+    const uid = (session?.user as Record<string, unknown>)?.id as string
+    let deptId: string | null = null
+    fetch("/api/admin/users")
+      .then((r) => { if (!r.ok) throw new Error("Failed to load data"); return r.json() })
+      .then((data) => {
+        const myDept = (data.departments || []).find((d: Record<string, unknown>) => d.deanId === uid)
+        if (!myDept) {
+          setDepartment(null)
+          setCourses([])
+          return null
+        }
+        deptId = myDept.id as string
+        setDepartment(myDept as Department)
+        return fetch("/api/admin/department-courses")
+      })
+      .then((coursesRes) => {
+        if (!coursesRes || !deptId) return
+        return coursesRes.json()
+      })
+      .then((allCourses) => {
+        if (allCourses && deptId) setCourses(allCourses.filter((c: DepartmentCourse) => c.departmentId === deptId))
+      })
+      .catch((err) => setError((err as Error).message))
+      .finally(() => setLoading(false))
+  }, [session])
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,8 +105,8 @@ export default function DeanDepartmentsPage() {
       setNewName("")
       setNewCode("")
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setSaving(false)
     }
@@ -91,8 +121,8 @@ export default function DeanDepartmentsPage() {
         throw new Error(data.error || "Failed to delete")
       }
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 

@@ -6,12 +6,12 @@ import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST() {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || !hasRole(role, "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
 
-  const currentUserId = (session!.user as any).id
+  const currentUserId = (session!.user as Record<string, unknown>).id as string
 
   try {
     const data = await exportAndClearConsultations()

@@ -1,31 +1,33 @@
 import { supabase } from "@/lib/supabase"
 
-export interface ConsultationExport {
+type DbRecord = Record<string, unknown>
+
+export interface ConsultationExportDto {
   exportedAt: string
-  appointments: any[]
-  files: any[]
-  attendees: any[]
-  timeSlots: any[]
+  appointments: DbRecord[]
+  files: DbRecord[]
+  attendees: DbRecord[]
+  timeSlots: DbRecord[]
 }
 
-export interface StudentExport {
+export interface StudentExportDto {
   exportedAt: string
-  students: any[]
+  students: DbRecord[]
   orphanedAppointmentIds: string[]
 }
 
-export async function exportAndClearConsultations(): Promise<ConsultationExport> {
+export async function exportAndClearConsultations(): Promise<ConsultationExportDto> {
   const { data: appointments } = await supabase
     .from("appointments")
     .select("*")
     .eq("meetingType", "CONSULTATION")
     .order("date", { ascending: false })
 
-  const appointmentIds = (appointments || []).map((a: any) => a.id)
+  const appointmentIds = (appointments || []).map((a: DbRecord) => a.id as string)
 
-  let files: any[] = []
-  let attendees: any[] = []
-  let timeSlots: any[] = []
+  let files: DbRecord[] = []
+  let attendees: DbRecord[] = []
+  let timeSlots: DbRecord[] = []
 
   if (appointmentIds.length > 0) {
     const { data: f } = await supabase
@@ -47,7 +49,7 @@ export async function exportAndClearConsultations(): Promise<ConsultationExport>
     timeSlots = ts || []
   }
 
-  const exportData: ConsultationExport = {
+  const exportData: ConsultationExportDto = {
     exportedAt: new Date().toISOString(),
     appointments: appointments || [],
     files,
@@ -84,14 +86,14 @@ export async function exportAndClearConsultations(): Promise<ConsultationExport>
   return exportData
 }
 
-export async function exportAndDeleteStudents(): Promise<StudentExport> {
+export async function exportAndDeleteStudents(): Promise<StudentExportDto> {
   // 1. Query all students (via userrole join)
   const { data: studentRoles } = await supabase
     .from("userrole")
     .select("userId")
     .eq("roleName", "STUDENT")
 
-  const studentIds = (studentRoles || []).map((r: any) => r.userId)
+  const studentIds = (studentRoles || []).map((r: DbRecord) => r.userId as string)
 
   if (studentIds.length === 0) {
     return { exportedAt: new Date().toISOString(), students: [], orphanedAppointmentIds: [] }
@@ -109,7 +111,7 @@ export async function exportAndDeleteStudents(): Promise<StudentExport> {
     .select("id")
     .in("studentId", studentIds)
 
-  const orphanedAppointmentIds = (studentAppointments || []).map((a: any) => a.id)
+  const orphanedAppointmentIds = (studentAppointments || []).map((a: DbRecord) => a.id as string)
 
   // 4. Nullify studentId on their appointments
   if (orphanedAppointmentIds.length > 0) {

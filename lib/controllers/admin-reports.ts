@@ -48,7 +48,7 @@ async function getDepartmentSummary(
 
     const { data: appointments } = await query
     if (appointments) {
-      for (const apt of appointments as any[]) {
+      for (const apt of appointments as Record<string, unknown>[]) {
         total++
         switch (apt.status) {
           case "COMPLETED": completed++; break

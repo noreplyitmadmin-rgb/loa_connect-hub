@@ -3,11 +3,29 @@ import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/
 import { generateICal } from "@/lib/services/ical"
 import { sendConsultationInvite, sendMeetingInviteWithICS } from "@/lib/services/email"
 import { hasRole } from "@/lib/utils/roles"
+import type { AppointmentData } from "@/lib/repositories/interfaces"
+
+type DbRecord = Record<string, unknown>
 
 export interface TimeSlot {
   date: string
   startTime: string
   endTime: string
+}
+
+interface CreateData {
+  studentId: string | null
+  facultyId: string
+  createdByEmail: string
+  meetingType?: "CONSULTATION"
+  sessionGroupId: string | null
+  date: string
+  startTime: string
+  endTime: string
+  title: string | null
+  description: string | null
+  teamsLink?: string
+  status?: string
 }
 
 function getMinutesDifference(startTime: string, endTime: string): number {
@@ -97,14 +115,14 @@ export async function requestAppointment(input: {
   // 7. Conflict checking — rules vary by creator role
   const conflicts: { userId: string; userName: string; message: string; appointments: { appointmentId: string; title: string; date: string; startTime: string; endTime: string }[] }[] = []
 
-  const mapConflicts = (slots: any[]) =>
-    slots.map((s: any) => ({
-      appointmentId: s.appointment?.id || s.appointmentId || "",
-      title: s.appointment?.title || null,
-      meetingType: s.appointment?.meetingType || "MEETING",
-      date: s.date,
-      startTime: s.startTime,
-      endTime: s.endTime,
+  const mapConflicts = (slots: DbRecord[]) =>
+    slots.map((s: DbRecord) => ({
+      appointmentId: ((s.appointment as DbRecord)?.id as string) || (s.appointmentId as string) || "",
+      title: ((s.appointment as DbRecord)?.title as string) || null,
+      meetingType: ((s.appointment as DbRecord)?.meetingType as string) || "MEETING",
+      date: s.date as string,
+      startTime: s.startTime as string,
+      endTime: s.endTime as string,
     }))
 
   // Students cannot invite other students as attendees
@@ -129,13 +147,15 @@ export async function requestAppointment(input: {
         input.sessionGroupId
       )
       if (conflictingSlots.length > 0) {
-        const err = new Error("You already have an appointment that overlaps with this time")
-        ;(err as any).conflicts = [{
-          userId: input.createdByUserId,
-          userName: "You",
-          message: "You already have an appointment that overlaps with this time",
-          appointments: mapConflicts(conflictingSlots),
-        }]
+        const err = Object.assign(
+          new Error("You already have an appointment that overlaps with this time"),
+          { conflicts: [{
+            userId: input.createdByUserId,
+            userName: "You",
+            message: "You already have an appointment that overlaps with this time",
+            appointments: mapConflicts(conflictingSlots as unknown as DbRecord[]),
+          }] }
+        )
         throw err
       }
     }
@@ -148,21 +168,24 @@ export async function requestAppointment(input: {
         slot.startTime,
         slot.endTime
       )
-      const actualConflicts = (conflictingSlots || []).filter((s: any) => {
-        const apt = s.appointment
+      const dbSlots = (conflictingSlots || []) as unknown as DbRecord[]
+      const actualConflicts = dbSlots.filter((s: DbRecord) => {
+        const apt = s.appointment as DbRecord | undefined
         return apt &&
           apt.sessionGroupId !== input.sessionGroupId &&
           apt.status === "APPROVED"
       })
       if (actualConflicts.length > 0) {
         const faculty = await userRepository.findById(input.facultyId)
-        const err = new Error(`${faculty?.name || "Faculty"} is already booked at this time`)
-        ;(err as any).conflicts = [{
-          userId: input.facultyId,
-          userName: faculty?.name || "Faculty",
-          message: `${faculty?.name || "Faculty"} is already booked at this time`,
-          appointments: mapConflicts(actualConflicts),
-        }]
+        const err = Object.assign(
+          new Error(`${faculty?.name || "Faculty"} is already booked at this time`),
+          { conflicts: [{
+            userId: input.facultyId,
+            userName: faculty?.name || "Faculty",
+            message: `${faculty?.name || "Faculty"} is already booked at this time`,
+            appointments: mapConflicts(actualConflicts),
+          }] }
+        )
         throw err
       }
     }
@@ -175,20 +198,24 @@ export async function requestAppointment(input: {
         slot.startTime,
         slot.endTime
       )
-      const actualConflicts = (conflictingSlots || []).filter((s: any) => {
-        const apt = s.appointment
+      const dbSlots = (conflictingSlots || []) as unknown as DbRecord[]
+      const actualConflicts = dbSlots.filter((s: DbRecord) => {
+        const apt = s.appointment as DbRecord | undefined
         return apt &&
           apt.sessionGroupId !== input.sessionGroupId &&
-          (apt.status === "PENDING" || apt.status === "APPROVED")
+          apt.status === "APPROVED"
       })
       if (actualConflicts.length > 0) {
-        const err = new Error("You already have a meeting that overlaps with this time")
-        ;(err as any).conflicts = [{
-          userId: input.createdByUserId,
-          userName: "You",
-          message: "You already have a meeting that overlaps with this time",
-          appointments: mapConflicts(actualConflicts),
-        }]
+        const faculty = await userRepository.findById(input.facultyId)
+        const err = Object.assign(
+          new Error(`${faculty?.name || "Faculty"} is already booked at this time`),
+          { conflicts: [{
+            userId: input.facultyId,
+            userName: faculty?.name || "Faculty",
+            message: `${faculty?.name || "Faculty"} is already booked at this time`,
+            appointments: mapConflicts(actualConflicts),
+          }] }
+        )
         throw err
       }
     }
@@ -226,7 +253,7 @@ export async function requestAppointment(input: {
       requiredStudentId = input.createdByUserId; 
   }
 
-  const createData: any = {
+  const createData: CreateData = {
     studentId: requiredStudentId,
     facultyId: input.facultyId,
     createdByEmail,
@@ -318,7 +345,20 @@ export async function requestAppointment(input: {
 
 // ─── Email helpers ────────────────────────────
 
-async function sendAppointmentCreatedEmail(appointment: any, creatorId: string) {
+interface ApptWithJoins extends AppointmentData {
+  student?: { id: string; name: string; email: string; role: string }
+  faculty?: { id: string; name: string; email: string; role: string }
+  attendees?: Array<{
+    id: string
+    userId: string
+    status: string
+    isMandatory: boolean
+    user?: { id: string; name: string; email: string; role: string }
+  }>
+  timeSlots?: Array<{ id: string; date: string; startTime: string; endTime: string; teamsLink?: string }>
+}
+
+async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, creatorId: string) {
   if (!appointment) return
 
   // ── Determine primary recipient (the TO) ──
@@ -435,7 +475,7 @@ export async function acceptAppointment(id: string, facultyId: string) {
   const result = await appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
 
   // Fire-and-forget consultation approval email with .ics attachment
-  sendConsultationApprovedEmail(result as any).catch(() => { })
+  sendConsultationApprovedEmail(result as unknown as ApptWithJoins).catch(() => { })
 
   return result
 }
@@ -598,62 +638,66 @@ export async function getAppointmentById(id: string) {
 }
 
 export async function getAppointmentDetail(id: string) {
-  const appointment: any = await appointmentRepository.findById(id)
+  const appointment: ApptWithJoins | null = await appointmentRepository.findById(id) as unknown as ApptWithJoins
   if (!appointment) throw new Error("Appointment not found")
 
   // Use embedded time slots from the query join (avoids extra fetch)
-  let timeSlots: any[] = appointment.timeSlots || []
+  let timeSlots: DbRecord[] = appointment.timeSlots || []
   // If the join didn't return them (e.g. older data), fetch separately
   if (timeSlots.length === 0) {
     try {
-      timeSlots = await appointmentRepository.listTimeSlots(id)
+      timeSlots = await appointmentRepository.listTimeSlots(id) as unknown as DbRecord[]
     } catch {
       // appointment_time_slots table may not exist yet
     }
   }
-  let files: any[] = []
+  let files: DbRecord[] = []
   try {
-    files = await appointmentRepository.listFiles(id)
+    files = await appointmentRepository.listFiles(id) as unknown as DbRecord[]
   } catch {
     // appointment_files table may not exist yet (migration not run)
   }
 
   // ── Derive organizer from createdByEmail ───────────────────────
   let organizer: { id: string; name: string; email: string; role?: string } | null = null
-  if (appointment.createdByEmail === appointment.student?.email) {
-    organizer = { id: appointment.student.id, name: appointment.student.name, email: appointment.student.email, role: appointment.student.role }
-  } else if (appointment.createdByEmail === appointment.faculty?.email) {
-    organizer = { id: appointment.faculty.id, name: appointment.faculty.name, email: appointment.faculty.email, role: appointment.faculty.role }
+  if (appointment.createdByEmail === (appointment.student as DbRecord)?.email as string) {
+    const stu = appointment.student as DbRecord
+    organizer = { id: stu.id as string, name: stu.name as string, email: stu.email as string, role: stu.role as string }
+  } else if (appointment.createdByEmail === (appointment.faculty as DbRecord)?.email as string) {
+    const fac = appointment.faculty as DbRecord
+    organizer = { id: fac.id as string, name: fac.name as string, email: fac.email as string, role: fac.role as string }
   } else {
-    const matched = (appointment.attendees || []).find((a: any) => a.user?.email === appointment.createdByEmail)
+    const matched = (appointment.attendees || []).find((a: DbRecord) => (a.user as DbRecord)?.email === appointment.createdByEmail)
     if (matched?.user) {
-      organizer = { id: matched.user.id, name: matched.user.name, email: matched.user.email, role: matched.user.role }
+      const u = matched.user as DbRecord
+      organizer = { id: u.id as string, name: u.name as string, email: u.email as string, role: u.role as string }
     }
   }
   if (!organizer) {
     // Fallback: use the student as organizer
-    organizer = appointment.student
-      ? { id: appointment.student.id, name: appointment.student.name, email: appointment.student.email, role: appointment.student.role }
+    const stu = appointment.student as DbRecord
+    organizer = stu
+      ? { id: stu.id as string, name: stu.name as string, email: stu.email as string, role: stu.role as string }
       : { id: "", name: "Unknown", email: appointment.createdByEmail }
   }
 
   // ── Filter attendees: exclude organizer and primary faculty ────
-  const filtered = (appointment.attendees || []).filter((a: any) => {
+  const filtered = (appointment.attendees || []).filter((a: DbRecord) => {
     if (!a.user) return false
-    if (a.user.id === appointment.faculty?.id) return false
-    if (a.user.id === organizer!.id) return false
+    if ((a.user as DbRecord).id === (appointment.faculty as DbRecord)?.id) return false
+    if ((a.user as DbRecord).id === organizer!.id) return false
     return true
   })
 
-  const mappedAttendees = filtered.map((a: any) => ({
-    id: a.id,
-    userId: a.userId,
-    status: a.status === "INVITED" ? "PENDING" as const : a.status as "ACCEPTED" | "DECLINED",
-    isMandatory: a.isMandatory,
-    user: { id: a.user.id, name: a.user.name, email: a.user.email, role: a.user.role },
+  const mappedAttendees = filtered.map((a: DbRecord) => ({
+    id: a.id as string,
+    userId: a.userId as string,
+    status: (a.status as string) === "INVITED" ? "PENDING" as const : (a.status as "ACCEPTED" | "DECLINED"),
+    isMandatory: a.isMandatory as boolean,
+    user: { id: (a.user as DbRecord).id as string, name: (a.user as DbRecord).name as string, email: (a.user as DbRecord).email as string, role: (a.user as DbRecord).role as string },
   }))
 
-  const mapUser = (u: any) => (u ? { id: u.id, name: u.name, email: u.email, role: u.role } : null)
+  const mapUser = (u: unknown) => (u ? { id: (u as DbRecord).id as string, name: (u as DbRecord).name as string, email: (u as DbRecord).email as string, role: (u as DbRecord).role as string } : null)
 
   return {
     id: appointment.id,
@@ -676,27 +720,27 @@ export async function getAppointmentDetail(id: string) {
     student: mapUser(appointment.student),
     faculty: mapUser(appointment.faculty),
     attendees: mappedAttendees,
-    timeSlots: timeSlots.map((s: any) => ({
-      id: s.id,
-      date: s.date,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      teamsLink: s.teamsLink || null,
+    timeSlots: timeSlots.map((s: DbRecord) => ({
+      id: s.id as string,
+      date: s.date as string,
+      startTime: s.startTime as string,
+      endTime: s.endTime as string,
+      teamsLink: (s.teamsLink as string) || null,
     })),
-    files: files.map((f) => ({
+    files: files.map((f: DbRecord) => ({
       id: f.id,
       fileName: f.fileName,
       fileType: f.fileType,
       fileData: f.fileData,
       fileSize: f.fileSize,
-      createdAt: typeof f.createdAt === "string" ? f.createdAt : f.createdAt.toISOString(),
+      createdAt: typeof f.createdAt === "string" ? f.createdAt : (f.createdAt as Date).toISOString(),
     })),
   }
 }
 
 // ─── Email helpers (fire-and-forget) ────────────────────────────
 
-async function sendConsultationApprovedEmail(appointment: any) {
+async function sendConsultationApprovedEmail(appointment: ApptWithJoins) {
   const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
   const viewUrl = `${host}/appointments/${appointment.id}`
 
@@ -773,40 +817,42 @@ export async function getMeetingsForUser(userId: string) {
 
   const merged = [...organized, ...invited]
   const seen = new Set<string>()
-  const unique = merged.filter((apt: any) => {
-    if (seen.has(apt.id)) return false
-    seen.add(apt.id)
+  const unique = merged.filter((apt: AppointmentData) => {
+    if (seen.has(apt.id as string)) return false
+    seen.add(apt.id as string)
     return true
   })
 
   // Format to match legacy MeetingData shape for the frontend UI compatibility
-  return unique.map((appointment: any) => {
-    const participants = (appointment.attendees || []).map((att: any) => ({
-      id: att.id,
-      meetingId: appointment.id,
-      userId: att.userId,
-      status: (att.status === "ACCEPTED" ? "ACCEPTED" : att.status === "DECLINED" ? "DECLINED" : "PENDING") as any,
-      user: att.user,
+  return (unique as unknown as DbRecord[]).map((appointment: DbRecord) => {
+    const participants = ((appointment.attendees as DbRecord[]) || []).map((att: DbRecord) => ({
+      id: att.id as string,
+      meetingId: appointment.id as string,
+      userId: att.userId as string,
+      status: (att.status === "ACCEPTED" ? "ACCEPTED" : att.status === "DECLINED" ? "DECLINED" : "PENDING") as "ACCEPTED" | "DECLINED" | "PENDING",
+      user: att.user as DbRecord,
     }))
 
-    const organizer = appointment.student?.email === appointment.createdByEmail
-      ? appointment.student
-      : appointment.faculty?.email === appointment.createdByEmail
-        ? appointment.faculty
-        : appointment.student || appointment.faculty || null
+    const stu = appointment.student as DbRecord | undefined
+    const fac = appointment.faculty as DbRecord | undefined
+    const organizer = stu?.email === appointment.createdByEmail
+      ? stu
+      : fac?.email === appointment.createdByEmail
+        ? fac
+        : stu || fac || null
 
     return {
-      id: appointment.id,
-      title: appointment.title,
-      description: appointment.description,
-      date: appointment.date,
-      startTime: appointment.startTime,
-      endTime: appointment.endTime,
-      organizerId: organizer?.id || appointment.facultyId || appointment.studentId,
+      id: appointment.id as string,
+      title: appointment.title as string,
+      description: appointment.description as string,
+      date: appointment.date as string,
+      startTime: appointment.startTime as string,
+      endTime: appointment.endTime as string,
+      organizerId: (organizer?.id as string) || (appointment.facultyId as string) || (appointment.studentId as string),
       teamsEventId: null,
-      teamsLink: appointment.teamsLink,
-      status: appointment.status,
-      createdAt: new Date(appointment.requestedAt),
+      teamsLink: appointment.teamsLink as string,
+      status: appointment.status as string,
+      createdAt: new Date(appointment.requestedAt as string),
       organizer,
       participants,
     }

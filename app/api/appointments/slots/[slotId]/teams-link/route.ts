@@ -9,7 +9,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slo
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Only faculty can update meeting links" }, { status: 403 })
   }

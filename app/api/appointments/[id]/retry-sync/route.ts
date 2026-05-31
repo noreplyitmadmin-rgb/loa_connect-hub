@@ -8,7 +8,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const facultyId = (session.user as any).id
+  const facultyId = (session.user as Record<string, unknown>).id as string
   const { id } = await params
 
   try {

@@ -6,21 +6,6 @@ import BookingForm from "./BookingForm"
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
-/** Validate that time is at a 30-minute boundary (HH:00 or HH:30) */
-function isValid30MinuteTime(time: string): boolean {
-  if (!time) return false
-  const [, mins] = time.split(":").map(Number)
-  return mins === 0 || mins === 30
-}
-
-/** Round time to nearest 30-minute boundary */
-function roundTo30Minutes(time: string): string {
-  if (!time) return ""
-  const [hours, mins] = time.split(":").map(Number)
-  if (mins <= 15) return `${String(hours).padStart(2, "0")}:00`
-  return `${String(hours).padStart(2, "0")}:30`
-}
-
 interface FacultyRule {
   id: string
   dayOfWeek: number

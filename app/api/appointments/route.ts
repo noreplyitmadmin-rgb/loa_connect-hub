@@ -13,24 +13,25 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get("q")?.toLowerCase().trim() || ""
     
-    const role = (session.user as any).role
-    const userId = (session.user as any).id
+    const role = (session.user as Record<string, unknown>).role as string
+    const userId = (session.user as Record<string, unknown>).id as string
     let appointments = hasRole(role, "FACULTY") || hasRole(role, "DEAN")
       ? await listFacultyAppointments(userId)
       : await listStudentAppointments(userId)
     
     // Filter by search query if provided
     if (q) {
-      appointments = appointments.filter((appt: any) => {
-        const title = appt.title?.toLowerCase() || ""
-        const studentName = appt.studentName?.toLowerCase() || ""
-        const facultyName = appt.facultyName?.toLowerCase() || ""
+      appointments = appointments.filter((appt) => {
+        const a = appt as unknown as Record<string, unknown>
+        const title = (a.title as string)?.toLowerCase() || ""
+        const studentName = (a.studentName as string)?.toLowerCase() || ""
+        const facultyName = (a.facultyName as string)?.toLowerCase() || ""
         return title.includes(q) || studentName.includes(q) || facultyName.includes(q)
       })
     }
     
     return NextResponse.json({ appointments })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch appointments" },
       { status: 500 }
@@ -44,10 +45,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const user = session.user as any
+  const user = session.user as Record<string, unknown>
   const body = await request.json()
 
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!hasRole(role, "STUDENT") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -57,8 +58,8 @@ export async function POST(request: Request) {
   // If the creator is FACULTY/DEAN, they might be booking on behalf of a student 
   // (via body.studentId) or creating an internal meeting (studentId = null).
   let studentId: string | null = null
-  if (hasRole(user.role, "STUDENT")) {
-    studentId = user.id
+  if (hasRole(user.role as string, "STUDENT")) {
+    studentId = user.id as string
   } else {
     studentId = body.studentId || null 
   }
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const result = await requestAppointment({
-      createdByUserId: (session.user as any).id,
+      createdByUserId: (session.user as Record<string, unknown>).id as string,
       studentId: studentId,
       facultyId: body.facultyId,
       sessionGroupId: body.sessionGroupId,

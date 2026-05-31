@@ -5,7 +5,7 @@ import { listDeletedUsers } from "@/lib/controllers/admin-users"
 
 export async function GET() {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || !hasRole(role, "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }

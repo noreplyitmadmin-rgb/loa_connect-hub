@@ -7,23 +7,34 @@ import { userRepository } from "@/lib/repositories/factory"
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
 import { hasRole } from "@/lib/utils/roles"
 
+interface FacultyAppointment {
+  id: string
+  title: string | null
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  teamsLink: string | null
+  student?: { name: string; email: string } | null
+}
+
 export default async function FacultyDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) redirect("/login")
 
-  const facultyId = (session.user as any).id
+  const facultyId = (session.user as Record<string, unknown>).id as string
   const dbUser = await userRepository.findById(facultyId)
   const needsOnboarding = dbUser?.onboardingVersion === 0 && hasRole(role, "FACULTY")
-  const appointments = await listFacultyAppointments(facultyId)
+  const appointments = (await listFacultyAppointments(facultyId)) as FacultyAppointment[]
 
   const upcomingCount = appointments.filter(
-    (a: any) => a.status === "APPROVED" || a.status === "PENDING"
+    (a: FacultyAppointment) => a.status === "APPROVED" || a.status === "PENDING"
   ).length
-  const pendingCount = appointments.filter((a: any) => a.status === "PENDING").length
+  const pendingCount = appointments.filter((a: FacultyAppointment) => a.status === "PENDING").length
 
-  const timelineEvents = appointments.map((a: any) => ({
+  const timelineEvents = appointments.map((a: FacultyAppointment) => ({
     id: a.id,
     title: a.title || `Meeting with ${a.student?.name || "Attendee"}`,
     subtitle: a.student?.email,

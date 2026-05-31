@@ -7,12 +7,35 @@ import { userRepository, departmentRepository } from "@/lib/repositories/factory
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
 import { hasRole } from "@/lib/utils/roles"
 
+interface FacultyAppointment {
+  id: string
+  title: string | null
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  teamsLink: string | null
+  student?: { name: string; email: string } | null
+}
+
+interface TimelineEvent {
+  id: string
+  title: string
+  subtitle: string
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  type: "appointment"
+  teamsLink: string | null
+}
+
 export default async function DeanDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if (!hasRole((session.user as any).role, "DEAN")) redirect("/login")
+  if (!hasRole((session.user as Record<string, unknown>).role as string, "DEAN")) redirect("/login")
 
-  const deanId = (session.user as any).id
+  const deanId = (session.user as Record<string, unknown>).id as string
   const dbUser = await userRepository.findById(deanId)
   const needsOnboarding = dbUser?.onboardingVersion === 0
   const department = await departmentRepository.findByDeanId(deanId)
@@ -22,24 +45,24 @@ export default async function DeanDashboard() {
     : []
 
   const facultyMembers = facultyUsers.filter(
-    (u: any) => hasRole(u.role, "FACULTY") || hasRole(u.role, "DEAN")
+    (u) => hasRole(u.role, "FACULTY") || hasRole(u.role, "DEAN")
   )
 
   let upcomingCount = 0
   let pendingCount = 0
-  const timelineEvents: any[] = []
+  const timelineEvents: TimelineEvent[] = []
 
   const today = new Date().toISOString().slice(0, 10)
 
   for (const faculty of facultyMembers) {
-    const appointments = await listFacultyAppointments(faculty.id)
+    const appointments = (await listFacultyAppointments(faculty.id)) as FacultyAppointment[]
 
     upcomingCount += appointments.filter(
-      (a: any) => a.date >= today && (a.status === "APPROVED" || a.status === "PENDING")
+      (a: FacultyAppointment) => a.date >= today && (a.status === "APPROVED" || a.status === "PENDING")
     ).length
-    pendingCount += appointments.filter((a: any) => a.status === "PENDING").length
+    pendingCount += appointments.filter((a: FacultyAppointment) => a.status === "PENDING").length
 
-    for (const a of appointments as any[]) {
+    for (const a of appointments) {
       timelineEvents.push({
         id: a.id,
         title: a.title || `Meeting with ${a.student?.name || "Attendee"}`,

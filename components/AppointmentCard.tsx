@@ -127,7 +127,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
         <div className="space-y-3 flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={effectiveStatus} />
-            {(appointment as any).meetingType && (
+            {appointment.meetingType && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-700 border-blue-200">
                 Consultation
               </span>

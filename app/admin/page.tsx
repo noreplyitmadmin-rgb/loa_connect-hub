@@ -4,6 +4,7 @@ import { userRepository } from "@/lib/repositories/factory"
 import { auditLogRepository } from "@/lib/repositories/factory"
 import { hasRole } from "@/lib/utils/roles"
 import { getDatabaseSize, formatBytes, getStoragePercentage, getStorageColor } from "@/lib/controllers/database-size"
+import type { UserData, AuditLogData } from "@/lib/repositories/interfaces"
 
 async function getUsers() {
   const users = await userRepository.listAll()
@@ -17,7 +18,7 @@ async function getAuditLogs() {
 export default async function AdminDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if (!hasRole((session.user as any).role, "ADMIN")) redirect("/login")
+  if (!hasRole((session.user as Record<string, unknown>).role as string, "ADMIN")) redirect("/login")
 
   const [users, auditLogs, dbSize] = await Promise.all([
     getUsers(),
@@ -28,12 +29,12 @@ export default async function AdminDashboard() {
   const storagePercent = getStoragePercentage(dbSize.estimatedTotalBytes)
   const storageColor = getStorageColor(storagePercent)
 
-  const adminCount = users.filter((u: any) => hasRole(u.role, "ADMIN")).length
-  const deanCount = users.filter((u: any) => hasRole(u.role, "DEAN")).length
-  const facultyCount = users.filter((u: any) => hasRole(u.role, "FACULTY")).length
-  const studentCount = users.filter((u: any) => hasRole(u.role, "STUDENT")).length
-  const pendingCount = users.filter((u: any) => !u.hasLoggedInBefore).length
-  const disabledCount = users.filter((u: any) => u.isDisabled).length
+  const adminCount = users.filter((u: UserData) => hasRole(u.role, "ADMIN")).length
+  const deanCount = users.filter((u: UserData) => hasRole(u.role, "DEAN")).length
+  const facultyCount = users.filter((u: UserData) => hasRole(u.role, "FACULTY")).length
+  const studentCount = users.filter((u: UserData) => hasRole(u.role, "STUDENT")).length
+  const pendingCount = users.filter((u: UserData) => !u.hasLoggedInBefore).length
+  const disabledCount = users.filter((u: UserData) => u.isDisabled).length
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -124,7 +125,7 @@ export default async function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.map((user: any) => (
+              {users.map((user: UserData) => (
                 <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{user.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">{user.email}</td>
@@ -177,7 +178,7 @@ export default async function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {auditLogs.map((log: any) => (
+                {auditLogs.map((log: AuditLogData) => (
                   <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-3 whitespace-nowrap text-xs text-slate-500 font-medium tabular-nums">
                       {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}

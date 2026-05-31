@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import type Mail from "nodemailer/lib/mailer"
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -118,20 +119,19 @@ export async function sendConsultationInvite(
 
   if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
 
-  const mail: any = {
+  const mail: Mail.Options = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
     to: to.email,
     subject: `${data.studentName} is requesting for Consultation`,
     html,
-    cc: data.cc,
-  }
-
-  if (icalString) {
-    mail.attachments = [{
-      filename: "event.ics",
-      content: icalString,
-      contentType: "text/calendar; charset=utf-8",
-    }]
+    cc: data.cc ?? undefined,
+    ...(icalString ? {
+      attachments: [{
+        filename: "event.ics",
+        content: icalString,
+        contentType: "text/calendar; charset=utf-8",
+      }]
+    } : {}),
   }
 
   await transporter.sendMail(mail)
@@ -175,20 +175,19 @@ export async function sendMeetingInviteWithICS(
 
   if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
 
-  const mail: any = {
+  const mail: Mail.Options = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
     to: to.email,
     subject: `Consultation Invitation — ${data.title}`,
     html,
     ...(data.cc ? { cc: data.cc } : {}),
-  }
-
-  if (icalString) {
-    mail.attachments = [{
-      filename: "event.ics",
-      content: icalString,
-      contentType: "text/calendar; charset=utf-8",
-    }]
+    ...(icalString ? {
+      attachments: [{
+        filename: "event.ics",
+        content: icalString,
+        contentType: "text/calendar; charset=utf-8",
+      }]
+    } : {}),
   }
 
   await transporter.sendMail(mail)
@@ -239,20 +238,19 @@ export async function sendApprovedWithTeamsLink(
 
   if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
 
-  const mail: any = {
+  const mail: Mail.Options = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
     to: to.email,
     subject: `Consultation Accepted — Microsoft Teams Link Inside`,
     html,
     cc: ccList.map(c => c.email),
-  }
-
-  if (icalString) {
-    mail.attachments = [{
-      filename: "event.ics",
-      content: icalString,
-      contentType: "text/calendar; charset=utf-8",
-    }]
+    ...(icalString ? {
+      attachments: [{
+        filename: "event.ics",
+        content: icalString,
+        contentType: "text/calendar; charset=utf-8",
+      }]
+    } : {}),
   }
 
   await transporter.sendMail(mail)

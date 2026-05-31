@@ -9,7 +9,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || !hasRole(role, "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized — Admin only" }, { status: 403 })
   }
@@ -25,7 +25,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Department not found" }, { status: 404 })
     }
 
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, unknown> = {}
     const auditActions: string[] = []
 
     if (name !== undefined) {
@@ -51,7 +51,7 @@ export async function PATCH(
 
     const updated = await departmentRepository.update(id, updateData)
 
-    const currentUserId = (session!.user as any).id
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
     await logAuditEvent({
       userId: currentUserId,
       action: "UPDATE_DEPARTMENT",
@@ -59,10 +59,12 @@ export async function PATCH(
     })
 
     return NextResponse.json(updated)
-  } catch (err: any) {
-    if (err.code === "23505") {
+  } catch (err: unknown) {
+    const pgErr = err as Record<string, unknown>
+    if (pgErr.code === "23505") {
       return NextResponse.json({ error: "Department code already exists" }, { status: 409 })
     }
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const message = err instanceof Error ? err.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

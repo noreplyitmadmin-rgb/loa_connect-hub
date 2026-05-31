@@ -18,7 +18,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized — Faculty or Dean only" }, { status: 403 })
   }
@@ -38,13 +38,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "CSV parsing failed", details: parseErrors }, { status: 400 })
   }
 
-  const userId = (session!.user as any).id
+  const userId = (session!.user as Record<string, unknown>).id as string
   let departmentId: string | null = null
   const dept = await departmentRepository.findByDeanId(userId)
   if (dept) {
     departmentId = dept.id
   } else {
-    const user = await departmentRepository.listAll()
     if (!dept && role) {
       const { userRepository } = await import("@/lib/repositories/factory")
       const userData = await userRepository.findById(userId)
@@ -55,7 +54,7 @@ export async function POST(request: NextRequest) {
   const result = await importUsers(rows, "FACULTY", departmentId)
 
   await logAuditEvent({
-    userId: (session!.user as any).id,
+    userId: (session!.user as Record<string, unknown>).id as string,
     action: "CREATE_USER",
     details: `Imported ${result.created.length} students (${result.skipped.length} skipped, ${result.errors.length} errors)`,
   })

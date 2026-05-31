@@ -51,16 +51,16 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         // Sign-in: store user details + current tokenVersion
         token.id = user.id
-        ;(token as any).role = (user as any).role || "STUDENT"
-        ;(token as any).tokenVersion = (user as any).tokenVersion ?? 0
+        ;(token as unknown as Record<string, unknown>).role = (user as unknown as Record<string, unknown>).role || "STUDENT"
+        ;(token as unknown as Record<string, unknown>).tokenVersion = (user as unknown as Record<string, unknown>).tokenVersion ?? 0
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        ;(session.user as any).role = (token as any).role
-        ;(session.user as any).id = (token as any).id
-        ;(session.user as any).tokenVersion = (token as any).tokenVersion
+        ;(session.user as unknown as Record<string, unknown>).role = (token as unknown as Record<string, unknown>).role
+        ;(session.user as unknown as Record<string, unknown>).id = (token as unknown as Record<string, unknown>).id
+        ;(session.user as unknown as Record<string, unknown>).tokenVersion = (token as unknown as Record<string, unknown>).tokenVersion
       }
       return session
     },
@@ -83,7 +83,7 @@ export async function auth() {
   // null on a transient Supabase hiccup causes a redirect-to-login loop
   // because the login page's useSession() still sees a valid JWT cookie and
   // redirects right back.
-  const userId = (session?.user as any)?.id
+  const userId = (session?.user as unknown as Record<string, unknown>)?.id as string | undefined
   if (!userId) return session
 
   try {
@@ -111,14 +111,14 @@ export async function auth() {
     // For old JWTs that lack tokenVersion, treat as version 0 and
     // compare against the DB so a reset (which resets to 0 for all
     // users) or a disable (which increments) is still caught.
-    const jwtVersion = (session?.user as any)?.tokenVersion ?? 0
+    const jwtVersion = ((session?.user as unknown as Record<string, unknown>)?.tokenVersion as number) ?? 0
     if (dbUser.tokenVersion !== jwtVersion) {
       console.warn(`[auth] Session user ${userId} tokenVersion mismatch (JWT: ${jwtVersion}, DB: ${dbUser.tokenVersion}) — returning null`)
       return null
     }
   } catch (err) {
     // DB transient error — leave session intact to avoid redirect loop
-    const msg = (err as any)?.message || String(err)
+    const msg = (err as { message?: string })?.message || String(err)
     console.error(`[auth] DB error during session validation for ${userId}: ${msg}`)
     if (msg.includes('relation "userrole" does not exist')) {
       console.warn("[auth] Run the 'userrole' migration: ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT; CREATE TABLE IF NOT EXISTS userrole (...)")

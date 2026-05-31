@@ -2,16 +2,26 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import StudentBooking from "@/components/StudentBooking"
 import { userRepository, availabilityRuleRepository, departmentRepository } from "@/lib/repositories/factory"
+import type { AvailabilityRuleData } from "@/lib/repositories/interfaces"
+
+interface FacultyWithRules {
+  id: string
+  name: string
+  email: string
+  hasLoggedInBefore: boolean
+  department: string | null
+  rules: AvailabilityRuleData[]
+}
 
 export default async function FacultyBookPage() {
   const session = await auth()
   if (!session?.user) redirect("/login")
 
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!["FACULTY", "DEAN"].includes(role)) redirect("/login")
 
-  const currentUser = session.user as any
-  const currentUserId = currentUser.id
+  const currentUser = session.user as Record<string, unknown>
+  const currentUserId = currentUser.id as string
 
   const facultyUsers = await userRepository.listByRole("FACULTY")
   const deanUsers = await userRepository.listByRole("DEAN")
@@ -47,7 +57,7 @@ export default async function FacultyBookPage() {
         <h1 className="text-2xl font-bold text-slate-900">Schedule a Meeting</h1>
         <p className="text-sm text-slate-500 mt-1">Schedule a meeting with optional attendees.</p>
       </div>
-      <StudentBooking facultyWithRules={facultyWithRules as any} userRole={role} students={students} serverNow={new Date().toISOString()} currentUserId={currentUserId} />
+      <StudentBooking facultyWithRules={facultyWithRules as FacultyWithRules[]} userRole={role as "STUDENT" | "FACULTY" | "DEAN"} students={students} serverNow={new Date().toISOString()} currentUserId={currentUserId} />
     </div>
   )
 }

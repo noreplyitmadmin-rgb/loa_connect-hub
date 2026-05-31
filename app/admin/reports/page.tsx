@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import { getAdminReportData } from "@/lib/controllers/admin-reports"
 import { AdminReportsPage } from "@/components/reports/AdminReportsPage"
 import { Suspense } from "react"
-import { hasRole } from "@/lib/utils/roles"
 import { ReportFilters } from "@/components/reports/ReportFilters"
 
 export default async function AdminReports(props: {

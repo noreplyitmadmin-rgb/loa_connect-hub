@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useMemo } from "react"
+import { useRef, useState, useMemo, useEffect } from "react"
 import Skeleton from "@/components/Skeleton"
 import SubmitButton from "@/components/SubmitButton"
 import { hasRole } from "@/lib/utils/roles"
@@ -130,7 +130,7 @@ export default function AdminUsersPage() {
     if (!editUser) return
     setEditSaving(true)
     try {
-      const body: Record<string, any> = { userId: editUser.id }
+      const body: Record<string, unknown> = { userId: editUser.id }
       if (editName !== editUser.name) body.name = editName
       if (editEmail !== editUser.email) body.email = editEmail
       if ((editDept || null) !== editUser.departmentId) body.departmentId = editDept || null
@@ -245,9 +245,6 @@ export default function AdminUsersPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages - 1)
   const paginated = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize)
-
-  // Reset page when filters change
-  useEffect(() => { setPage(0) }, [roleFilter, deptFilter, statusFilter, search, pageSize])
 
   if (loading) {
     return (

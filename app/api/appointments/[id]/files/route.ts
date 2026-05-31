@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
     return NextResponse.json({ error: "Only faculty can upload files" }, { status: 403 })
   }
@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const appointment = await appointmentRepository.findById(id)
     if (!appointment) return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
-    if (appointment.facultyId !== (session.user as any).id) {
+    if (appointment.facultyId !== (session.user as Record<string, unknown>).id as string) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 

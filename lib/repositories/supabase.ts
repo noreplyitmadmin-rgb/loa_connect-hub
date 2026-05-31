@@ -1,28 +1,38 @@
 import { supabase } from "@/lib/supabase"
 import type {
-  AppointmentAttendeeData, AppointmentTimeSlotData,
+  AppointmentAttendeeData, AppointmentTimeSlotData, AppointmentData,
   UserData, DepartmentData, AvailabilityRuleData,
   PasswordResetTokenData, AuditLogData,
-  AppointmentFileData, FacultyStatsData, ConsultationSummaryData,
-  DepartmentFrequencyEntry, FacultyFrequencyData,
+  AppointmentFileData, FacultyStatsData,
   IUserRepository, IDepartmentRepository, IAppointmentRepository,
   IAvailabilityRuleRepository, IPasswordResetTokenRepository, IAuditLogRepository, IReportsRepository,
-  ListUsersOptions,
 } from "./interfaces"
+
+interface QueryError {
+  code?: string
+  message?: string
+}
+
+interface SingleBuilder {
+  single(): Promise<{ data: unknown; error: QueryError | null }>
+}
+
+type DbRecord = Record<string, unknown>
 
 const USER_SELECT = "*, userrole(roleName)"
 
-function toUserWithRole(item: any): UserData {
-  const roles = item.userrole?.map((r: any) => r.roleName) || []
-  const { userrole, ...rest } = item
-  return { ...rest, role: roles.length > 0 ? roles.join("|") : "GUEST" } as UserData
+function toUserWithRole(item: Record<string, unknown>): UserData {
+  const roleArr = (item.userrole as Array<{ roleName: string }>) || []
+  const roles = roleArr.map((r) => r.roleName)
+  const role = roles.length > 0 ? roles.join("|") : "GUEST"
+  return { ...item, role } as unknown as UserData
 }
 
-function toUsersWithRoles(items: any[]): UserData[] {
+function toUsersWithRoles(items: DbRecord[]): UserData[] {
   return (items || []).map(toUserWithRole)
 }
 
-async function singleQuery<T>(builder: any): Promise<T | null> {
+async function singleQuery<T>(builder: SingleBuilder): Promise<T | null> {
   const { data, error } = await builder.single()
   if (error) {
     if (error.code === "PGRST116") return null
@@ -31,31 +41,27 @@ async function singleQuery<T>(builder: any): Promise<T | null> {
   return data as T
 }
 
-async function singleQueryWithRoles(builder: any): Promise<UserData | null> {
+async function singleQueryWithRoles(builder: SingleBuilder): Promise<UserData | null> {
   const { data, error } = await builder.single()
   if (error) {
     if (error.code === "PGRST116") return null
     throw error
   }
-  return toUserWithRole(data)
+  return toUserWithRole(data as DbRecord)
 }
 
-/**
- * Execute a query with userrole embedding. If the userrole table doesn't
- * exist yet (migration not run), fall back to selecting without roles.
- */
-function isMissingUserrole(err: any): boolean {
-  return err?.message?.includes('relation "userrole" does not exist') || err?.message?.includes('"userrole"')
+function isMissingUserrole(err: QueryError): boolean {
+  return !!(err?.message?.includes('relation "userrole" does not exist') || err?.message?.includes('"userrole"'))
 }
 
 export const userRepository: IUserRepository = {
   async findByEmail(email) {
     try {
       return await singleQueryWithRoles(
-        supabase.from("users").select(USER_SELECT).eq("email", email)
+        supabase.from("users").select(USER_SELECT).eq("email", email) as unknown as SingleBuilder
       )
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         const { data } = await supabase.from("users").select("*").eq("email", email).single()
         return data ? { ...data, role: "GUEST" } as UserData : null
       }
@@ -65,10 +71,10 @@ export const userRepository: IUserRepository = {
   async findById(id) {
     try {
       return await singleQueryWithRoles(
-        supabase.from("users").select(USER_SELECT).eq("id", id)
+        supabase.from("users").select(USER_SELECT).eq("id", id) as unknown as SingleBuilder
       )
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         const { data } = await supabase.from("users").select("*").eq("id", id).single()
         return data ? { ...data, role: "GUEST" } as UserData : null
       }
@@ -76,7 +82,7 @@ export const userRepository: IUserRepository = {
     }
   },
   async create(input) {
-    const { role, ...userFields } = input as any
+    const { role, ...userFields } = input
     const { data, error } = await supabase.from("users").insert(userFields).select("*").single()
     if (error) throw error
 
@@ -101,7 +107,7 @@ export const userRepository: IUserRepository = {
       if (error) throw error
       return toUsersWithRoles(data)
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         console.warn("[repo] userrole table not found — listByRole returns empty")
         return []
       }
@@ -118,9 +124,9 @@ export const userRepository: IUserRepository = {
       if (error) throw error
       return toUsersWithRoles(data)
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         const { data } = await supabase.from("users").select("*").eq("departmentId", departmentId)
-        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+        return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
     }
@@ -135,9 +141,9 @@ export const userRepository: IUserRepository = {
       if (error) throw error
       return toUsersWithRoles(data)
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         const { data } = await supabase.from("users").select("*").in("id", ids)
-        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+        return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
     }
@@ -152,19 +158,19 @@ export const userRepository: IUserRepository = {
       if (error) throw error
       return toUsersWithRoles(data)
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         let query = supabase.from("users").select("*").order("createdAt", { ascending: false })
         if (!options?.includeDeleted) {
           query = query.is("deletedAt", null)
         }
         const { data } = await query
-        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+        return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
     }
   },
   async update(id, data) {
-    const { role, ...userFields } = data as any
+    const { role, ...userFields } = data
     if (Object.keys(userFields).length > 0) {
       const { error } = await supabase.from("users").update(userFields).eq("id", id)
       if (error) throw error
@@ -204,9 +210,9 @@ export const userRepository: IUserRepository = {
       if (error) throw error
       return toUsersWithRoles(data)
     } catch (err) {
-      if (isMissingUserrole(err)) {
+      if (isMissingUserrole(err as QueryError)) {
         const { data } = await supabase.from("users").select("*").not("deletedAt", "is", null)
-        return (data || []).map((u: any) => ({ ...u, role: "GUEST" })) as UserData[]
+        return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
     }
@@ -220,7 +226,7 @@ export const departmentRepository: IDepartmentRepository = {
     return data as DepartmentData[]
   },
   async findById(id) {
-    return singleQuery<DepartmentData>(supabase.from("departments").select("*").eq("id", id))
+    return singleQuery<DepartmentData>(supabase.from("departments").select("*").eq("id", id) as unknown as SingleBuilder)
   },
   async findByDeanId(deanId) {
     const { data, error } = await supabase.from("departments").select("*").eq("deanId", deanId)
@@ -251,7 +257,7 @@ export const appointmentRepository: IAppointmentRepository = {
   async create(input) {
     const { data, error } = await supabase.from("appointments").insert(input).select(appointmentSelect).single()
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentData
   },
   async listByStudent(studentId) {
     const { data, error } = await supabase
@@ -261,7 +267,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentData[]
   },
   async listByFaculty(facultyId) {
     const { data, error } = await supabase
@@ -271,7 +277,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentData[]
   },
   async listByParticipant(userId) {
     const { data, error } = await supabase
@@ -279,7 +285,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .select(`appointment:appointments!inner(${appointmentSelect.trim()})`)
       .eq("userId", userId)
     if (error) throw error
-    return (data || []).map((record: any) => record.appointment) as any
+    return ((data || []) as unknown as DbRecord[]).map((record: DbRecord) => record.appointment) as unknown as AppointmentData[]
   },
   async listAll() {
     const { data, error } = await supabase
@@ -288,7 +294,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentData[]
   },
   async listPendingSync() {
     const { data, error } = await supabase
@@ -298,7 +304,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .eq("teamsSyncStatus", "UNWRITTEN")
       .order("updatedAt", { ascending: true })
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentData[]
   },
   async findById(id) {
     const { data, error } = await supabase
@@ -310,7 +316,7 @@ export const appointmentRepository: IAppointmentRepository = {
       if (error.code === "PGRST116") return null
       throw error
     }
-    return data as any
+    return data as unknown as AppointmentData
   },
   async update(id, data) {
     const { data: updated, error } = await supabase
@@ -320,7 +326,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .select(appointmentSelect)
       .single()
     if (error) throw error
-    return updated as any
+    return updated as unknown as AppointmentData
   },
   async addAttendee(appointmentId, userId, isMandatory = true) {
     const { data, error } = await supabase
@@ -337,7 +343,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .select("*, user:users(*)")
       .eq("appointmentId", appointmentId)
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentAttendeeData[]
   },
   async updateAttendeeStatus(appointmentId, userId, status) {
     const { data, error } = await supabase
@@ -348,7 +354,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .select("*, user:users(*)")
       .single()
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentAttendeeData
   },
   async addTimeSlot(appointmentId, date, startTime, endTime) {
     const { data, error } = await supabase
@@ -410,7 +416,7 @@ export const appointmentRepository: IAppointmentRepository = {
     }
     const { data, error } = await query
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentTimeSlotData[]
   },
   // async listConflictingSlots(facultyIds, date, startTime, endTime) {
   //   const { data, error } = await supabase
@@ -434,7 +440,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .in("appointment.facultyId", facultyIds) 
 
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentTimeSlotData[]
   },
   async addFile(appointmentId, data) {
     const { data: result, error } = await supabase
@@ -466,7 +472,7 @@ export const appointmentRepository: IAppointmentRepository = {
     }
     const { data, error } = await query.order("date", { ascending: true }).order("startTime", { ascending: true })
     if (error) throw error
-    return data as any
+    return data as unknown as AppointmentData[]
   },
 }
 
@@ -601,7 +607,7 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
     // 2. Build the appointments query for CONSULTATION type
@@ -636,9 +642,9 @@ export const reportsRepository: IReportsRepository = {
     const statsMap = new Map<string, FacultyStatsData>()
 
     for (const faculty of facultyUsers || []) {
-      statsMap.set((faculty as any).id, {
-        facultyId: (faculty as any).id,
-        facultyName: (faculty as any).name,
+      statsMap.set(faculty.id, {
+        facultyId: faculty.id,
+        facultyName: faculty.name,
         total: 0,
         completed: 0,
         pending: 0,
@@ -647,8 +653,8 @@ export const reportsRepository: IReportsRepository = {
       })
     }
 
-    for (const apt of (appointments || []) as any[]) {
-      const stat = statsMap.get(apt.facultyId)
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const stat = statsMap.get(apt.facultyId as string)
       if (!stat) continue
 
       stat.total++
@@ -682,10 +688,10 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
-    const facultyNameMap = new Map((facultyUsers || []).map((u: any) => [u.id, u.name]))
+    const facultyNameMap = new Map(facultyUsers.map((u) => [u.id, u.name]))
 
     let query = supabase
       .from("appointments")
@@ -714,16 +720,16 @@ export const reportsRepository: IReportsRepository = {
     const { data: appointments, error: apptError } = await query.order("date", { ascending: true }).order("startTime", { ascending: true })
     if (apptError) throw apptError
 
-    return ((appointments || []) as any[]).map((apt: any) => ({
-      id: apt.id,
-      facultyId: apt.facultyId,
-      facultyName: facultyNameMap.get(apt.facultyId) || "Unknown",
-      studentName: apt.student?.name || "Unknown",
-      date: apt.date,
-      startTime: apt.startTime,
-      endTime: apt.endTime,
-      status: apt.status,
-      title: apt.title,
+    return ((appointments || []) as DbRecord[]).map((apt: DbRecord) => ({
+      id: apt.id as string,
+      facultyId: apt.facultyId as string,
+      facultyName: facultyNameMap.get(apt.facultyId as string) || "Unknown",
+      studentName: (apt.student as DbRecord)?.name as string || "Unknown",
+      date: apt.date as string,
+      startTime: apt.startTime as string,
+      endTime: apt.endTime as string,
+      status: apt.status as string,
+      title: apt.title as string | null,
     }))
   },
 
@@ -732,10 +738,10 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
-    const facultyNameMap = new Map((facultyUsers || []).map((u: any) => [u.id, u.name]))
+    const facultyNameMap = new Map(facultyUsers.map((u) => [u.id, u.name]))
 
     let query = supabase
       .from("appointments")
@@ -766,7 +772,7 @@ export const reportsRepository: IReportsRepository = {
       .order("startTime", { ascending: true })
     if (apptError) throw apptError
 
-    const appointmentIds = ((appointments || []) as any[]).map((a: any) => a.id)
+    const appointmentIds = ((appointments || []) as DbRecord[]).map((a: DbRecord) => a.id as string)
     const fileAppointmentIds = new Set<string>()
 
     if (appointmentIds.length > 0) {
@@ -781,21 +787,21 @@ export const reportsRepository: IReportsRepository = {
       }
     }
 
-    return ((appointments || []) as any[]).map((apt: any) => ({
-      id: apt.id,
-      facultyId: apt.facultyId,
-      facultyName: facultyNameMap.get(apt.facultyId) || "Unknown",
-      studentName: apt.student?.name || "Unknown",
-      studentId: apt.studentId,
-      date: apt.date,
-      startTime: apt.startTime,
-      endTime: apt.endTime,
-      status: apt.status,
-      title: apt.title,
-      description: apt.description,
-      actionTaken: apt.actionTaken,
-      additionalRemarks: apt.additionalRemarks,
-      hasFiles: fileAppointmentIds.has(apt.id),
+    return ((appointments || []) as DbRecord[]).map((apt: DbRecord) => ({
+      id: apt.id as string,
+      facultyId: apt.facultyId as string,
+      facultyName: facultyNameMap.get(apt.facultyId as string) || "Unknown",
+      studentName: (apt.student as DbRecord)?.name as string || "Unknown",
+      studentId: apt.studentId as string,
+      date: apt.date as string,
+      startTime: apt.startTime as string,
+      endTime: apt.endTime as string,
+      status: apt.status as string,
+      title: apt.title as string | null,
+      description: apt.description as string | null,
+      actionTaken: apt.actionTaken as string | null,
+      additionalRemarks: apt.additionalRemarks as string | null,
+      hasFiles: fileAppointmentIds.has(apt.id as string),
     }))
   },
 
@@ -804,7 +810,7 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
     let query = supabase
@@ -825,8 +831,8 @@ export const reportsRepository: IReportsRepository = {
 
     const monthMap = new Map<string, number>()
 
-    for (const apt of (appointments || []) as any[]) {
-      const month = apt.date.substring(0, 7)
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const month = (apt.date as string).substring(0, 7)
       monthMap.set(month, (monthMap.get(month) || 0) + 1)
     }
 
@@ -851,10 +857,10 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
-    const facultyNameMap = new Map((facultyUsers || []).map((u: any) => [u.id, u.name]))
+    const facultyNameMap = new Map(facultyUsers.map((u) => [u.id, u.name]))
 
     let query = supabase
       .from("appointments")
@@ -874,12 +880,12 @@ export const reportsRepository: IReportsRepository = {
 
     const facultyGroup = new Map<string, Map<string, number>>()
 
-    for (const apt of (appointments || []) as any[]) {
-      const month = apt.date.substring(0, 7)
-      if (!facultyGroup.has(apt.facultyId)) {
-        facultyGroup.set(apt.facultyId, new Map())
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const month = (apt.date as string).substring(0, 7)
+      if (!facultyGroup.has(apt.facultyId as string)) {
+        facultyGroup.set(apt.facultyId as string, new Map())
       }
-      const monthMap = facultyGroup.get(apt.facultyId)!
+      const monthMap = facultyGroup.get(apt.facultyId as string)!
       monthMap.set(month, (monthMap.get(month) || 0) + 1)
     }
 
@@ -914,7 +920,7 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
     let query = supabase
@@ -935,8 +941,8 @@ export const reportsRepository: IReportsRepository = {
 
     const yearMap = new Map<string, number>()
 
-    for (const apt of (appointments || []) as any[]) {
-      const year = apt.date.substring(0, 4)
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const year = (apt.date as string).substring(0, 4)
       yearMap.set(year, (yearMap.get(year) || 0) + 1)
     }
 
@@ -953,10 +959,10 @@ export const reportsRepository: IReportsRepository = {
       .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
       .map(({ id, name }) => ({ id, name }))
 
-    const facultyIds = (facultyUsers || []).map((u: any) => u.id)
+    const facultyIds = facultyUsers.map((u) => u.id)
     if (facultyIds.length === 0) return []
 
-    const facultyNameMap = new Map((facultyUsers || []).map((u: any) => [u.id, u.name]))
+    const facultyNameMap = new Map(facultyUsers.map((u) => [u.id, u.name]))
 
     let query = supabase
       .from("appointments")
@@ -976,12 +982,12 @@ export const reportsRepository: IReportsRepository = {
 
     const facultyGroup = new Map<string, Map<string, number>>()
 
-    for (const apt of (appointments || []) as any[]) {
-      const year = apt.date.substring(0, 4)
-      if (!facultyGroup.has(apt.facultyId)) {
-        facultyGroup.set(apt.facultyId, new Map())
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const year = (apt.date as string).substring(0, 4)
+      if (!facultyGroup.has(apt.facultyId as string)) {
+        facultyGroup.set(apt.facultyId as string, new Map())
       }
-      const yearMap = facultyGroup.get(apt.facultyId)!
+      const yearMap = facultyGroup.get(apt.facultyId as string)!
       yearMap.set(year, (yearMap.get(year) || 0) + 1)
     }
 

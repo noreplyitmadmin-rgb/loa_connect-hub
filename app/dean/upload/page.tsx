@@ -44,11 +44,11 @@ export default function DeanUploadPage() {
         const res = await fetch("/api/admin/department-courses")
         if (!res.ok) return
         const allCourses: { code: string; name: string; departmentId: string; department: { name: string } }[] = await res.json()
-        const userId = (session?.user as any)?.id
+        const userId = (session?.user as Record<string, unknown>)?.id as string
         const usersRes = await fetch("/api/admin/users")
         if (!usersRes.ok) return
         const usersData = await usersRes.json()
-        const myDept = (usersData.departments || []).find((d: any) => d.deanId === userId)
+        const myDept = (usersData.departments || []).find((d: Record<string, unknown>) => d.deanId === userId)
         if (myDept) {
           setDeptName(myDept.name)
           setAllowedCourses(allCourses.filter((c) => c.departmentId === myDept.id))

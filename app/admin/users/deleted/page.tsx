@@ -2,20 +2,38 @@
 
 import { useState, useEffect } from "react"
 
+interface DeletedUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  deletedAt: string | null
+}
+
 export default function DeletedUsersPage() {
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<DeletedUser[]>([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
-  const fetchDeleted = async () => {
-    setLoading(true)
+  const doFetch = async () => {
     const res = await fetch("/api/admin/users/deleted")
     const data = await res.json()
     setUsers(data.users || [])
+  }
+
+  const fetchDeleted = async () => {
+    setLoading(true)
+    await doFetch()
     setLoading(false)
   }
 
-  useEffect(() => { fetchDeleted() }, [])
+  useEffect(() => {
+    fetch("/api/admin/users/deleted")
+      .then((res) => res.json())
+      .then((data) => setUsers(data.users || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
   const handleRestore = async (id: string) => {
     const res = await fetch(`/api/admin/users/${id}/restore`, { method: "POST" })
@@ -104,7 +122,7 @@ export default function DeletedUsersPage() {
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 border border-red-200">
             <h3 className="text-lg font-bold text-slate-900 mb-2">Confirm Permanent Deletion</h3>
             <p className="text-sm text-slate-600 mb-4">
-              This will permanently erase this user record. This action cannot be undone. The user's appointments and related data will be orphaned.
+              This will permanently erase this user record. This action cannot be undone. The user&apos;s appointments and related data will be orphaned.
             </p>
             <div className="flex items-center gap-3 justify-end">
               <button

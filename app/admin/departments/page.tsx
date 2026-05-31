@@ -52,34 +52,54 @@ export default function AdminDepartmentsPage() {
 
   const [saving, setSaving] = useState(false)
 
+  const doFetch = async () => {
+    setError("")
+    const [coursesRes, usersRes, deptsRes] = await Promise.all([
+      fetch("/api/admin/department-courses"),
+      fetch("/api/admin/users"),
+      fetch("/api/admin/departments"),
+    ])
+    if (!coursesRes.ok) throw new Error("Failed to load courses")
+    if (!usersRes.ok) throw new Error("Failed to load users")
+    if (!deptsRes.ok) throw new Error("Failed to load departments")
+
+    const usersData = await usersRes.json()
+    const deptsData = await deptsRes.json()
+
+    setCourses(await coursesRes.json())
+    setDepartments(deptsData || [])
+    setUsers(usersData.users || [])
+  }
+
   const fetchData = async () => {
     setLoading(true)
-    setError("")
     try {
-      const [coursesRes, usersRes, deptsRes] = await Promise.all([
-        fetch("/api/admin/department-courses"),
-        fetch("/api/admin/users"),
-        fetch("/api/admin/departments"),
-      ])
-      if (!coursesRes.ok) throw new Error("Failed to load courses")
-      if (!usersRes.ok) throw new Error("Failed to load users")
-      if (!deptsRes.ok) throw new Error("Failed to load departments")
-
-      const usersData = await usersRes.json()
-      const deptsData = await deptsRes.json()
-
-      setCourses(await coursesRes.json())
-      setDepartments(deptsData || [])
-      setUsers(usersData.users || [])
-    } catch (err: any) {
-      setError(err.message)
+      await doFetch()
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
+    Promise.all([
+      fetch("/api/admin/department-courses"),
+      fetch("/api/admin/users"),
+      fetch("/api/admin/departments"),
+    ])
+      .then(async ([coursesRes, usersRes, deptsRes]) => {
+        if (!coursesRes.ok) throw new Error("Failed to load courses")
+        if (!usersRes.ok) throw new Error("Failed to load users")
+        if (!deptsRes.ok) throw new Error("Failed to load departments")
+        const usersData = await usersRes.json()
+        const deptsData = await deptsRes.json()
+        setCourses(await coursesRes.json())
+        setDepartments(deptsData || [])
+        setUsers(usersData.users || [])
+      })
+      .catch((err) => setError((err as Error).message))
+      .finally(() => setLoading(false))
   }, [])
 
   // Filter users with DEAN role
@@ -121,8 +141,8 @@ export default function AdminDepartmentsPage() {
       setNewDeptDeanId("")
       showSuccessMessage("Department successfully created!")
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setSaving(false)
     }
@@ -150,8 +170,8 @@ export default function AdminDepartmentsPage() {
       setEditingDeptId(null)
       showSuccessMessage("Department successfully updated!")
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setSaving(false)
     }
@@ -171,8 +191,8 @@ export default function AdminDepartmentsPage() {
       }
       showSuccessMessage(`Department is now ${!dept.isDisabled ? "disabled" : "enabled"}!`)
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 
@@ -208,8 +228,8 @@ export default function AdminDepartmentsPage() {
       setNewCourseCode("")
       showSuccessMessage("Course successfully added to department!")
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setSaving(false)
     }
@@ -225,8 +245,8 @@ export default function AdminDepartmentsPage() {
       }
       showSuccessMessage("Course successfully removed!")
       await fetchData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 

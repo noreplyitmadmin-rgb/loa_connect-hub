@@ -6,8 +6,28 @@ import { getMeetingsForUser } from "@/lib/controllers/appointments"
 import { getWeekRange, getMonthRange } from "@/lib/utils/date"
 import { hasRole } from "@/lib/utils/roles"
 
-function getInitial(name: string) {
-  return name?.charAt(0)?.toUpperCase() || "?"
+interface ParticipantData {
+  id: string
+  meetingId: string
+  userId: string
+  status: string
+  user?: Record<string, unknown>
+}
+
+interface MeetingData {
+  id: string
+  title: string
+  description: string
+  date: string
+  startTime: string
+  endTime: string
+  organizerId: string
+  teamsEventId: string | null
+  teamsLink: string | null
+  status: string
+  createdAt: string
+  organizer: Record<string, unknown> | null
+  participants: ParticipantData[]
 }
 
 const statusColors: Record<string, string> = {
@@ -16,12 +36,6 @@ const statusColors: Record<string, string> = {
   REJECTED: "bg-red-500/20 text-red-400",
   COMPLETED: "bg-violet-500/20 text-violet-400",
   CANCELLED: "bg-slate-500/20 text-slate-400",
-}
-
-const participantStatusColors: Record<string, string> = {
-  PENDING: "bg-amber-500/20 text-amber-400",
-  ACCEPTED: "bg-emerald-500/20 text-emerald-400",
-  DECLINED: "bg-red-500/20 text-red-400",
 }
 
 const filterLabels: Record<string, string> = {
@@ -46,7 +60,7 @@ export default async function MeetingsPage(props: {
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  const role = (session.user as any).role
+  const role = (session.user as Record<string, unknown>).role as string
   if (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) redirect("/login")
 
   const searchParams = await props.searchParams
@@ -59,14 +73,14 @@ export default async function MeetingsPage(props: {
   const activeStatus = statusLabels[searchParams?.status || "all"] ? (searchParams?.status as string) : "all"
   const activeSort = searchParams?.sort === "desc" ? "desc" : "asc"
 
-  const userId = (session.user as any).id
-  const meetings = await getMeetingsForUser(userId) as any[]
+  const userId = (session.user as Record<string, unknown>).id as string
+  const meetings = (await getMeetingsForUser(userId)) as unknown as MeetingData[]
 
   const today = new Date()
   const weekRange = getWeekRange(today)
   const monthRange = getMonthRange(today)
 
-  const filtered = meetings.filter((m: any) => {
+  const filtered = meetings.filter((m: MeetingData) => {
     if (activeFilter === "this_week") {
       const d = new Date(m.date)
       if (!(d >= weekRange.start && d <= weekRange.end)) return false
@@ -78,7 +92,7 @@ export default async function MeetingsPage(props: {
     if (activeFilter === "created_by_me" && m.organizerId !== userId) {
       return false
     }
-    if (activeFilter === "declined" && !m.participants?.some((p: any) => p.userId === userId && p.status === "DECLINED")) {
+    if (activeFilter === "declined" && !m.participants?.some((p: ParticipantData) => p.userId === userId && p.status === "DECLINED")) {
       return false
     }
     if (activeStatus !== "all" && m.status !== activeStatus) {
@@ -88,7 +102,7 @@ export default async function MeetingsPage(props: {
   })
 
   // CORRECTED SORTING LOGIC
-  const sorted = [...filtered].sort((a: any, b: any) => {
+  const sorted = [...filtered].sort((a: MeetingData, b: MeetingData) => {
     const dateA = new Date(a.date).getTime()
     const dateB = new Date(b.date).getTime()
     const dateCmp = dateA - dateB
@@ -105,8 +119,7 @@ export default async function MeetingsPage(props: {
       : timeB.localeCompare(timeA)
   })
 
-  const acceptedMeetings = sorted.filter((m: any) => m.status === "APPROVED")
-  const cancelledMeetings = sorted.filter((m: any) => m.status === "CANCELLED")
+  const acceptedMeetings = sorted.filter((m: MeetingData) => m.status === "APPROVED")
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -188,11 +201,8 @@ export default async function MeetingsPage(props: {
         </div>
       ) : (
         <div className="space-y-3">
-          {sorted.map((meeting: any) => {
+          {sorted.map((meeting: MeetingData) => {
             const isOrganizer = meeting.organizerId === userId
-            const participantCount = meeting.participants?.length || 0
-            const acceptedCount = meeting.participants?.filter((p: any) => p.status === "ACCEPTED").length || 0
-            const myParticipant = meeting.participants?.find((p: any) => p.userId === userId)
             const statusLabel = meeting.status === "APPROVED" && !isOrganizer
               ? "YOU ACCEPTED"
               : statusLabels[meeting.status] || meeting.status

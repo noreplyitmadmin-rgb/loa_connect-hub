@@ -5,7 +5,7 @@ import { hasRole } from "@/lib/utils/roles"
 
 export async function GET() {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "ADMIN") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
@@ -24,8 +24,8 @@ export async function GET() {
   if (coursesRes.error) return NextResponse.json({ error: coursesRes.error.message }, { status: 500 })
   if (deptsRes.error) return NextResponse.json({ error: deptsRes.error.message }, { status: 500 })
 
-  const deptsMap = new Map((deptsRes.data || []).map((d: any) => [d.id, d]))
-  const joinedData = (coursesRes.data || []).map((c: any) => ({
+  const deptsMap = new Map((deptsRes.data || []).map((d: Record<string, unknown>) => [d.id, d]))
+  const joinedData = (coursesRes.data || []).map((c: Record<string, unknown>) => ({
     ...c,
     department: deptsMap.get(c.departmentId) || null
   }))
@@ -35,7 +35,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "ADMIN") && !hasRole(role, "DEAN"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }

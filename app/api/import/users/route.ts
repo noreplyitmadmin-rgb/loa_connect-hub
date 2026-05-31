@@ -18,7 +18,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || (!hasRole(role, "DEAN") && !hasRole(role, "ADMIN"))) {
     return NextResponse.json({ error: "Unauthorized — Dean or Admin only" }, { status: 403 })
   }
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "CSV parsing failed", details: parseErrors }, { status: 400 })
   }
 
-  const userId = (session!.user as any).id
+  const userId = (session!.user as Record<string, unknown>).id as string
   let departmentId: string | null = null
   if (hasRole(role, "DEAN")) {
     const dept = await departmentRepository.findByDeanId(userId)
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   const result = await importUsers(rows, "DEAN", departmentId)
 
   await logAuditEvent({
-    userId: (session!.user as any).id,
+    userId: (session!.user as Record<string, unknown>).id as string,
     action: "CREATE_USER",
     details: `Imported ${result.created.length} users (${result.skipped.length} skipped, ${result.errors.length} errors)`,
   })

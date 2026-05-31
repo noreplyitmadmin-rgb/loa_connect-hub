@@ -7,6 +7,19 @@ import { listStudentAppointments } from "@/lib/controllers/appointments"
 import { getWeekRange, getMonthRange } from "@/lib/utils/date"
 import { hasRole } from "@/lib/utils/roles"
 
+interface StudentAppointment {
+  id: string
+  title: string | null
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  teamsLink: string | null
+  requestedAt: string
+  student?: { name: string; email: string }
+  faculty?: { name: string; email: string }
+}
+
 const filterLabels: Record<string, string> = {
   all: "All Consultations",
   this_week: "This Week",
@@ -19,7 +32,7 @@ export default async function StudentMeetings(props: {
   const session = await auth()
 
   if (!session?.user) redirect("/login")
-  if (!hasRole((session.user as any).role, "STUDENT")) redirect("/login")
+  if (!hasRole((session.user as Record<string, unknown>).role as string, "STUDENT")) redirect("/login")
 
   const searchParams = await props.searchParams
   const hasQueryParams = !!searchParams && Object.keys(searchParams).length > 0
@@ -31,15 +44,15 @@ export default async function StudentMeetings(props: {
   const activeTab = (searchParams?.tab || "all").toLowerCase()
   const activeSort = searchParams?.sort === "asc" ? "asc" : "desc"
 
-  const studentId = (session.user as any).id
-  const appointments = await listStudentAppointments(studentId)
+  const studentId = (session.user as Record<string, unknown>).id as string
+  const appointments = (await listStudentAppointments(studentId)) as unknown as StudentAppointment[]
 
   // Apply time/ownership filter
   const today = new Date()
   const weekRange = getWeekRange(today)
   const monthRange = getMonthRange(today)
 
-  const timeFiltered = appointments.filter((a: any) => {
+  const timeFiltered = appointments.filter((a: StudentAppointment) => {
     if (activeFilter === "this_week") {
       const d = new Date(a.date)
       if (!(d >= weekRange.start && d <= weekRange.end)) return false
@@ -55,10 +68,10 @@ export default async function StudentMeetings(props: {
   const statusFiltered =
     activeTab === "all"
       ? timeFiltered
-      : timeFiltered.filter((a: any) => a.status.toLowerCase() === activeTab)
+      : timeFiltered.filter((a: StudentAppointment) => a.status.toLowerCase() === activeTab)
 
   // Sort by date then startTime
-  const sorted = [...statusFiltered].sort((a: any, b: any) => {
+  const sorted = [...statusFiltered].sort((a: StudentAppointment, b: StudentAppointment) => {
     const dateA = new Date(a.date).getTime()
     const dateB = new Date(b.date).getTime()
     const dateCmp = dateA - dateB
@@ -76,10 +89,10 @@ export default async function StudentMeetings(props: {
   })
 
   const counts = {
-    pending: appointments.filter((a: any) => a.status === "PENDING").length,
-    approved: appointments.filter((a: any) => a.status === "APPROVED").length,
-    completed: appointments.filter((a: any) => a.status === "COMPLETED").length,
-    cancelled: appointments.filter((a: any) => a.status === "CANCELLED").length,
+    pending: appointments.filter((a: StudentAppointment) => a.status === "PENDING").length,
+    approved: appointments.filter((a: StudentAppointment) => a.status === "APPROVED").length,
+    completed: appointments.filter((a: StudentAppointment) => a.status === "COMPLETED").length,
+    cancelled: appointments.filter((a: StudentAppointment) => a.status === "CANCELLED").length,
   }
 
   const filterLabel = filterLabels[activeFilter] || "All Consultations"
@@ -185,7 +198,7 @@ export default async function StudentMeetings(props: {
         </div>
       ) : (
         <div className="space-y-4">
-          {sorted.map((appointment: any) => (
+          {sorted.map((appointment: StudentAppointment) => (
             <AppointmentCard
               key={appointment.id}
               appointment={appointment}

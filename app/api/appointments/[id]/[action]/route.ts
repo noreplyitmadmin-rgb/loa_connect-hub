@@ -17,13 +17,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const userId = (session.user as any).id
-  const userEmail = (session.user as any).email
+  const userId = (session.user as Record<string, unknown>).id as string
+  const userEmail = (session.user as Record<string, unknown>).email as string
   const { id, action } = await params
 
     try {
       let appointment
-      let body: any = {}
+      let body: Record<string, unknown> = {}
       try { body = await request.json() } catch {}
 
       switch (action) {
@@ -38,14 +38,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           appointment = await declineAppointment(id, userId)
           break
         case "complete":
-          await completeAppointment(id, userId, body.actionTaken)
+          await completeAppointment(id, userId, body.actionTaken as string | undefined)
           appointment = await getAppointmentDetail(id)
           break
         case "cancel":
           appointment = await cancelAppointment(id, userId, userEmail)
           break
         case "teams-link":
-          appointment = await updateTeamsLink(id, userId, body.teamsLink)
+          appointment = await updateTeamsLink(id, userId, body.teamsLink as string)
           break
       case "attendee-accept":
         return NextResponse.json(await attendeeAcceptAppointment(id, userId))

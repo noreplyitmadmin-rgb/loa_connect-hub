@@ -43,7 +43,7 @@ export default function BookingForm({ slot, sessionGroupId, onClose, onSuccess }
         if (data.users) {
           setFacultyList(
             data.users
-              .filter((u: any) => hasRole(u.role, "FACULTY") && u.id !== slot.facultyId && !u.isDisabled)
+              .filter((u: Record<string, unknown>) => hasRole(u.role as string, "FACULTY") && u.id !== slot.facultyId && !u.isDisabled)
           )
         }
       })

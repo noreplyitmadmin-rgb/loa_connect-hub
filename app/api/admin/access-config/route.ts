@@ -92,7 +92,7 @@ function buildCatalog() {
 
 async function requireAdmin() {
   const session = await auth()
-  const role = (session?.user as any)?.role
+  const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || !hasRole(role, "ADMIN")) {
     return null
   }
@@ -140,7 +140,7 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const updateData: Record<string, any> = { updatedAt: new Date().toISOString() }
+  const updateData: Record<string, unknown> = { updatedAt: new Date().toISOString() }
   if (pages !== undefined) updateData.pages = pages
 
   const { data, error } = await supabase

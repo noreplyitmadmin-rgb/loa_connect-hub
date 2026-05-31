@@ -6,7 +6,7 @@ import MultiRoleDashboard from "@/components/MultiRoleDashboard"
 export default async function Home() {
   const session = await auth()
   if (session?.user) {
-    const role = (session.user as any).role
+    const role = (session.user as Record<string, unknown>).role as string
     const roles = getRoleList(role)
     if (roles.length > 1) {
       // Multi-role user — show role selector

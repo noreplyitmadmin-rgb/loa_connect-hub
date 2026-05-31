@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { hasRole, getRoleList } from "@/lib/utils/roles"
+import { getRoleList } from "@/lib/utils/roles"
 
 const roleConfig: Record<string, { label: string; href: string; gradient: string; description: string }> = {
   ADMIN: { label: "Dashboard - Admin", href: "/admin", gradient: "from-purple-600 to-indigo-600", description: "System administration and user management" },

@@ -6,7 +6,6 @@ import { DeanReportsTabs } from "@/components/reports/DeanReportsTabs"
 import { CsvExport } from "@/components/reports/CsvExport"
 import { PdfExport } from "@/components/reports/PdfExport"
 import { Suspense } from "react"
-import { hasRole } from "@/lib/utils/roles"
 
 export default async function DeanReportsPage(props: {
   searchParams?: Promise<{ startDate?: string; endDate?: string; status?: string }>
@@ -15,7 +14,7 @@ export default async function DeanReportsPage(props: {
   if (!session?.user) redirect("/login")
 
   const searchParams = await props.searchParams
-  const deanId = (session.user as any).id
+  const deanId = (session.user as Record<string, unknown>).id as string
 
   const filters = {
     startDate: searchParams?.startDate || undefined,

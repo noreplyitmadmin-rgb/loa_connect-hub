@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { StatusBadge } from "@/components/StatusBadge"
 import SubmitButton from "@/components/SubmitButton"
-import { TeamsLinkInput } from "@/components/TeamsLinkInput"
 import TeamsLinkForm from "@/components/TeamsLinkForm"
 import AppointmentDetailSkeleton from "@/components/AppointmentDetailSkeleton"
 import type { AppointmentDetailDto } from "@/lib/dtos/Appointments"
@@ -51,9 +50,9 @@ export default function AppointmentDetail() {
   const [completeError, setCompleteError] = useState("")
   const [previewFile, setPreviewFile] = useState<AppointmentDetailDto["files"][number] | null>(null)
 
-  const role = (session?.user as any)?.role
-  const userEmail = (session?.user as any)?.email
-  const userId = (session?.user as any)?.id
+  const role = (session?.user as Record<string, unknown>)?.role as string
+  const userEmail = (session?.user as Record<string, unknown>)?.email as string
+  const userId = (session?.user as Record<string, unknown>)?.id as string
   const appointmentId = params.id as string
 
   useEffect(() => {
@@ -461,6 +460,7 @@ export default function AppointmentDetail() {
                     onClick={() => setPreviewFile(f)}
                     className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-50 hover:border-gold-400 hover:shadow-md transition-all"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`data:${f.fileType};base64,${f.fileData}`}
                       alt={f.fileName}
@@ -492,6 +492,7 @@ export default function AppointmentDetail() {
             >
               &times;
             </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`data:${previewFile.fileType};base64,${previewFile.fileData}`}
               alt={previewFile.fileName}

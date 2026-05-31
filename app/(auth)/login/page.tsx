@@ -26,6 +26,7 @@ function LoginForm() {
     <div className="w-full max-w-sm space-y-6">
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo-blk.png"
             alt="Lyceum of Alabang"

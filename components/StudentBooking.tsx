@@ -13,10 +13,6 @@ function timeToMinutes(h: number, m: number): number {
   return h * 60 + m
 }
 
-function formatTimeValue(h: number, m: number): string {
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-}
-
 /** Validate that time is at a 15-minute boundary (HH:00, HH:15, HH:30, HH:45) */
 function isValid15MinuteTime(time: string): boolean {
   if (!time) return false
@@ -75,37 +71,9 @@ function fmtDate(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
-function generateSlots(startTime: string, endTime: string): { start: string; end: string }[] {
-  const slots: { start: string; end: string }[] = []
-  const [sh, sm] = startTime.split(":").map(Number)
-  const [eh, em] = endTime.split(":").map(Number)
-
-  // Convert to minutes for easier calculation
-  let currentMinutes = sh * 60 + sm
-  const endMinutes = eh * 60 + em
-  const maxSlotDuration = 8 * 60 // 8 hours
-
-  // Generate 30-minute increment slots
-  while (currentMinutes < endMinutes) {
-    const slotDuration = Math.min(maxSlotDuration, endMinutes - currentMinutes)
-    if (slotDuration >= 30) { // Only add if duration is at least 30 minutes
-      const startHours = Math.floor(currentMinutes / 60)
-      const startMins = currentMinutes % 60
-      const endHours = Math.floor((currentMinutes + slotDuration) / 60)
-      const endMins = (currentMinutes + slotDuration) % 60
-
-      const s = `${String(startHours).padStart(2, "0")}:${String(startMins).padStart(2, "0")}`
-      const e = `${String(endHours).padStart(2, "0")}:${String(endMins).padStart(2, "0")}`
-      slots.push({ start: s, end: e })
-    }
-    currentMinutes += 30 // Move to next 30-minute increment
-  }
-  return slots
-}
-
 export default function StudentBooking({ facultyWithRules, userRole, students, serverNow, currentUserId }: Props) {
 
-  const now = useMemo(() => new Date(serverNow || Date.now()), [serverNow])
+  const now = useMemo(() => serverNow ? new Date(serverNow) : new Date(), [serverNow])
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const router = useRouter()
@@ -120,8 +88,11 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   const [attendeeSearch, setAttendeeSearch] = useState("")
   const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false)
   const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false)
-  const [deptFilter, setDeptFilter] = useState<string>("all")
+  const [primaryDeptFilter, setPrimaryDeptFilter] = useState<string>("all")
+  const [attendeeDeptFilter, setAttendeeDeptFilter] = useState<string>("all")
   const [bookedAppointments, setBookedAppointments] = useState<{ date: string; startTime: string; endTime: string }[]>([])
+  const [primaryUsers, setPrimaryUsers] = useState<SimpleUser[]>([])
+  const [attendeeUsers, setAttendeeUsers] = useState<SimpleUser[]>([])
   const primaryRef = useRef<HTMLDivElement>(null)
   const attendeeRef = useRef<HTMLDivElement>(null)
 
@@ -142,19 +113,41 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   // Fetch primary faculty's booked (APPROVED) appointments for the visible month
   useEffect(() => {
     if (!primaryFacultyId || userRole !== "STUDENT") {
-      setBookedAppointments([])
       return
     }
     const startDate = fmtDate(currentYear, currentMonth, 1)
     const endDate = fmtDate(currentYear, currentMonth, getDaysInMonth(currentYear, currentMonth))
+    let cancelled = false
 
     fetch(`/api/appointments/faculty-booked?facultyId=${primaryFacultyId}&startDate=${startDate}&endDate=${endDate}`)
       .then(r => r.json())
       .then(data => {
-        if (data.appointments) setBookedAppointments(data.appointments)
+        if (!cancelled && data.appointments) setBookedAppointments(data.appointments)
       })
-      .catch(() => setBookedAppointments([]))
-  }, [primaryFacultyId, currentYear, currentMonth])
+      .catch(() => { if (!cancelled) setBookedAppointments([]) })
+
+    return () => { cancelled = true }
+  }, [primaryFacultyId, currentYear, currentMonth, userRole])
+
+  // Fetch primary faculty users (filtered by department)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/users/primary?department=${primaryDeptFilter}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setPrimaryUsers(data.users || []) })
+      .catch(() => { if (!cancelled) setPrimaryUsers([]) })
+    return () => { cancelled = true }
+  }, [primaryDeptFilter])
+
+  // Fetch attendee users (filtered by department)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/users/attendees?department=${attendeeDeptFilter}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setAttendeeUsers(data.users || []) })
+      .catch(() => { if (!cancelled) setAttendeeUsers([]) })
+    return () => { cancelled = true }
+  }, [attendeeDeptFilter])
 
   const hourOptions = useMemo(() => {
     const base = allow24Hours
@@ -397,7 +390,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
 
     try {
       // Build payload
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         facultyIds: [primaryFacultyId],
         timeSlots: selectedSlots.map((s) => ({ date: s.date, startTime: s.start, endTime: s.end })),
         title: title.trim(),
@@ -424,10 +417,11 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             setSubmitting(false)
             return
           }
-          payload.slotLinks = {}
+          const slotLinksMap: Record<string, string> = {}
           for (const s of selectedSlots) {
-            payload.slotLinks[`${s.date}-${s.start}-${s.end}`] = slotLinks[`${s.date}-${s.start}-${s.end}`].trim()
+            slotLinksMap[`${s.date}-${s.start}-${s.end}`] = slotLinks[`${s.date}-${s.start}-${s.end}`].trim()
           }
+          payload.slotLinks = slotLinksMap
         }
       }
 
@@ -455,11 +449,12 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
         setConflicts(data.conflicts || [])
         setResult({ success: 0, errors: [data.error || "Booking failed"] })
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("DEBUG: Frontend Caught Error:", err);
+      const errObj = err as Record<string, unknown>
       setResult({
         success: 0,
-        errors: [err.message || "An unexpected error occurred. Check server logs."]
+        errors: [(errObj.message as string) || "An unexpected error occurred. Check server logs."]
       });
     } finally {
       //TODO: Remove if error 
@@ -480,97 +475,29 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
     return Array.from(depts).sort()
   }, [facultyWithRules])
 
-  const matchesDept = (dept: string | null) => deptFilter === "all" || dept === deptFilter
-
-  const isValidSchoolEmail = (email: string) =>
-    email
-      .toLowerCase()
-      .endsWith("@itmlyceumalabang.onmicrosoft.com")
-
-  type SearchPerson = {
-    id: string
-    name: string
-    email: string
-    department: string | null
-  }
-
-  function searchPeople({
-    query,
-    includeStudents = false,
-    excludeIds = [],
-  }: {
-    query: string
-    includeStudents?: boolean
-    excludeIds?: string[]
-  }) {
-    if (!query.trim()) return []
-
-    const q = query.toLowerCase()
-
-    const facultyResults: SearchPerson[] = facultyWithRules.filter(
-      (f) =>
-        isValidSchoolEmail(f.email) &&
-        !excludeIds.includes(f.id) &&
-        matchesDept(f.department) &&
-        (
-          f.name.toLowerCase().includes(q) ||
-          f.email.toLowerCase().includes(q)
-        )
-    )
-
-    const studentResults: SearchPerson[] =
-      includeStudents && students
-        ? students.filter(
-          (s) =>
-            isValidSchoolEmail(s.email) &&
-            !excludeIds.includes(s.id) &&
-            (
-              s.name.toLowerCase().includes(q) ||
-              s.email.toLowerCase().includes(q)
-            )
-        )
-        : []
-
-    return Array.from(
-      new Map(
-        [...facultyResults, ...studentResults]
-          .map((p) => [p.id, p])
-      ).values()
-    ).slice(0, 20)
-  }
-
-  // Autocomplete search results
+  // Search results — API handles role/department filtering, client handles text search
   const primarySearchResults = useMemo(() => {
-    return searchPeople({
-      query: primarySearch,
-      includeStudents: false,
-      excludeIds: primaryFacultyId ? [primaryFacultyId] : [],
-    })
-  }, [
-    primarySearch,
-    primaryFacultyId,
-    facultyWithRules,
-    deptFilter,
-  ])
+    if (!primarySearch.trim()) return []
+    const q = primarySearch.toLowerCase()
+    const exclude = primaryFacultyId ? [primaryFacultyId] : []
+    return primaryUsers.filter(
+      (u) =>
+        !exclude.includes(u.id) &&
+        (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    )
+  }, [primarySearch, primaryFacultyId, primaryUsers])
 
   const attendeeSearchResults = useMemo(() => {
-    return searchPeople({
-      query: attendeeSearch,
-      includeStudents: userRole !== "STUDENT",
-      excludeIds: [
-        primaryFacultyId,
-        ...attendeeIds,
-      ].filter(Boolean) as string[],
-    })
-  }, [
-    attendeeSearch,
-    attendeeIds,
-    primaryFacultyId,
-    userRole,
-    students,
-    facultyWithRules,
-    deptFilter,
-  ])
+    if (!attendeeSearch.trim()) return []
+    const q = attendeeSearch.toLowerCase()
+    const exclude = [primaryFacultyId, ...attendeeIds].filter(Boolean) as string[]
+    return attendeeUsers.filter(
+      (u) =>
+        !exclude.includes(u.id) &&
+        (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    )
+  }, [attendeeSearch, attendeeIds, primaryFacultyId, attendeeUsers])
+
   const teamsLinkSlots = useMemo(
     () => selectedSlots.map((slot) => ({
       key: `${slot.date}-${slot.start}-${slot.end}`,
@@ -646,8 +573,8 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             </div>
             {allDepartments.length > 0 && (
               <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
+                value={primaryDeptFilter}
+                onChange={(e) => setPrimaryDeptFilter(e.target.value)}
                 className="input text-xs w-auto py-1.5 min-w-[160px]"
               >
                 <option value="all">All Departments</option>
@@ -759,8 +686,8 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             </div>
             {allDepartments.length > 0 && (
               <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
+                value={attendeeDeptFilter}
+                onChange={(e) => setAttendeeDeptFilter(e.target.value)}
                 className="input text-xs w-auto py-1.5 min-w-[160px]"
               >
                 <option value="all">All Departments</option>
@@ -968,7 +895,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                         const h = e.target.value
                         const m = manualTime?.start?.split(":")[1] || "00"
                         // Clear end when start changes to avoid stale duration
-                        setManualTime((prev) => ({ start: `${h}:${m}`, end: "" }))
+                        setManualTime({ start: `${h}:${m}`, end: "" })
                       }}
                       className="input text-xs w-auto py-1.5"
                     >
@@ -983,8 +910,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                       onChange={(e) => {
                         const m = e.target.value
                         const h = manualTime?.start?.split(":")[0] || "00"
-                        // Clear end when start minute changes
-                        setManualTime((prev) => ({ start: `${h}:${m}`, end: "" }))
+                        setManualTime({ start: `${h}:${m}`, end: "" })
                       }}
                       className="input text-xs w-auto py-1.5"
                     >
@@ -1147,7 +1073,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                 {submitting ? "Booking..." : "Book Consultation"}
               </button>
             ) : (
-              <button type="button" onClick={(e) => {
+              <button type="button" onClick={() => {
                 if (!showTeamsLinkForm) {
                   setShowTeamsLinkForm(true)
                   return
