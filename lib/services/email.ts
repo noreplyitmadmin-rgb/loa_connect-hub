@@ -327,6 +327,66 @@ export async function sendBookingAcknowledgement(
   })
 }
 
+export async function sendStatusUpdateEmail(
+  to: { email: string; name: string },
+  cc: { email: string; name: string }[],
+  data: {
+    variant: "cancelled" | "completed" | "accepted"
+    actorName: string
+    meetingTitle: string
+    date: string
+    startTime: string
+    endTime: string
+    description?: string | null
+    viewUrl: string
+    extraInfo?: string | null
+    attendeeNames: string[]
+    isCreator: boolean
+    meetingType: "CONSULTATION" | "INTERNAL"
+  }
+) {
+  const { statusNotificationHtml } = await import("@/lib/email-templates/status-notification")
+  const html = statusNotificationHtml({
+    recipientName: to.name,
+    variant: data.variant,
+    actorName: data.actorName,
+    meetingTitle: data.meetingTitle,
+    date: data.date,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    description: data.description,
+    viewUrl: data.viewUrl,
+    extraInfo: data.extraInfo,
+    attendeeNames: data.attendeeNames,
+    isCreator: data.isCreator,
+    meetingType: data.meetingType,
+  })
+
+  if (!isEmailEnabled()) {
+    console.log(`[DEV] Status update (${data.variant}) email (EMAIL_FEATURE_FLAG=false):`)
+    console.log(`  To: ${to.email} (${to.name})`)
+    console.log(`  CC: ${cc.map(c => `${c.email} (${c.name})`).join(", ")}`)
+    console.log(`  Appointment: ${data.meetingTitle}`)
+    return
+  }
+
+  if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
+
+  const subjectMap: Record<string, string> = {
+    cancelled: `Cancelled: ${data.meetingTitle}`,
+    completed: `Completed: ${data.meetingTitle}`,
+    accepted: `Accepted: ${data.meetingTitle}`,
+  }
+
+  await transporter.sendMail({
+    from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
+    to: to.email,
+    cc: cc.map(c => c.email),
+    subject: subjectMap[data.variant] || `Status Update: ${data.meetingTitle}`,
+    html,
+  })
+}
+
 export async function sendPasswordChangedEmail(email: string, name: string) {
   if (!isEmailEnabled()) {
     console.log("[DEV] Password changed notification (EMAIL_FEATURE_FLAG=false):")

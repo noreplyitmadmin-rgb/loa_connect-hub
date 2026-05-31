@@ -1,7 +1,7 @@
 import { appointmentRepository, userRepository } from "@/lib/repositories/factory"
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
 import { generateICal } from "@/lib/services/ical"
-import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow, sendMeetingInviteWithAcknowledgementWorkflow, sendConsultationInviteWithAcknowledgementWorkflow } from "@/lib/workflows/email-workflows"
+import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow, sendMeetingInviteWithAcknowledgementWorkflow, sendConsultationInviteWithAcknowledgementWorkflow, sendStatusUpdateWorkflow } from "@/lib/workflows/email-workflows"
 import { hasRole } from "@/lib/utils/roles"
 import type { AppointmentData } from "@/lib/repositories/interfaces"
 
@@ -519,10 +519,44 @@ export async function acceptAppointment(id: string, facultyId: string) {
   // Set status + mark for Teams sync (orchestrator picks up UNWRITTEN records)
   const result = await appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
 
-  // Fire-and-forget consultation approval email with .ics attachment
-  sendConsultationApprovedWorkflow(result as unknown as Record<string, unknown>).catch((err) => {
-    console.error("Failed to send consultation approved email:", err)
-  })
+  const appt = result as unknown as ApptWithJoins
+  const hasStudent = appt.student?.email
+
+  if (hasStudent) {
+    // Student-booking: existing flow with .ics + Teams link
+    sendConsultationApprovedWorkflow(result as unknown as Record<string, unknown>).catch((err) => {
+      console.error("Failed to send consultation approved email:", err)
+    })
+  } else {
+    // Self-booking (faculty is both creator and accepter): notify attendees
+    const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
+    const viewUrl = `${host}/appointments/${id}`
+    const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
+    const attendeeNames = (appt.attendees || []).map(a => a.user?.name || "Attendee").filter(Boolean)
+    const attendeeRecipients = (appt.attendees || [])
+      .map(a => a.user)
+      .filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
+
+    sendStatusUpdateWorkflow(
+      { email: faculty.email, name: faculty.name },
+      attendeeRecipients,
+      {
+        variant: "accepted",
+        actorName: faculty.name,
+        meetingTitle: appt.title || "Meeting",
+        date: appt.date,
+        startTime: appt.startTime,
+        endTime: appt.endTime,
+        description: appt.description,
+        viewUrl,
+        attendeeNames,
+        isCreator: true,
+        meetingType: "INTERNAL",
+      }
+    ).catch((err) => {
+      console.error("Failed to send self-booking acceptance notification:", err)
+    })
+  }
 
   return result
 }
@@ -573,7 +607,47 @@ export async function completeAppointment(id: string, facultyId: string, actionT
     throw new Error("Actions taken must be at least 100 characters")
   }
 
-  return appointmentRepository.update(id, { status: "COMPLETED", actionTaken })
+  const result = await appointmentRepository.update(id, { status: "COMPLETED", actionTaken })
+
+  // Fire-and-forget completion notification
+  const appt = appointment as unknown as ApptWithJoins
+  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
+  const viewUrl = `${host}/appointments/${id}`
+
+  const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
+  const student = appt.student
+  const attendees = (appt.attendees || []).map(a => a.user).filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
+
+  // TO = creator (student if exists, otherwise faculty for self-booking)
+  const to = student?.email ? { email: student.email, name: student.name } : { email: faculty.email, name: faculty.name }
+  const cc = attendees.filter(a => a.email !== to.email)
+  const allNames = [
+    ...(student ? [student.name] : [faculty.name]),
+    ...attendees.map(a => a.name),
+  ]
+
+  sendStatusUpdateWorkflow(
+    to,
+    cc,
+    {
+      variant: "completed",
+      actorName: faculty.name,
+      meetingTitle: appt.title || "Meeting",
+      date: appt.date,
+      startTime: appt.startTime,
+      endTime: appt.endTime,
+      description: appt.description,
+      viewUrl,
+      extraInfo: actionTaken,
+      attendeeNames: allNames,
+      isCreator: !student?.email,
+      meetingType: student?.email ? "CONSULTATION" : "INTERNAL",
+    }
+  ).catch((err) => {
+    console.error("Failed to send completion notification:", err)
+  })
+
+  return result
 }
 
 export async function cancelAppointment(id: string, userId: string, userEmail?: string) {
@@ -596,7 +670,76 @@ export async function cancelAppointment(id: string, userId: string, userEmail?: 
     // If deletion fails, log error but proceed with cancellation
   }
 
-  return appointmentRepository.update(id, { status: "CANCELLED" })
+  const result = await appointmentRepository.update(id, { status: "CANCELLED" })
+
+  // Fire-and-forget cancellation notification
+  const [actor] = await Promise.all([
+    userRepository.findById(userId),
+  ])
+  const actorName = actor?.name || (isFaculty ? "Faculty" : "Creator")
+
+  const appt = result as unknown as ApptWithJoins
+  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
+  const viewUrl = `${host}/appointments/${id}`
+
+  const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
+  const student = appt.student
+  const attendees = (appt.attendees || []).map(a => a.user).filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
+
+  // Determine TO: non-actor priority order = student (creator) → faculty → first attendee
+  let to: { email: string; name: string } | null = null
+  if (student?.email && !isCreator) {
+    to = { email: student.email, name: student.name }
+  } else if (faculty.email && !isFaculty) {
+    to = { email: faculty.email, name: faculty.name }
+  } else {
+    const first = attendees.find(a => a.id !== userId)
+    if (first) to = { email: first.email, name: first.name }
+  }
+
+  if (to) {
+    const cc = [
+      ...(student?.email && to.email !== student.email ? [{ email: student.email, name: student.name }] : []),
+      ...(faculty.email && to.email !== faculty.email ? [{ email: faculty.email, name: faculty.name }] : []),
+      ...attendees.filter(a => a.email !== to!.email),
+    ]
+    // Deduplicate by email
+    const seen = new Set<string>()
+    const uniqueCc = cc.filter(c => {
+      if (seen.has(c.email)) return false
+      seen.add(c.email)
+      return true
+    })
+
+    const allNames = [
+      ...(student ? [student.name] : []),
+      ...(faculty ? [faculty.name] : []),
+      ...attendees.map(a => a.name),
+    ]
+    const uniqueNames = [...new Set(allNames)]
+
+    sendStatusUpdateWorkflow(
+      to,
+      uniqueCc,
+      {
+        variant: "cancelled",
+        actorName,
+        meetingTitle: appt.title || "Meeting",
+        date: appt.date,
+        startTime: appt.startTime,
+        endTime: appt.endTime,
+        description: appt.description,
+        viewUrl,
+        attendeeNames: uniqueNames,
+        isCreator: false,
+        meetingType: student?.email ? "CONSULTATION" : "INTERNAL",
+      }
+    ).catch((err) => {
+      console.error("Failed to send cancellation notification:", err)
+    })
+  }
+
+  return result
 }
 
 export async function studentResendInvitation(id: string, userId: string) {

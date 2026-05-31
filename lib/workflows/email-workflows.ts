@@ -1,4 +1,4 @@
-import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail, sendBookingAcknowledgement, sendMeetingInviteWithICS } from "@/lib/services/email"
+import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail, sendBookingAcknowledgement, sendMeetingInviteWithICS, sendStatusUpdateEmail } from "@/lib/services/email"
 
 export async function sendConsultationInviteWorkflow(
   to: { email: string; name: string },
@@ -200,4 +200,27 @@ async function sendAcknowledgementStep(
   "use step"
 
   await sendBookingAcknowledgement({ email: creator.email, name: creator.name }, data)
+}
+
+export async function sendStatusUpdateWorkflow(
+  to: { email: string; name: string },
+  cc: { email: string; name: string }[],
+  data: {
+    variant: "cancelled" | "completed" | "accepted"
+    actorName: string
+    meetingTitle: string
+    date: string
+    startTime: string
+    endTime: string
+    description?: string | null
+    viewUrl: string
+    extraInfo?: string | null
+    attendeeNames: string[]
+    isCreator: boolean
+    meetingType: "CONSULTATION" | "INTERNAL"
+  }
+) {
+  "use workflow"
+
+  await sendStatusUpdateEmail(to, cc, data)
 }
