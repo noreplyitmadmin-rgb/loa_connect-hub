@@ -75,7 +75,7 @@ Server Components fetch data directly via controllers and pass props to Client C
 | **Roles** | Multi-role via `userrole` join table; resolved by priority (ADMIN > DEAN > FACULTY > STUDENT) |
 | **UI state** | React built-in hooks (`useState`, `useEffect`); no global state library |
 | **Forms** | Local `useState`; `SubmitButton` double-click prevention |
-| **Email** | Nodemailer (Gmail SMTP), fire-and-forget with `.catch()` |
+| **Email** | Nodemailer (Gmail SMTP), durable via Vercel Workflows with sequenced steps |
 | **iCal** | Custom `.ics` generation (no library) |
 | **CSV import** | Custom parser in `lib/services/` |
 | **PDF export** | jsPDF + jspdf-autotable |
@@ -88,15 +88,15 @@ Server Components fetch data directly via controllers and pass props to Client C
 |-----------|-------------|
 | `app/` | 77 (pages, API routes, layouts) |
 | `components/` | 36 (React components) |
-| `lib/` | 29 (controllers, services, repos, utils) |
-| Total | ~146 source files |
+| `lib/` | 32 (controllers, services, workflows, repos, utils, email-templates) |
+| Total | ~149 source files |
 
 ### Known Issues & Risks
 
 1. **Supabase repository is a monolith** — `lib/repositories/supabase.ts` is ~1015 lines implementing 7 repository interfaces in one file. Violates Single Responsibility Principle; hard to test and maintain.
 2. **Minimal test coverage** — Only 1 test file exists for ~17,619 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
 3. **No client data-fetching library** — All client components use `useEffect` + `fetch()`. No caching, deduplication, stale-while-revalidate, optimistic updates, or automatic retry.
-4. **Silent email failures** — Fire-and-forget pattern with `.catch()` means failed emails are invisible. No retry mechanism, queue, or user-facing feedback.
+4. **Mitigated — Vercel Workflows for durable email** — Fire-and-forget `.catch()` call sites replaced with Vercel Workflow functions (`lib/workflows/email-workflows.ts`) that provide built-in retries per step. Status notifications (accept, complete, cancel) also use durable workflows. Silent failures remain for non-critical emails not yet migrated.
 5. **No React Error Boundaries** — No `error.tsx` files. An uncaught client error can collapse the entire component tree.
 6. **Scattered type definitions** — Types live across `lib/models/`, `lib/repositories/interfaces.ts`, and `lib/dtos/`. Inconsistent naming and organization.
 7. **HTML email templates via template literals** — Fragile string concatenation. No type safety or template engine.
@@ -132,57 +132,53 @@ Client-side pages that fetch data on mount show skeleton placeholders (`componen
 
 The login page checks `useSession()` on mount and auto-redirects already-authenticated users to their role-specific dashboard, preventing them from seeing the login form after session errors or redirects.
 
-## Future Implementation — Reliable Email Delivery via Vercel Workflows
+## Email Delivery via Vercel Workflows
 
-### Current Problem
+### Architecture
 
-Emails are sent as fire-and-forget background tasks using `.catch()` (see Known Issues #4). Failures are silent for two call sites and only logged for the others. There is no retry, no queue, and no user-facing feedback when an email fails.
+Emails are sent through **Vercel Workflows** (durable execution) with built-in retries per step, surviving deployment restarts and serverless cold starts. On local development the `"use workflow"` / `"use step"` directives are no-ops and functions run as regular async calls.
 
-### Options Considered
+### Workflow Functions
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| **Next.js `after()`** (`next/server`) | Built into Next.js 15.1+; zero dependencies; runs after response is sent | No durability — if the serverless function terminates mid-execution, the email is lost. No retry mechanism. |
-| **`@vercel/functions` `waitUntil()`** | Extends request lifetime for promises | Same durability limitations as `after()`. No retry or observability. |
-| **Vercel Workflows** (`workflow` SDK) | Durable execution — survives crashes; built-in retries; observable via Vercel dashboard; can pause/resume for long delays | Adds a dependency; requires `'use workflow'` directive; slightly more complex setup. |
-| **Vercel Queues** | Reliable message queue; integrates with Vercel Functions | Adds infrastructure; requires queue consumer setup. |
-| **Inngest** | Third-party workflow engine purpose-built for background jobs; generous free tier; full observability | External dependency; requires account; vendor lock-in. |
+| Function | Purpose | Steps |
+|----------|---------|-------|
+| `sendConsultationInviteWorkflow` | Student → Faculty consultation invite | 1 — `sendConsultationInvite` |
+| `sendApprovedWorkflow` | Consultation accepted with Teams link | 1 — `sendApprovedWithTeamsLink` |
+| `sendPasswordChangedWorkflow` | Password change notification | 1 — `sendPasswordChangedEmail` |
+| `sendAppointmentCreatedWorkflow` | Dynamic booking email dispatch | 1 — `sendAppointmentCreatedEmail` |
+| `sendConsultationApprovedWorkflow` | Student-booking accepted | 1 — `sendConsultationApprovedEmail` |
+| `sendMeetingInviteWithAcknowledgementWorkflow` | Faculty/Dean booking: invite → creator ack | 2 — `sendInviteStep` → `sendAcknowledgementStep` |
+| `sendConsultationInviteWithAcknowledgementWorkflow` | Student booking: invite → student ack | 2 — `sendConsultationInviteStep` → `sendAcknowledgementStep` |
+| `sendStatusUpdateWorkflow` | Accept/complete/cancel notifications | 1 — `sendStatusUpdateEmail` |
 
-### Recommended Path: Vercel Workflows
+### Email Flows
 
-Vercel Workflows (announced 2025, GA 2026) is the strongest fit because:
+| Trigger | Recipients | Template | Workflow |
+|---------|-----------|----------|----------|
+| Student books consultation | Faculty TO + CC attendees | `consultation-invite` | `sendConsultationInviteWithAcknowledgementWorkflow` |
+| Student books consultation (ack) | Student | `booking-acknowledgement` (request variant) | ↑ step 2 |
+| Faculty/Dean creates meeting | Attendees TO + CC | `meeting-invite` | `sendMeetingInviteWithAcknowledgementWorkflow` |
+| Faculty/Dean creates meeting (ack) | Creator | `booking-acknowledgement` (booking variant) | ↑ step 2 |
+| Faculty accepts consultation (student-booking) | Student TO, CC faculty + attendees | `consultation-approved` | `sendConsultationApprovedWorkflow` |
+| Faculty accepts (self-booking) | Faculty TO, CC attendees | `status-notification` (accepted + creator wording) | `sendStatusUpdateWorkflow` |
+| Appointment cancelled | Non-actor participants | `status-notification` (cancelled) | `sendStatusUpdateWorkflow` |
+| Appointment completed | Creator TO, CC attendees | `status-notification` (completed + action taken) | `sendStatusUpdateWorkflow` |
+| Password changed | User | Inline HTML | `sendPasswordChangedWorkflow` |
 
-- **Durable** — survives deployment restarts and serverless cold starts. Workflow state is persisted.
-- **Familiar DX** — uses async/await with a `'use workflow'` directive; no YAML or state machines.
-- **Built-in retries** — each step can have individual retry policies, eliminating the silent-failure problem.
-- **Observability** — built-in logs, metrics, and tracing in the Vercel dashboard.
-- **Direct replacement** — the existing email functions in `lib/services/email.ts` can be called from within a workflow step with minimal refactoring.
+### Files
 
-### Current Status (Pre-deployment)
+| File | Role |
+|------|------|
+| `lib/services/email.ts` | Low-level Nodemailer senders (7 functions) |
+| `lib/email-templates/*.ts` | HTML templates (5 variants) |
+| `lib/workflows/email-workflows.ts` | Durable workflow wrappers (8 functions) |
+| `lib/controllers/appointments.ts` | Business logic that invokes workflows |
 
-The following code is already in place and ready for Vercel deployment:
-
-| File | What's Ready |
-|------|-------------|
-| `lib/workflows/email-workflows.ts` | 5 workflow functions: `sendConsultationInviteWorkflow`, `sendApprovedWorkflow`, `sendPasswordChangedWorkflow`, `sendAppointmentCreatedWorkflow`, `sendConsultationApprovedWorkflow` |
-| `lib/controllers/appointments.ts` | All 3 email call sites now call workflow functions |
-| `app/api/auth/change-password/route.ts` | Password notification uses `sendPasswordChangedWorkflow` |
-| `package.json` | `workflow` SDK listed as dependency |
-
-### Remaining Steps for Deployment
-
-```
-1. Deploy on Vercel
-2. Run npm install (workflow SDK will resolve)
-3. Vercel build will recognize "use workflow" directives
-4. No code changes needed — controllers already call workflow functions
-```
-
-### Prerequisites
+### Prerequisites for Production
 
 - Vercel deployment (Workflows require Vercel infrastructure)
-- `VERCEL_ENV` environment variable (automatically set on Vercel)
-- Workflow SDK: `npm i workflow`
+- `VERCEL_ENV` (automatically set on Vercel)
+- `"workflow"` dependency in `package.json` (already installed)
 
 ## Quick Start
 
@@ -222,6 +218,6 @@ Non-activated accounts must use the activation flow at `/activate`.
 | 11. ETL — Bulk User Import (CSV) | ✅ Done |
 | 12. Email-based Auth & Password Setup | ✅ Done |
 | 13. Consultation Completion (Action Taken) | ✅ Done |
-| 14. Attendee Permissions | ❌ Remaining |
-| 15. Reports & Export | ❌ Remaining |
+| 14. Attendee Permissions | ✅ Done |
+| 15. Reports & Export | ✅ Done |
 | 16. Staggered & Multi-Faculty Booking | ✅ Done |
