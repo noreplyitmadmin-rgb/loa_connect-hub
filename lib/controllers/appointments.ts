@@ -1,8 +1,7 @@
 import { appointmentRepository, userRepository } from "@/lib/repositories/factory"
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
 import { generateICal } from "@/lib/services/ical"
-import { sendConsultationInvite, sendMeetingInviteWithICS } from "@/lib/services/email"
-import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow } from "@/lib/workflows/email-workflows"
+import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow, sendMeetingInviteWithAcknowledgementWorkflow, sendConsultationInviteWithAcknowledgementWorkflow } from "@/lib/workflows/email-workflows"
 import { hasRole } from "@/lib/utils/roles"
 import type { AppointmentData } from "@/lib/repositories/interfaces"
 
@@ -364,20 +363,32 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
 
   // ── Determine primary recipient (the TO) ──
   // The primary recipient is appointment.faculty (or first attendee as fallback).
-  // All other attendees are CC'd on a single email — no duplicate sends.
-  const primaryUser = appointment.faculty?.id ? appointment.faculty : appointment.attendees?.[0]?.user
-  if (!primaryUser?.id || !primaryUser?.email || primaryUser.id === creatorId) return
+  // If the primary user is the creator (self-booking), fall through to attendees.
+  let primaryUser = appointment.faculty?.id ? appointment.faculty : appointment.attendees?.[0]?.user
+  if (!primaryUser?.id || !primaryUser?.email) return
+  if (primaryUser.id === creatorId && appointment.attendees && appointment.attendees.length > 0) {
+    const other = appointment.attendees.find(a => a.user?.id && a.user.id !== creatorId && a.user.email)
+    if (other?.user) {
+      primaryUser = other.user
+    }
+  }
+  if (primaryUser.id === creatorId) return
 
-  // ── Build CC list from remaining attendees (non-primary, non-creator) ──
+  // ── Build CC list from attendees (excluding primary TO) ──
   const ccList: { name: string; email: string }[] = []
   if (appointment.attendees) {
     for (const attendee of appointment.attendees) {
       const user = attendee?.user
       if (!user || !user.id || !user.email) continue
-      if (user.id === creatorId || user.id === primaryUser.id) continue
+      if (user.id === primaryUser.id) continue
       ccList.push({ name: user.name || "Attendee", email: user.email })
     }
   }
+
+  // ── Resolve creator user for notifications ──
+  const creatorUser = appointment.faculty?.id === creatorId
+    ? appointment.faculty
+    : appointment.attendees?.find(a => a.user?.id === creatorId)?.user ?? null
 
   const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
   const viewUrl = `${host}/appointments/${appointment.id}`
@@ -406,7 +417,6 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
     `Organizer: ${organizerName}`,
   ].filter(Boolean).join("\n")
 
-  // All participants (primary + cc'd) go into the iCal attendees list
   const allParticipants = [
     { name: primaryUser.name || "Faculty", email: primaryUser.email },
     ...ccList,
@@ -427,10 +437,26 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
   const participantNames = allParticipants.map(r => r.name)
   const ccEmails = ccList.map(r => r.email)
 
-  // Send ONE email — primary recipient as TO, all other attendees as CC
+  // ── Send emails ──
   if (appointment.meetingType === "CONSULTATION") {
-    await sendConsultationInvite(
+    // Student booking: sequenced send via workflow (invite then acknowledgement)
+    const studentCreator = appointment.student?.email ? appointment.student : null
+
+    const acknowledgementData = studentCreator && studentCreator.email !== primaryUser.email
+      ? {
+          meetingTitle: appointment.title || "Consultation Request",
+          attendeeNames: allParticipants.map(p => p.name),
+          date: appointment.date,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          viewUrl,
+          variant: "request" as const,
+        }
+      : null
+
+    await sendConsultationInviteWithAcknowledgementWorkflow(
       { email: primaryUser.email, name: primaryUser.name },
+      ccEmails,
       {
         studentName: appointment.student?.name || "Student",
         studentEmail: appointment.student?.email || "",
@@ -442,13 +468,30 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
         title: appointment.title,
         description: appointment.description,
         viewUrl,
-        cc: ccEmails,
       },
       icalString,
+      acknowledgementData ? { email: studentCreator!.email, name: studentCreator!.name } : null,
+      acknowledgementData,
     )
   } else {
-    await sendMeetingInviteWithICS(
+    // Faculty/Dean booking: sequenced sends via workflow
+    const isCreatorAttendee = creatorUser?.email && ccEmails.includes(creatorUser.email)
+
+    const acknowledgementData = creatorUser && creatorUser.id !== primaryUser.id && !isCreatorAttendee
+      ? {
+          meetingTitle: appointment.title || "Meeting",
+          attendeeNames: allParticipants.map(p => p.name),
+          date: appointment.date,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          viewUrl,
+          variant: "booking" as const,
+        }
+      : null
+
+    await sendMeetingInviteWithAcknowledgementWorkflow(
       { email: primaryUser.email, name: primaryUser.name },
+      ccEmails,
       {
         organizerName,
         title: appointment.title || "Appointment",
@@ -458,9 +501,10 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
         endTime: appointment.endTime,
         participantNames,
         viewUrl,
-        cc: ccEmails,
       },
       icalString,
+      acknowledgementData ? { email: creatorUser!.email, name: creatorUser!.name } : null,
+      acknowledgementData,
     )
   }
 }

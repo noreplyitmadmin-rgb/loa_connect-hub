@@ -280,6 +280,53 @@ export async function sendForgotPasswordEmail(email: string, name: string, reset
   })
 }
 
+export async function sendBookingAcknowledgement(
+  to: { email: string; name: string },
+  data: {
+    meetingTitle: string
+    attendeeNames: string[]
+    date: string
+    startTime: string
+    endTime: string
+    viewUrl: string
+    variant: "request" | "booking"
+  }
+) {
+  const { bookingAcknowledgementHtml } = await import("@/lib/email-templates/booking-acknowledgement")
+  const html = bookingAcknowledgementHtml({
+    recipientName: to.name,
+    meetingTitle: data.meetingTitle,
+    attendeeNames: data.attendeeNames,
+    date: data.date,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    viewUrl: data.viewUrl,
+    variant: data.variant,
+  })
+
+  if (!isEmailEnabled()) {
+    console.log("[DEV] Booking acknowledgement email (EMAIL_FEATURE_FLAG=false):")
+    console.log(`  To: ${to.email} (${to.name})`)
+    console.log(`  Meeting: ${data.meetingTitle}`)
+    console.log(`  Attendees: ${data.attendeeNames.join(", ")}`)
+    console.log(`  Variant: ${data.variant}`)
+    return
+  }
+
+  if (!process.env.GMAIL_USER) throw new Error("GMAIL_USER env var not set")
+
+  const subject = data.variant === "request"
+    ? `Consultation Request Sent: ${data.meetingTitle}`
+    : `Meeting Created: ${data.meetingTitle}`
+
+  await transporter.sendMail({
+    from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
+    to: to.email,
+    subject,
+    html,
+  })
+}
+
 export async function sendPasswordChangedEmail(email: string, name: string) {
   if (!isEmailEnabled()) {
     console.log("[DEV] Password changed notification (EMAIL_FEATURE_FLAG=false):")

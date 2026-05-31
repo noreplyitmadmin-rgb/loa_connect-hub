@@ -1,4 +1,4 @@
-import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail } from "@/lib/services/email"
+import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail, sendBookingAcknowledgement, sendMeetingInviteWithICS } from "@/lib/services/email"
 
 export async function sendConsultationInviteWorkflow(
   to: { email: string; name: string },
@@ -53,4 +53,151 @@ export async function sendConsultationApprovedWorkflow(
     "@/lib/controllers/appointments"
   )
   await sendConsultationApprovedEmail(appointment as unknown as ApptWithJoins)
+}
+
+export async function sendMeetingInviteWithAcknowledgementWorkflow(
+  primaryUser: { email: string; name: string },
+  ccEmails: string[],
+  inviteData: {
+    organizerName: string
+    title: string
+    description?: string | null
+    date: string
+    startTime: string
+    endTime: string
+    participantNames: string[]
+    viewUrl: string
+  },
+  icalString: string | undefined,
+  creator: { email: string; name: string } | null,
+  acknowledgementData: {
+    meetingTitle: string
+    attendeeNames: string[]
+    date: string
+    startTime: string
+    endTime: string
+    viewUrl: string
+    variant: "request" | "booking"
+  } | null
+) {
+  "use workflow"
+
+  await sendInviteStep(primaryUser, ccEmails, inviteData, icalString)
+  if (creator && acknowledgementData) {
+    await sendAcknowledgementStep(creator, acknowledgementData)
+  }
+}
+
+export async function sendConsultationInviteWithAcknowledgementWorkflow(
+  primaryUser: { email: string; name: string },
+  ccEmails: string[],
+  inviteData: {
+    studentName: string
+    studentEmail: string
+    facultyName: string
+    facultyEmail: string
+    date: string
+    startTime: string
+    endTime: string
+    title?: string | null
+    description?: string | null
+    viewUrl: string
+  },
+  icalString: string | undefined,
+  creator: { email: string; name: string } | null,
+  acknowledgementData: {
+    meetingTitle: string
+    attendeeNames: string[]
+    date: string
+    startTime: string
+    endTime: string
+    viewUrl: string
+    variant: "request" | "booking"
+  } | null
+) {
+  "use workflow"
+
+  await sendConsultationInviteStep(primaryUser, ccEmails, inviteData, icalString)
+  if (creator && acknowledgementData) {
+    await sendAcknowledgementStep(creator, acknowledgementData)
+  }
+}
+
+async function sendConsultationInviteStep(
+  primaryUser: { email: string; name: string },
+  ccEmails: string[],
+  inviteData: {
+    studentName: string
+    studentEmail: string
+    facultyName: string
+    facultyEmail: string
+    date: string
+    startTime: string
+    endTime: string
+    title?: string | null
+    description?: string | null
+    viewUrl: string
+  },
+  icalString: string | undefined
+) {
+  "use step"
+
+  await sendConsultationInvite(
+    { email: primaryUser.email, name: primaryUser.name },
+    {
+      studentName: inviteData.studentName,
+      studentEmail: inviteData.studentEmail,
+      facultyName: inviteData.facultyName,
+      facultyEmail: inviteData.facultyEmail,
+      date: inviteData.date,
+      startTime: inviteData.startTime,
+      endTime: inviteData.endTime,
+      title: inviteData.title,
+      description: inviteData.description,
+      viewUrl: inviteData.viewUrl,
+      cc: ccEmails.length > 0 ? ccEmails : undefined,
+    },
+    icalString,
+  )
+}
+
+async function sendInviteStep(
+  primaryUser: { email: string; name: string },
+  ccEmails: string[],
+  inviteData: {
+    organizerName: string
+    title: string
+    description?: string | null
+    date: string
+    startTime: string
+    endTime: string
+    participantNames: string[]
+    viewUrl: string
+  },
+  icalString: string | undefined
+) {
+  "use step"
+
+  await sendMeetingInviteWithICS(
+    { email: primaryUser.email, name: primaryUser.name },
+    { ...inviteData, cc: ccEmails.length > 0 ? ccEmails : undefined },
+    icalString,
+  )
+}
+
+async function sendAcknowledgementStep(
+  creator: { email: string; name: string },
+  data: {
+    meetingTitle: string
+    attendeeNames: string[]
+    date: string
+    startTime: string
+    endTime: string
+    viewUrl: string
+    variant: "request" | "booking"
+  }
+) {
+  "use step"
+
+  await sendBookingAcknowledgement({ email: creator.email, name: creator.name }, data)
 }
