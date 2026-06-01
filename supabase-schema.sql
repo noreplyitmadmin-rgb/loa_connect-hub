@@ -405,7 +405,7 @@ BEGIN
 
   -- ── ADMIN ──────────────────────────────────────────────────
   INSERT INTO users (id, name, email, "passwordHash", "hasLoggedInBefore")
-  VALUES (_admin_id, 'Mr. Admin', 'admin@lyceumalabang.ph', _hash, true)
+  VALUES (_admin_id, 'Mr. Admin', 'admin@lyceumalabang.edu.ph', _hash, true)
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO userrole ("userId", "roleName") VALUES (_admin_id, 'ADMIN')
@@ -413,7 +413,8 @@ BEGIN
 
   -- ── DEAN ──────────────────────────────────────────────────
   INSERT INTO users (id, name, email, "passwordHash")
-  VALUES (_dean_id, 'Regie Ellana', 'regie@itmlyceumalabang.onmicrosoft.com', _hash)
+  VALUES (_dean_id, 'Regie Ellana', 'r.ellana@lyceumalabang.edu.ph
+', _hash)
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO userrole ("userId", "roleName") VALUES (_dean_id, 'DEAN')
@@ -434,9 +435,12 @@ BEGIN
 
   -- ── FACULTY (3) ─────────────────────────────────────────
   INSERT INTO users (id, name, email, "passwordHash", "departmentId") VALUES
-    (_faculty1_id, 'Nin Alamo',           'nino_francisco_alamo@itmlyceumalabang.onmicrosoft.com', _hash, _dept_id),
-    (_faculty2_id, 'Maria Santos',        'maria.santos@itmlyceumalabang.onmicrosoft.com',           _hash, _dept_id),
-    (_faculty3_id, 'Juan Dela Cruz',      'juan.delacruz@itmlyceumalabang.onmicrosoft.com',         _hash, _dept_id)
+    (_faculty1_id, 'Nin Alamo',           'n.alamo@lyceumalabang.edu.ph
+', _hash, _dept_id),
+    (_faculty2_id, 'Maria Santos',        'maria.santos@lyceumalabang.edu.ph
+',           _hash, _dept_id),
+    (_faculty3_id, 'Juan Dela Cruz',      'juan.delacruz@lyceumalabang.edu.ph
+',         _hash, _dept_id)
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO userrole ("userId", "roleName") VALUES
@@ -447,11 +451,16 @@ BEGIN
 
   -- ── STUDENTS (5) ────────────────────────────────────────
   INSERT INTO users (id, name, email, "passwordHash", "departmentId", course) VALUES
-    (_student1_id, 'Alice Reyes',       'alice.reyes@itmlyceumalabang.onmicrosoft.com',     _hash, _dept_id, 'BSIT'),
-    (_student2_id, 'Bob Martinez',      'bob.martinez@itmlyceumalabang.onmicrosoft.com',    _hash, _dept_id, 'BSIT'),
-    (_student3_id, 'Charlie Gomez',     'charlie.gomez@itmlyceumalabang.onmicrosoft.com',   _hash, _dept_id, 'BSCS'),
-    (_student4_id, 'Diana Lopez',       'diana.lopez@itmlyceumalabang.onmicrosoft.com',     _hash, _dept_id, 'BSCS'),
-    (_student5_id, 'Ethan Fernandez',   'ethan.fernandez@itmlyceumalabang.onmicrosoft.com', _hash, _dept_id, 'BSIT')
+    (_student1_id, 'Alice Reyes',       'alice.reyes@lyceumalabang.edu.ph
+',     _hash, _dept_id, 'BSIT'),
+    (_student2_id, 'Bob Martinez',      'bob.martinez@lyceumalabang.edu.ph
+',    _hash, _dept_id, 'BSIT'),
+    (_student3_id, 'Charlie Gomez',     'charlie.gomez@lyceumalabang.edu.ph
+',   _hash, _dept_id, 'BSCS'),
+    (_student4_id, 'Diana Lopez',       'diana.lopez@lyceumalabang.edu.ph
+',     _hash, _dept_id, 'BSCS'),
+    (_student5_id, 'Ethan Fernandez',   'ethan.fernandez@lyceumalabang.edu.ph
+', _hash, _dept_id, 'BSIT')
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO userrole ("userId", "roleName") VALUES
