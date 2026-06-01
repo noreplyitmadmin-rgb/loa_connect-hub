@@ -755,8 +755,8 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
 
                 const dotColor = dayStatus === "available" ? "bg-emerald-500" :
                   dayStatus === "partially" ? "bg-blue-400" :
-                  dayStatus === "not-available" ? "bg-red-400" :
-                  "bg-slate-400"
+                    dayStatus === "not-available" ? "bg-red-400" :
+                      "bg-slate-400"
 
                 return (
                   <button
@@ -992,12 +992,36 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
               <p className="text-gold-600 text-xs mt-1">
                 {(() => {
                   const primary = facultyWithRules.find((f) => f.id === primaryFacultyId)
-                  const attendees = facultyWithRules.filter((f) => attendeeIds.includes(f.id))
-                  const studentAttendees = (students || []).filter((s) => attendeeIds.includes(s.id))
+
+                  const attendeeMap = new Map<string, string>()
+
+                  // Faculty/Dean attendees first
+                  facultyWithRules
+                    .filter((f) => attendeeIds.includes(f.id))
+                    .forEach((f) => {
+                      attendeeMap.set(
+                        f.id,
+                        `${f.name}${f.department ? ` (${f.department})` : ""}`
+                      )
+                    })
+
+                    // Only add students that are not already faculty/deans
+                    ; (students || [])
+                      .filter((s) => attendeeIds.includes(s.id))
+                      .forEach((s) => {
+                        if (!attendeeMap.has(s.id)) {
+                          attendeeMap.set(s.id, `${s.name} (Student)`)
+                        }
+                      })
+
                   const parts: string[] = []
-                  if (primary) parts.push(`${primary.name} (Primary)`)
-                  attendees.forEach((a) => parts.push(`${a.name}${a.department ? ` (${a.department})` : ""}`))
-                  studentAttendees.forEach((s) => parts.push(`${s.name} (Student)`))
+
+                  if (primary) {
+                    parts.push(`${primary.name} (Primary)`)
+                  }
+
+                  parts.push(...attendeeMap.values())
+
                   return parts.length > 0 ? parts.join(", ") : "No participants"
                 })()}
               </p>
