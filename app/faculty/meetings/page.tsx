@@ -261,15 +261,12 @@ export default async function MeetingsPage(props: {
                   ))}
                 </div> */}
                 <div className="mt-4 pt-3 border-t border-slate-100">
-                  <Link
-                    href={hasRole(role, "STUDENT") ? `/student/meetings/${meeting.id}` : `/faculty/meetings/${meeting.id}`}
-                    className="text-xs font-semibold text-gold-600 hover:text-gold-700 inline-flex items-center gap-1"
-                  >
+                  <span className="text-xs font-semibold text-gold-600 inline-flex items-center gap-1 cursor-default">
                     View Details
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                  </Link>
+                  </span>
                 </div>
               </Link>
             )

@@ -94,21 +94,23 @@ export default function BookingForm({ slot, sessionGroupId, onClose, onSuccess }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h3 className="text-lg font-bold text-slate-900">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl border border-slate-200 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto animate-slide-up sm:animate-fade-in">
+        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 rounded-t-2xl sm:rounded-t-xl">
+          {/* Drag handle for mobile */}
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-slate-300 sm:hidden" />
+          <h3 className="text-lg font-bold text-slate-900 pt-1 sm:pt-0">
             {sessionGroupId ? "Add Time Block" : "Book Appointment"}
           </h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+          <button onClick={onClose} className="p-2 sm:p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5">
           {/* Slot info (read-only) */}
           <div className="p-3 rounded-lg bg-gold-50 border border-gold-100 text-sm">
             <div className="flex items-center gap-2 text-gold-700 font-semibold mb-1">
@@ -198,17 +200,17 @@ export default function BookingForm({ slot, sessionGroupId, onClose, onSuccess }
             </div>
           )}
 
-          <div className="flex items-center gap-3 pt-2">
-            <SubmitButton type="submit" loading={submitting} variant="primary" className="w-full">
-              {submitting ? "Booking..." : sessionGroupId ? "Add Block" : "Book Consultation"}
-            </SubmitButton>
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="text-sm font-medium text-slate-500 hover:text-slate-700 px-4 py-2.5"
+              className="text-sm font-medium text-slate-500 hover:text-slate-700 px-4 py-3 sm:py-2.5 rounded-lg border border-slate-200 sm:border-0"
             >
               Cancel
             </button>
+            <SubmitButton type="submit" loading={submitting} variant="primary" className="w-full">
+              {submitting ? "Booking..." : sessionGroupId ? "Add Block" : "Book Consultation"}
+            </SubmitButton>
           </div>
         </form>
       </div>

@@ -255,22 +255,24 @@ export default function AdminDepartmentsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-12">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Academic Infrastructure Management</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Manage departments, academic deans, and course configurations.
-        </p>
+    <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Academic Infrastructure</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">
+            Manage departments, academic deans, and course configurations.
+          </p>
+        </div>
       </div>
 
       {error && <p className="text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
       {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
 
       {/* Tabs Menu */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-slate-200 overflow-x-auto">
         <button
           onClick={() => { setActiveTab("departments"); setError("") }}
-          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition-all ${
             activeTab === "departments"
               ? "border-amber-500 text-amber-600"
               : "border-transparent text-slate-500 hover:text-slate-700"
@@ -280,7 +282,7 @@ export default function AdminDepartmentsPage() {
         </button>
         <button
           onClick={() => { setActiveTab("courses"); setError("") }}
-          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition-all ${
             activeTab === "courses"
               ? "border-amber-500 text-amber-600"
               : "border-transparent text-slate-500 hover:text-slate-700"
@@ -407,67 +409,124 @@ export default function AdminDepartmentsPage() {
             {departments.length === 0 ? (
               <p className="text-xs text-slate-400 p-6">No departments configured yet.</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
-                    <th className="px-6 py-3">Code</th>
-                    <th className="px-6 py-3">Department Name</th>
-                    <th className="px-6 py-3">Dean Assigned</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3 w-40">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Desktop table */}
+                <div className="desktop-only">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
+                        <th className="px-6 py-3">Code</th>
+                        <th className="px-6 py-3">Department Name</th>
+                        <th className="px-6 py-3">Dean Assigned</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3 w-40">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {departments.map((dept) => {
+                        const assignedDean = users.find((u) => u.id === dept.deanId)
+                        return (
+                          <tr key={dept.id} className="border-b border-slate-50 hover:bg-slate-50/70">
+                            <td className="px-6 py-4 font-mono text-xs font-bold text-slate-700">{dept.code}</td>
+                            <td className="px-6 py-4 text-slate-800 font-medium">{dept.name}</td>
+                            <td className="px-6 py-4 text-slate-600">
+                              {assignedDean ? (
+                                <div>
+                                  <p className="font-semibold text-slate-800">{assignedDean.name}</p>
+                                  <p className="text-xs text-slate-400">{assignedDean.email}</p>
+                                </div>
+                              ) : (
+                                <span className="text-xs italic text-slate-400">No dean assigned</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
+                                  dept.isDisabled
+                                    ? "bg-red-50 text-red-600 border border-red-200"
+                                    : "bg-green-50 text-green-600 border border-green-200"
+                                }`}
+                              >
+                                {dept.isDisabled ? "Disabled" : "Active"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 space-x-3">
+                              <button
+                                onClick={() => startEditing(dept)}
+                                className="text-xs font-bold text-amber-500 hover:text-amber-700"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleToggleStatus(dept)}
+                                className={`text-xs font-bold ${
+                                  dept.isDisabled
+                                    ? "text-green-600 hover:text-green-800"
+                                    : "text-red-500 hover:text-red-700"
+                                }`}
+                              >
+                                {dept.isDisabled ? "Enable" : "Disable"}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="mobile-only space-y-2 p-3">
                   {departments.map((dept) => {
                     const assignedDean = users.find((u) => u.id === dept.deanId)
                     return (
-                      <tr key={dept.id} className="border-b border-slate-50 hover:bg-slate-50/70">
-                        <td className="px-6 py-4 font-mono text-xs font-bold text-slate-700">{dept.code}</td>
-                        <td className="px-6 py-4 text-slate-800 font-medium">{dept.name}</td>
-                        <td className="px-6 py-4 text-slate-600">
-                          {assignedDean ? (
-                            <div>
-                              <p className="font-semibold text-slate-800">{assignedDean.name}</p>
-                              <p className="text-xs text-slate-400">{assignedDean.email}</p>
-                            </div>
-                          ) : (
-                            <span className="text-xs italic text-slate-400">No dean assigned</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
-                              dept.isDisabled
-                                ? "bg-red-50 text-red-600 border border-red-200"
-                                : "bg-green-50 text-green-600 border border-green-200"
-                            }`}
-                          >
+                      <div key={dept.id} className="p-4 rounded-xl bg-white border border-slate-100 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{dept.name}</p>
+                            <p className="text-xs font-mono font-semibold text-slate-500">{dept.code}</p>
+                          </div>
+                          <span className={`shrink-0 inline-flex px-2 py-1 text-[10px] font-bold rounded-full ${
+                            dept.isDisabled
+                              ? "bg-red-50 text-red-600 border border-red-200"
+                              : "bg-green-50 text-green-600 border border-green-200"
+                          }`}>
                             {dept.isDisabled ? "Disabled" : "Active"}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 space-x-3">
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-slate-400">Dean: </span>
+                          {assignedDean ? (
+                            <span className="text-slate-600">
+                              {assignedDean.name} <span className="text-slate-400">({assignedDean.email})</span>
+                            </span>
+                          ) : (
+                            <span className="italic text-slate-400">Not assigned</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2 pt-1">
                           <button
                             onClick={() => startEditing(dept)}
-                            className="text-xs font-bold text-amber-500 hover:text-amber-700"
+                            className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleToggleStatus(dept)}
-                            className={`text-xs font-bold ${
+                            className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
                               dept.isDisabled
-                                ? "text-green-600 hover:text-green-800"
-                                : "text-red-500 hover:text-red-700"
+                                ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                                : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
                             }`}
                           >
                             {dept.isDisabled ? "Enable" : "Disable"}
                           </button>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     )
                   })}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -531,44 +590,67 @@ export default function AdminDepartmentsPage() {
           <div className="space-y-6">
             {grouped.map((dept) => (
               <div key={dept.id} className={`card bg-white ${dept.isDisabled ? "opacity-60" : ""}`}>
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 bg-slate-50/50">
                   <h3 className="text-sm font-bold text-slate-800">
                     {dept.name} ({dept.code})
                   </h3>
                   {dept.isDisabled && (
-                    <span className="text-xs text-red-500 font-semibold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                      Department Disabled
+                    <span className="self-start sm:self-auto text-xs text-red-500 font-semibold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                      Dept Disabled
                     </span>
                   )}
                 </div>
                 {dept.courses.length === 0 ? (
                   <p className="text-xs text-slate-400 px-6 py-4">No courses configured.</p>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        <th className="px-6 py-3">Code</th>
-                        <th className="px-6 py-3">Name</th>
-                        <th className="px-6 py-3 w-24">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <>
+                    {/* Desktop table */}
+                    <div className="desktop-only">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <th className="px-6 py-3">Code</th>
+                            <th className="px-6 py-3">Name</th>
+                            <th className="px-6 py-3 w-24">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dept.courses.map((c) => (
+                            <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
+                              <td className="px-6 py-3 font-mono text-xs font-semibold text-slate-700">{c.code}</td>
+                              <td className="px-6 py-3 text-slate-600">{c.name}</td>
+                              <td className="px-6 py-3">
+                                <button
+                                  onClick={() => handleDeleteCourse(c.id)}
+                                  className="text-xs font-semibold text-red-500 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile cards */}
+                    <div className="mobile-only space-y-2 p-3">
                       {dept.courses.map((c) => (
-                        <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
-                          <td className="px-6 py-3 font-mono text-xs font-semibold text-slate-700">{c.code}</td>
-                          <td className="px-6 py-3 text-slate-600">{c.name}</td>
-                          <td className="px-6 py-3">
-                            <button
-                              onClick={() => handleDeleteCourse(c.id)}
-                              className="text-xs font-semibold text-red-500 hover:text-red-700"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
+                        <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-700 font-mono">{c.code}</p>
+                            <p className="text-xs text-slate-600">{c.name}</p>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteCourse(c.id)}
+                            className="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-2"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </>
                 )}
               </div>
             ))}

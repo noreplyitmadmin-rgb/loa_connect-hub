@@ -87,9 +87,9 @@ export function CalendarView({ events, emptyMessage, emptySubtext }: CalendarVie
             </div>
             <div className="divide-y divide-slate-100">
               {dayEvents.map((event) => (
-                <div key={event.id} className="px-5 py-3.5 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-start gap-4">
-                    <div className="mt-0.5 w-16 shrink-0 text-right">
+                <div key={event.id} className="px-4 sm:px-5 py-3.5 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="mt-0.5 w-14 sm:w-16 shrink-0 text-right">
                       <span className={`text-sm font-bold tabular-nums leading-none tracking-tight block ${
                         event.type === "available" ? "text-emerald-600" :
                         event.type === "booked" ? "text-amber-600" :

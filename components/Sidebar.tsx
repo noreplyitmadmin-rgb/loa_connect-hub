@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { getPrimaryRole } from "@/lib/utils/roles"
 
 const roleColors: Record<string, { bg: string; label: string }> = {
@@ -23,6 +23,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [allowedPages, setAllowedPages] = useState<string[] | null>(null)
+  const [dark, setDark] = useState(false)
 
   useEffect(() => {
     if (!session) return
@@ -31,6 +32,30 @@ export default function Sidebar() {
       .then((data) => setAllowedPages(data.pages || []))
       .catch(() => setAllowedPages([]))
   }, [session])
+
+  // Initialise theme from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("theme")
+    const isDark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme:dark)").matches)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDark(isDark)
+    if (isDark) document.documentElement.classList.add("dark")
+    else document.documentElement.classList.remove("dark")
+  }, [dark])
+
+  const toggleTheme = useCallback(() => {
+    setDark((prev) => {
+      const next = !prev
+      if (next) {
+        document.documentElement.classList.add("dark")
+        localStorage.setItem("theme", "dark")
+      } else {
+        document.documentElement.classList.remove("dark")
+        localStorage.setItem("theme", "light")
+      }
+      return next
+    })
+  }, [])
 
   if (status === "loading" || !session || !allowedPages) {
     return null
@@ -71,14 +96,15 @@ export default function Sidebar() {
     <>
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden overscroll-contain"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-3 left-3 z-50 lg:hidden p-2 rounded-lg bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50"
+        className="fixed top-3 left-3 z-50 lg:hidden flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50"
+        aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           {mobileOpen ? (
@@ -119,7 +145,7 @@ export default function Sidebar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
                     : "text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent"
@@ -147,8 +173,25 @@ export default function Sidebar() {
             </div>
           </div>
           <button
+            onClick={toggleTheme}
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors border border-slate-800"
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {dark ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.7.7m-13.93 13.93l-.7.7M21 12h-1M4 12H3m16.66 7.66l-.7-.7m-13.93-13.93l-.7-.7M12 8a4 4 0 100 8 4 4 0 000-8z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+            {dark ? "Light Mode" : "Dark Mode"}
+          </button>
+
+          <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors border border-slate-800"
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors border border-slate-800"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

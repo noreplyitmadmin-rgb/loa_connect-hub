@@ -44,7 +44,7 @@ export function ConsultationsTimeline({ events, variant = "consultations" }: Pro
   )
 
   const toggleClass = (isActive: boolean) =>
-    `px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+    `px-3 sm:px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-md transition-colors ${
       isActive
         ? "bg-white text-slate-900 shadow-sm border border-slate-200"
         : "text-slate-500 hover:text-slate-700"
@@ -52,9 +52,9 @@ export function ConsultationsTimeline({ events, variant = "consultations" }: Pro
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-bold text-slate-900">{variant === "meetings" ? "Upcoming Meetings" : "Upcoming Consultations"}</h2>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+        <h2 className="text-base sm:text-lg font-bold text-slate-900">{variant === "meetings" ? "Upcoming Meetings" : "Upcoming Consultations"}</h2>
+        <div className="flex flex-wrap items-center gap-2">
           {/* View toggle */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
             <button

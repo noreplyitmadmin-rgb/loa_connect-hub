@@ -240,32 +240,11 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
     return Array.from(availableHours).filter((h) => h > currentHour).sort((a, b) => a - b)
   }, [hourOptions, freeRanges, userRole, isSelectedToday, now])
 
-  // Client-side validation helpers for time selectors
-  const existingDaySlotsEndMax = useMemo(() => {
-    if (!selectedDay) return null
-    const dateStr = fmtDate(currentYear, currentMonth, selectedDay)
-    const daySlots = selectedSlots.filter(s => s.date === dateStr)
-    if (daySlots.length === 0) return null
-    return daySlots.reduce((max, s) => s.end > max ? s.end : max, "00:00")
-  }, [selectedDay, selectedSlots, currentYear, currentMonth])
+  // All available start hours (overlap is validated on add)
+  const startHourOpts = studentHourOptions
 
-  // Filtered start hours: no overlap with existing slots on the same day
-  const startHourOpts = useMemo(() => {
-    let hours = studentHourOptions
-    if (userRole === "STUDENT" && existingDaySlotsEndMax) {
-      const minH = parseInt(existingDaySlotsEndMax.split(":")[0])
-      hours = hours.filter(h => h >= minH)
-    }
-    return hours
-  }, [studentHourOptions, existingDaySlotsEndMax, userRole])
-
-  // Filtered start minutes: when same hour as last slot's end, only allow minutes >= end minute
-  const getStartMinuteOpts = (selHour: number) => {
-    if (!existingDaySlotsEndMax || userRole !== "STUDENT") return MINUTE_OPTIONS
-    const [endH, endM] = existingDaySlotsEndMax.split(":").map(Number)
-    if (selHour !== endH) return MINUTE_OPTIONS
-    return MINUTE_OPTIONS.filter(m => m >= endM)
-  }
+  // All available start minutes (overlap is validated server-side on add)
+  const getStartMinuteOpts = () => MINUTE_OPTIONS
 
   // Filtered end hours: must be >= start hour (for 30-min min duration)
   const getEndHourOpts = (start: string | null) => {
@@ -535,7 +514,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div ref={primaryRef} className="relative flex-1">
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -575,7 +554,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
               <select
                 value={primaryDeptFilter}
                 onChange={(e) => setPrimaryDeptFilter(e.target.value)}
-                className="input text-xs w-auto py-1.5 min-w-[160px]"
+                className="input text-xs py-1.5 min-w-0 sm:min-w-[140px] w-full sm:w-auto"
               >
                 <option value="all">All Departments</option>
                 {allDepartments.map((d) => (
@@ -648,7 +627,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             <h3 className="text-sm font-bold text-slate-700">2. Select Attendees <span className="text-slate-400 font-normal text-xs">(Optional)</span></h3>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div ref={attendeeRef} className="relative flex-1">
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -688,7 +667,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
               <select
                 value={attendeeDeptFilter}
                 onChange={(e) => setAttendeeDeptFilter(e.target.value)}
-                className="input text-xs w-auto py-1.5 min-w-[160px]"
+                className="input text-xs py-1.5 min-w-0 sm:min-w-[140px] w-full sm:w-auto"
               >
                 <option value="all">All Departments</option>
                 {allDepartments.map((d) => (
@@ -696,6 +675,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                 ))}
               </select>
             )}
+
           </div>
 
           {/* Selected attendee chips */}
@@ -735,22 +715,22 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
       {primaryFacultyId && (userRole === "STUDENT" || attendeeIds.length > 0) && (
         <section className="space-y-3">
           <h3 className="text-sm font-bold text-slate-700">3. Pick a Date & Time</h3>
-          <div className="flex gap-3 text-[10px] font-semibold">
-            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Available</span>
-            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" /> Partially Available</span>
-            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Not Available</span>
-            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400" /> Blocked</span>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-semibold">
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Available</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" /> Partial</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" /> Unavail.</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" /> Blocked</span>
           </div>
 
           {/* Calendar */}
           <div className="flex items-center justify-between">
-            <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+            <button onClick={prevMonth} className="p-3 sm:p-2 rounded-lg hover:bg-slate-100 text-slate-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <h4 className="text-base font-bold text-slate-800">{MONTH_NAMES[currentMonth]} {currentYear}</h4>
-            <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+            <button onClick={nextMonth} className="p-3 sm:p-2 rounded-lg hover:bg-slate-100 text-slate-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
@@ -760,7 +740,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
           <div className="card overflow-hidden bg-white">
             <div className="grid grid-cols-7 border-b border-slate-100">
               {DAY_NAMES.map((d) => (
-                <div key={d} className="px-2 py-2 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">{d}</div>
+                <div key={d} className="px-1 sm:px-2 py-2 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7">
@@ -773,39 +753,26 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                   (currentYear === now.getFullYear() && currentMonth < now.getMonth()) ||
                   (currentYear === now.getFullYear() && currentMonth === now.getMonth() && day < now.getDate())
 
+                const dotColor = dayStatus === "available" ? "bg-emerald-500" :
+                  dayStatus === "partially" ? "bg-blue-400" :
+                  dayStatus === "not-available" ? "bg-red-400" :
+                  "bg-slate-400"
+
                 return (
                   <button
                     key={day}
                     onClick={() => { if (!isPast) handleDayClick(day) }}
                     disabled={isPast}
-                    className={`p-2 min-h-[56px] border border-slate-50 relative transition-colors text-left
+                    className={`p-1 sm:p-2 min-h-[40px] sm:min-h-[56px] border border-slate-50 relative transition-colors flex flex-col items-center justify-start
                       ${isSelected ? "bg-gold-50 border-gold-200 z-10" : ""}
                       ${!isPast ? "hover:bg-gold-50/50 cursor-pointer" : ""}
                       ${isPast ? "opacity-40" : ""}`}
                   >
-                    <span className={`text-xs font-semibold ${isToday ? "bg-gold-600 text-white w-5 h-5 rounded-full flex items-center justify-center" : "text-slate-700"}`}>
+                    <span className={`text-xs font-semibold ${isToday ? "bg-gold-600 text-white w-6 h-6 rounded-full flex items-center justify-center" : "text-slate-700"}`}>
                       {day}
                     </span>
                     {!isPast && (
-                      <div className="mt-1">
-                        {dayStatus === "available" ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">
-                            Available
-                          </span>
-                        ) : dayStatus === "partially" ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-700">
-                            Partial
-                          </span>
-                        ) : dayStatus === "not-available" ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 text-red-700">
-                            Not Available
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600">
-                            Blocked
-                          </span>
-                        )}
-                      </div>
+                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
                     )}
                   </button>
                 )
@@ -824,7 +791,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
               {userRole === "STUDENT" && freeRanges.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-slate-600 mb-2">Available blocks — click to use, then edit the time:</p>
-                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {freeRanges.flatMap((range) => {
                       const suggestions: { start: string; end: string }[] = []
                       const startH = parseInt(range.start.split(":")[0])
@@ -887,71 +854,76 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                       Allow 24-hour range (00:00 – 23:00)
                     </label>
                   )}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Start time */}
-                    <select
-                      value={manualTime?.start ? manualTime.start.split(":")[0] : ""}
-                      onChange={(e) => {
-                        const h = e.target.value
-                        const m = manualTime?.start?.split(":")[1] || "00"
-                        // Clear end when start changes to avoid stale duration
-                        setManualTime({ start: `${h}:${m}`, end: "" })
-                      }}
-                      className="input text-xs w-auto py-1.5"
-                    >
-                      <option value="" disabled>HH</option>
-                      {startHourOpts.map((h) => (
-                        <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>
-                      ))}
-                    </select>
-                    <span className="text-slate-400 font-bold">:</span>
-                    <select
-                      value={manualTime?.start?.split(":")[1] || ""}
-                      onChange={(e) => {
-                        const m = e.target.value
-                        const h = manualTime?.start?.split(":")[0] || "00"
-                        setManualTime({ start: `${h}:${m}`, end: "" })
-                      }}
-                      className="input text-xs w-auto py-1.5"
-                    >
-                      <option value="" disabled>MM</option>
-                      {getStartMinuteOpts(parseInt(manualTime?.start?.split(":")[0] || "0")).map((m) => (
-                        <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
-                      ))}
-                    </select>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="text-[10px] font-semibold text-slate-400 sm:hidden w-8">Start</label>
+                      <select
+                        value={manualTime?.start ? manualTime.start.split(":")[0] : ""}
+                        onChange={(e) => {
+                          const h = e.target.value
+                          const m = manualTime?.start?.split(":")[1] || "00"
+                          setManualTime({ start: `${h}:${m}`, end: "" })
+                        }}
+                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
+                      >
+                        <option value="" disabled>HH</option>
+                        {startHourOpts.map((h) => (
+                          <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>
+                        ))}
+                      </select>
+                      <span className="text-slate-400 font-bold shrink-0">:</span>
+                      <select
+                        value={manualTime?.start?.split(":")[1] || ""}
+                        onChange={(e) => {
+                          const m = e.target.value
+                          const h = manualTime?.start?.split(":")[0] || "00"
+                          setManualTime({ start: `${h}:${m}`, end: "" })
+                        }}
+                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
+                      >
+                        <option value="" disabled>MM</option>
+                        {getStartMinuteOpts().map((m) => (
+                          <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                    <span className="text-slate-400 text-sm">to</span>
+                    <div className="flex items-center justify-center sm:px-2">
+                      <span className="text-xs font-semibold text-slate-400">to</span>
+                    </div>
 
-                    {/* End time */}
-                    <select
-                      value={manualTime?.end ? manualTime.end.split(":")[0] : ""}
-                      onChange={(e) => {
-                        const h = e.target.value
-                        const m = manualTime?.end?.split(":")[1] || "00"
-                        setManualTime((prev) => ({ start: prev?.start || "", end: `${h}:${m}` }))
-                      }}
-                      className="input text-xs w-auto py-1.5"
-                    >
-                      <option value="" disabled>HH</option>
-                      {getEndHourOpts(manualTime?.start || null).map((h) => (
-                        <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>
-                      ))}
-                    </select>
-                    <span className="text-slate-400 font-bold">:</span>
-                    <select
-                      value={manualTime?.end?.split(":")[1] || ""}
-                      onChange={(e) => {
-                        const m = e.target.value
-                        const h = manualTime?.end?.split(":")[0] || "00"
-                        setManualTime((prev) => ({ start: prev?.start || "", end: `${h}:${m}` }))
-                      }}
-                      className="input text-xs w-auto py-1.5"
-                    >
-                      <option value="" disabled>MM</option>
-                      {getEndMinuteOpts(manualTime?.start || null, parseInt(manualTime?.end?.split(":")[0] || "0")).map((m) => (
-                        <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-1">
+                      <label className="text-[10px] font-semibold text-slate-400 sm:hidden w-8">End</label>
+                      <select
+                        value={manualTime?.end ? manualTime.end.split(":")[0] : ""}
+                        onChange={(e) => {
+                          const h = e.target.value
+                          const m = manualTime?.end?.split(":")[1] || "00"
+                          setManualTime((prev) => ({ start: prev?.start || "", end: `${h}:${m}` }))
+                        }}
+                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
+                      >
+                        <option value="" disabled>HH</option>
+                        {getEndHourOpts(manualTime?.start || null).map((h) => (
+                          <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>
+                        ))}
+                      </select>
+                      <span className="text-slate-400 font-bold shrink-0">:</span>
+                      <select
+                        value={manualTime?.end?.split(":")[1] || ""}
+                        onChange={(e) => {
+                          const m = e.target.value
+                          const h = manualTime?.end?.split(":")[0] || "00"
+                          setManualTime((prev) => ({ start: prev?.start || "", end: `${h}:${m}` }))
+                        }}
+                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
+                      >
+                        <option value="" disabled>MM</option>
+                        {getEndMinuteOpts(manualTime?.start || null, parseInt(manualTime?.end?.split(":")[0] || "0")).map((m) => (
+                          <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
+                        ))}
+                      </select>
+                    </div>
 
                     <button
                       onClick={() => {
@@ -961,12 +933,12 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                         }
                       }}
                       disabled={!manualTime?.start || !manualTime?.end}
-                      className="btn-primary text-xs py-1.5 px-4 disabled:opacity-50"
+                      className="btn-primary text-xs py-3 sm:py-1.5 px-4 disabled:opacity-50 shrink-0"
                     >
                       Add Block
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-500">Minutes are restricted to 15-minute intervals (:00, :15, :30, :45). Min 30 min, max 8 hours per block.</p>
+                  <p className="text-[10px] text-slate-500">Min 30 min, max 8 hrs per block. 15-min intervals.</p>
                 </div>
               </div>
 
@@ -1067,9 +1039,9 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             />
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             {userRole === "STUDENT" ? (
-              <button type="submit" disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-2.5 disabled:opacity-50">
+              <button type="submit" disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-3 sm:py-2.5 disabled:opacity-50 w-full sm:w-auto">
                 {submitting ? "Booking..." : "Book Consultation"}
               </button>
             ) : (
@@ -1081,7 +1053,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                 // If form already shown, submit normally
                 const submitEvent = { preventDefault: () => { } } as unknown as React.FormEvent
                 handleBook(submitEvent)
-              }} disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-2.5 disabled:opacity-50">
+              }} disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-3 sm:py-2.5 disabled:opacity-50 w-full sm:w-auto">
                 {submitting ? "Booking..." : "Create Meeting"}
               </button>
             )}

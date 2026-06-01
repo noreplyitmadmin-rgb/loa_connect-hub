@@ -113,7 +113,9 @@ export default async function AdminDashboard() {
       {/* All Platform Users */}
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-slate-900">All Platform Users ({users.length})</h2>
-        <div className="card overflow-hidden bg-white">
+
+        {/* Desktop table */}
+        <div className="desktop-only card overflow-hidden bg-white">
           <table className="min-w-full divide-y divide-slate-100">
             <thead>
               <tr className="bg-slate-50">
@@ -156,12 +158,48 @@ export default async function AdminDashboard() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile cards */}
+        <div className="mobile-only space-y-3">
+          {users.map((user: UserData) => (
+            <div key={user.id} className="card p-4 bg-white space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800 truncate">{user.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                </div>
+                <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  hasRole(user.role, "ADMIN") ? "bg-purple-50 text-purple-700 border-purple-200/50" :
+                  hasRole(user.role, "DEAN") ? "bg-amber-50 text-amber-700 border-amber-200/50" :
+                  hasRole(user.role, "FACULTY") ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
+                  "bg-blue-50 text-blue-700 border-blue-200/50"
+                }`}>
+                  {user.role}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {user.isDisabled ? (
+                  <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Disabled</span>
+                ) : user.hasLoggedInBefore ? (
+                  <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                ) : (
+                  <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pending</span>
+                )}
+                <span className="text-xs text-slate-400">
+                  {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Audit Trail */}
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Audit Trail</h2>
-        <div className="card overflow-hidden bg-white">
+
+        {/* Desktop table */}
+        <div className="desktop-only card overflow-x-auto bg-white">
           {auditLogs.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-sm text-slate-400">No audit logs yet.</p>
@@ -205,6 +243,41 @@ export default async function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+
+        {/* Mobile cards */}
+        <div className="mobile-only space-y-3">
+          {auditLogs.length === 0 ? (
+            <div className="card p-8 text-center bg-white">
+              <p className="text-sm text-slate-400">No audit logs yet.</p>
+            </div>
+          ) : (
+            auditLogs.map((log: AuditLogData) => (
+              <div key={log.id} className="card p-4 bg-white space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    log.action === "LOGIN" ? "bg-blue-50 text-blue-700 border-blue-200/50" :
+                    log.action === "DISABLE_USER" ? "bg-red-50 text-red-700 border-red-200/50" :
+                    log.action === "ENABLE_USER" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
+                    log.action === "CREATE_USER" ? "bg-green-50 text-green-700 border-green-200/50" :
+                    log.action === "PASSWORD_RESET" ? "bg-amber-50 text-amber-700 border-amber-200/50" :
+                    "bg-slate-50 text-slate-700 border-slate-200/50"
+                  }`}>
+                    {log.action.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-xs text-slate-400 tabular-nums">
+                    {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-medium text-slate-600">{log.email || "\u2014"}</span>
+                </div>
+                {log.details && (
+                  <p className="text-xs text-slate-500 leading-relaxed">{log.details}</p>
+                )}
+              </div>
+            ))
           )}
         </div>
       </section>

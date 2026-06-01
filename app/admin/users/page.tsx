@@ -28,6 +28,7 @@ const PAGE_SIZES = [10, 25, 50]
 
 const VALID_ROLES = ["STUDENT", "FACULTY", "DEAN", "ADMIN", "GUEST"]
 const STUDENT_BLOCKED = new Set(["ADMIN", "DEAN", "FACULTY"])
+const FACULTY_DEAN = new Set(["FACULTY", "DEAN"])
 
 const roleColors: Record<string, string> = {
   ADMIN: "bg-purple-100 text-purple-700",
@@ -269,19 +270,19 @@ export default function AdminUsersPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Manage Users</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Manage Users</h1>
         <div className="flex items-center gap-3">
           <p className="text-xs text-slate-500">{filtered.length} user(s)</p>
-          <SubmitButton onClick={() => setShowCreate(true)} variant="primary" className="text-xs font-semibold px-3 py-1.5 rounded-lg">
+          <SubmitButton onClick={() => setShowCreate(true)} variant="primary" className="text-xs font-semibold px-3 py-3 sm:py-1.5 rounded-lg">
             + Create User
           </SubmitButton>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+        <div className="relative flex-1 min-w-0 w-full sm:w-auto sm:min-w-[200px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -293,7 +294,7 @@ export default function AdminUsersPage() {
             className="input text-xs pl-9 w-full"
           />
         </div>
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input text-xs w-auto py-1.5">
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Roles</option>
           <option value="ADMIN">Admin</option>
           <option value="DEAN">Dean</option>
@@ -301,13 +302,13 @@ export default function AdminUsersPage() {
           <option value="STUDENT">Student</option>
           <option value="GUEST">Guest</option>
         </select>
-        <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-xs w-auto py-1.5">
+        <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Departments</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs w-auto py-1.5">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="disabled">Disabled</option>
@@ -321,8 +322,8 @@ export default function AdminUsersPage() {
         <p className="text-sm text-slate-400 text-center py-8">No users found.</p>
       ) : (
         <>
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Desktop table */}
+          <div className="desktop-only overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -363,7 +364,8 @@ export default function AdminUsersPage() {
                               const checked = hasRole(u.role, r)
                               const isConflicting =
                                 (r === "STUDENT" && hasNonStudent) ||
-                                (STUDENT_BLOCKED.has(r) && hasStudent)
+                                (STUDENT_BLOCKED.has(r) && hasStudent) ||
+                                (FACULTY_DEAN.has(r) && currentRoles.some((cr) => FACULTY_DEAN.has(cr) && cr !== r))
                               return (
                                 <label
                                   key={r}
@@ -380,12 +382,14 @@ export default function AdminUsersPage() {
                                       const toggled = VALID_ROLES.filter((vr) =>
                                         vr === r ? !checked : hasRole(u.role, vr)
                                       )
-                                      // Enforce student exclusivity on the client side
+                                      // Enforce student exclusivity + faculty/dean mutual exclusivity
                                       const finalRoles = r === "STUDENT" && !checked
                                         ? toggled.filter((vr) => !STUDENT_BLOCKED.has(vr))
                                         : STUDENT_BLOCKED.has(r) && !checked
                                           ? toggled.filter((vr) => vr !== "STUDENT")
-                                          : toggled
+                                          : FACULTY_DEAN.has(r) && !checked
+                                            ? toggled.filter((vr) => !FACULTY_DEAN.has(vr) || vr === r)
+                                            : toggled
                                       handleRoleChange(u.id, finalRoles)
                                     }}
                                     className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
@@ -469,8 +473,151 @@ export default function AdminUsersPage() {
             </table>
           </div>
 
+          {/* Mobile cards */}
+          <div className="mobile-only space-y-3">
+            {paginated.map((u) => {
+              const currentRoles = VALID_ROLES.filter((vr) => hasRole(u.role, vr))
+              const hasStudent = currentRoles.includes("STUDENT")
+              const hasNonStudent = currentRoles.some((r) => r !== "STUDENT" && r !== "GUEST" && STUDENT_BLOCKED.has(r))
+              const isDefaultAdmin = u.email === "admin@lyceumalabang.ph"
+
+              return (
+                <div key={u.id} className="card p-4 bg-white space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-800 truncate">{u.name}</p>
+                      <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                    </div>
+                    {u.isDisabled ? (
+                      <span className="shrink-0 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Disabled</span>
+                    ) : (
+                      <span className="shrink-0 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                    <div>
+                      <span className="text-slate-400">Role:</span>
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => !isDefaultAdmin && setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
+                          disabled={changingRole === u.id || isDefaultAdmin}
+                          className={`ml-1 text-xs font-semibold px-2 py-0.5 rounded-full ${isDefaultAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${roleColors[u.role.split("|")[0]] || "bg-slate-100 text-slate-600"}`}
+                        >
+                          {u.role.split("|").join(", ")}
+                        </button>
+                        {roleMenuOpen === u.id && (
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 min-w-[150px] space-y-1">
+                            {VALID_ROLES.map((r) => {
+                              const checked = hasRole(u.role, r)
+                              const isConflicting =
+                                (r === "STUDENT" && hasNonStudent) ||
+                                (STUDENT_BLOCKED.has(r) && hasStudent) ||
+                                (FACULTY_DEAN.has(r) && currentRoles.some((cr) => FACULTY_DEAN.has(cr) && cr !== r))
+                              return (
+                                <label
+                                  key={r}
+                                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                                    isConflicting ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50 cursor-pointer"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={isConflicting}
+                                    onChange={() => {
+                                      if (isConflicting) return
+                                      const toggled = VALID_ROLES.filter((vr) =>
+                                        vr === r ? !checked : hasRole(u.role, vr)
+                                      )
+                                      const finalRoles = r === "STUDENT" && !checked
+                                        ? toggled.filter((vr) => !STUDENT_BLOCKED.has(vr))
+                                        : STUDENT_BLOCKED.has(r) && !checked
+                                          ? toggled.filter((vr) => vr !== "STUDENT")
+                                          : FACULTY_DEAN.has(r) && !checked
+                                            ? toggled.filter((vr) => !FACULTY_DEAN.has(vr) || vr === r)
+                                            : toggled
+                                      handleRoleChange(u.id, finalRoles)
+                                    }}
+                                    className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                                  />
+                                  {r}
+                                </label>
+                              )
+                            })}
+                            <button
+                              onClick={() => setRoleMenuOpen(null)}
+                              className="w-full mt-1 text-[10px] font-semibold text-slate-400 hover:text-slate-600 py-1"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Dept:</span>
+                      <span className="ml-1 text-slate-600">{u.departmentId ? deptMap[u.departmentId] || "—" : "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Registered:</span>
+                      <span className="ml-1 text-slate-600">{new Date(u.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Activated:</span>
+                      <span className={`ml-1 ${u.hasLoggedInBefore ? "text-emerald-600" : "text-amber-600"}`}>
+                        {u.hasLoggedInBefore ? "Yes" : "Pending"}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-400">Last login:</span>
+                      <span className="ml-1 text-slate-600">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {isDefaultAdmin ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-lg bg-slate-100 text-slate-400 border border-slate-200">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Default
+                      </span>
+                    ) : (
+                      <>
+                        <SubmitButton
+                          onClick={() => openEditModal(u)}
+                          variant="primary"
+                          className="text-[10px] font-semibold px-3 py-2 flex-1"
+                        >
+                          Edit
+                        </SubmitButton>
+                        <SubmitButton
+                          onClick={() => handleToggle(u.id, u.isDisabled)}
+                          variant={u.isDisabled ? "primary" : "danger"}
+                          className="text-[10px] font-semibold px-3 py-2 flex-1"
+                        >
+                          {u.isDisabled ? "Enable" : "Disable"}
+                        </SubmitButton>
+                        {!u.hasLoggedInBefore && (
+                          <SubmitButton
+                            onClick={() => handleResetOnboarding(u.id)}
+                            variant="danger"
+                            className="text-[10px] font-semibold px-3 py-2 flex-1"
+                          >
+                            Reset
+                          </SubmitButton>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
           {/* Pagination */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span>Rows per page:</span>
               <select
@@ -489,7 +636,7 @@ export default function AdminUsersPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={safePage === 0}
-                  className="p-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 sm:p-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -498,7 +645,7 @@ export default function AdminUsersPage() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={safePage >= totalPages - 1}
-                  className="p-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 sm:p-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -512,8 +659,8 @@ export default function AdminUsersPage() {
 
       {/* ── Edit User Modal ── */}
       {editUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => !editSaving && setEditUser(null)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={() => !editSaving && setEditUser(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-slate-900">Edit User</h2>
             <p className="text-xs text-slate-500">{editUser.email}</p>
 
@@ -544,7 +691,8 @@ export default function AdminUsersPage() {
                 const hasNonStudent = editRoles.some((er) => STUDENT_BLOCKED.has(er))
                 const isConflicting =
                   (r === "STUDENT" && hasNonStudent) ||
-                  (STUDENT_BLOCKED.has(r) && hasStudent)
+                  (STUDENT_BLOCKED.has(r) && hasStudent) ||
+                  (FACULTY_DEAN.has(r) && editRoles.some((er) => FACULTY_DEAN.has(er) && er !== r))
                 const isDefaultAdminEdit = editUser?.email === "admin@lyceumalabang.ph"
                 return (
                   <label
@@ -566,7 +714,9 @@ export default function AdminUsersPage() {
                           ? next.filter((er) => !STUDENT_BLOCKED.has(er))
                           : STUDENT_BLOCKED.has(r) && !checked
                             ? next.filter((er) => er !== "STUDENT")
-                            : next
+                            : FACULTY_DEAN.has(r) && !checked
+                              ? next.filter((er) => !FACULTY_DEAN.has(er) || er === r)
+                              : next
                         setEditRoles(final)
                       }}
                       className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
@@ -577,10 +727,10 @@ export default function AdminUsersPage() {
               })}
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <button
                 onClick={() => handleResetOnboarding(editUser.id)}
-                className="text-xs font-semibold text-red-600 hover:text-red-700 underline"
+                className="text-xs font-semibold text-red-600 hover:text-red-700 underline self-start sm:self-auto"
               >
                 Reset Onboarding
               </button>
@@ -588,11 +738,11 @@ export default function AdminUsersPage() {
                 <button
                   onClick={() => setEditUser(null)}
                   disabled={editSaving}
-                  className="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                  className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 flex-1 sm:flex-none"
                 >
                   Cancel
                 </button>
-                <SubmitButton onClick={handleEditSave} variant="primary" className="text-xs font-semibold px-4 py-2 rounded-lg" disabled={editSaving}>
+                <SubmitButton onClick={handleEditSave} variant="primary" className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg flex-1 sm:flex-none" disabled={editSaving}>
                   {editSaving ? "Saving..." : "Save"}
                 </SubmitButton>
               </div>
@@ -603,8 +753,8 @@ export default function AdminUsersPage() {
 
       {/* ── Create User Modal ── */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => !createSaving && setShowCreate(false)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={() => !createSaving && setShowCreate(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-slate-900">Create User</h2>
 
             <label className="block text-xs font-medium text-slate-700">Name *</label>
@@ -621,7 +771,8 @@ export default function AdminUsersPage() {
                 const hasNonStudent = createRoles.some((cr) => STUDENT_BLOCKED.has(cr))
                 const isConflicting =
                   (r === "STUDENT" && hasNonStudent) ||
-                  (STUDENT_BLOCKED.has(r) && hasStudent)
+                  (STUDENT_BLOCKED.has(r) && hasStudent) ||
+                  (FACULTY_DEAN.has(r) && createRoles.some((cr) => FACULTY_DEAN.has(cr) && cr !== r))
                 return (
                   <label
                     key={r}
@@ -638,12 +789,14 @@ export default function AdminUsersPage() {
                         const next = checked
                           ? createRoles.filter((cr) => cr !== r)
                           : [...createRoles, r]
-                        // Enforce student exclusivity
+                        // Enforce student exclusivity + faculty/dean mutual exclusivity
                         const final = r === "STUDENT" && !checked
                           ? next.filter((cr) => !STUDENT_BLOCKED.has(cr))
                           : STUDENT_BLOCKED.has(r) && !checked
                             ? next.filter((cr) => cr !== "STUDENT")
-                            : next
+                            : FACULTY_DEAN.has(r) && !checked
+                              ? next.filter((cr) => !FACULTY_DEAN.has(cr) || cr === r)
+                              : next
                         setCreateRoles(final)
                       }}
                       className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
@@ -664,15 +817,15 @@ export default function AdminUsersPage() {
 
             {createError && <p className="text-xs text-red-600">{createError}</p>}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
               <button
                 onClick={() => { setShowCreate(false); setCreateError("") }}
                 disabled={createSaving}
-                className="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 w-full sm:w-auto"
               >
                 Cancel
               </button>
-              <SubmitButton onClick={handleCreateUser} variant="primary" className="text-xs font-semibold px-4 py-2 rounded-lg" disabled={createSaving}>
+              <SubmitButton onClick={handleCreateUser} variant="primary" className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg w-full sm:w-auto" disabled={createSaving}>
                 {createSaving ? "Creating..." : "Create"}
               </SubmitButton>
             </div>

@@ -263,11 +263,11 @@ export default function AppointmentDetail() {
       {/* ── Main ticket card ──────────────────────────────────────── */}
       <div className="card p-6 bg-white mb-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-slate-900">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 mb-6">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">
             {appointment.title || (appointment.meetingType === "CONSULTATION" ? "Consultation" : "Meeting")}
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start">
             {appointment.meetingType && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border bg-blue-50 text-blue-700 border-blue-200">
                 Consultation
@@ -403,26 +403,24 @@ export default function AppointmentDetail() {
             Participants ({appointment.attendees.length})
           </h2>
           <div className="space-y-3">
-            {appointment.attendees.map((a) => (
-              <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${
-                    a.status === "ACCEPTED" ? "bg-emerald-500" : a.status === "DECLINED" ? "bg-red-400" : "bg-slate-400"
-                  }`}>
-                    {getInitial(a.user.name)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{a.user.name}</p>
-                    <p className="text-xs text-slate-400">{a.user.email}</p>
-                  </div>
-                </div>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                  effectiveStatus === "COMPLETED" && a.status === "PENDING"
-                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                    : attendeeBadgeColors[a.status] || "bg-slate-100 text-slate-500 border-slate-200"
+              {appointment.attendees.map((a) => (
+              <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0 ${
+                  a.status === "ACCEPTED" ? "bg-emerald-500" : a.status === "DECLINED" ? "bg-red-400" : "bg-slate-400"
                 }`}>
-                  {effectiveStatus === "COMPLETED" && a.status === "PENDING" ? "INVITED" : "OPTIONAL"}
-                </span>
+                  {getInitial(a.user.name)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{a.user.name}</p>
+                  <p className="text-xs text-slate-400 truncate">{a.user.email}</p>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border mt-1.5 ${
+                    effectiveStatus === "COMPLETED" && a.status === "PENDING"
+                      ? "bg-amber-100 text-amber-700 border-amber-200"
+                      : attendeeBadgeColors[a.status] || "bg-slate-100 text-slate-500 border-slate-200"
+                  }`}>
+                    {effectiveStatus === "COMPLETED" && a.status === "PENDING" ? "INVITED" : "OPTIONAL"}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -507,14 +505,15 @@ export default function AppointmentDetail() {
 
       {/* ── Actions ───────────────────────────────────────────────── */}
       <div className="card p-5 bg-white">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-3 flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="space-y-3 flex-1 w-full">
             {/* Student: cancel PENDING */}
           {isStudent && effectiveStatus === "PENDING" && (
             <SubmitButton
               onClick={() => handleAction("student-cancel", `/api/appointments/${appointmentId}/student-cancel`)}
               loading={actionLoading === "student-cancel"}
               variant="danger"
+              className="w-full sm:w-auto py-3 sm:py-2"
             >
               {actionLoading === "student-cancel" ? "Cancelling..." : "Cancel Request"}
             </SubmitButton>
@@ -522,10 +521,11 @@ export default function AppointmentDetail() {
 
           {/* Faculty/Dean: Accept flow with mandatory Teams link */}
           {(isFaculty || isDean) && effectiveStatus === "PENDING" && !showTeamsLinkForm && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <SubmitButton
                 onClick={() => setShowTeamsLinkForm(true)}
                 variant="success"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Accept
               </SubmitButton>
@@ -533,6 +533,7 @@ export default function AppointmentDetail() {
                 onClick={() => handleAction("decline")}
                 loading={actionLoading === "decline"}
                 variant="danger"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 {actionLoading === "decline" ? "Declining..." : "Decline"}
               </SubmitButton>
@@ -543,11 +544,12 @@ export default function AppointmentDetail() {
           {(isFaculty || isDean) && showTeamsLinkForm && (
             <div className="space-y-2">
               {teamsLinkError && <p className="text-xs text-red-600 font-semibold">{teamsLinkError}</p>}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <SubmitButton
                   onClick={handleConfirmApprove}
                   loading={actionLoading === "accept"}
                   variant="success"
+                  className="w-full sm:w-auto py-3 sm:py-2"
                 >
                   {actionLoading === "accept" ? "Approving..." : "Confirm & Approve"}
                 </SubmitButton>
@@ -559,6 +561,7 @@ export default function AppointmentDetail() {
                     setSlotLinks({})
                   }}
                   variant="secondary"
+                  className="w-full sm:w-auto py-3 sm:py-2"
                 >
                   Cancel
                 </SubmitButton>
@@ -568,10 +571,11 @@ export default function AppointmentDetail() {
 
           {/* Faculty/Dean: complete/cancel APPROVED (without active form) */}
           {(isFaculty || isDean) && effectiveStatus === "APPROVED" && !showCompleteForm && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <SubmitButton
                 onClick={() => setShowCompleteForm(true)}
                 variant="primary"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Mark Complete
               </SubmitButton>
@@ -579,6 +583,7 @@ export default function AppointmentDetail() {
                 onClick={() => handleAction("cancel")}
                 loading={actionLoading === "cancel"}
                 variant="danger"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 {actionLoading === "cancel" ? "Cancelling..." : "Cancel"}
               </SubmitButton>
@@ -619,7 +624,7 @@ export default function AppointmentDetail() {
                     const newFiles = Array.from(e.target.files || [])
                     setCompleteFiles((prev) => [...prev, ...newFiles].slice(0, 3))
                   }}
-                  className="text-xs mt-1"
+                  className="text-xs mt-1 w-full sm:w-auto"
                 />
                 {completeFiles.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -641,11 +646,12 @@ export default function AppointmentDetail() {
 
               {completeError && <p className="text-xs text-red-600 font-semibold">{completeError}</p>}
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <SubmitButton
                   onClick={handleCompleteSubmit}
                   loading={actionLoading === "complete"}
                   variant="primary"
+                  className="w-full sm:w-auto py-3 sm:py-2"
                 >
                   {actionLoading === "complete" ? "Completing..." : "Submit & Complete"}
                 </SubmitButton>
@@ -657,6 +663,7 @@ export default function AppointmentDetail() {
                     setCompleteError("")
                   }}
                   variant="secondary"
+                  className="w-full sm:w-auto py-3 sm:py-2"
                 >
                   Cancel
                 </SubmitButton>
@@ -677,11 +684,12 @@ export default function AppointmentDetail() {
 
           {/* Non-organizer attendee: accept/decline while PENDING */}
           {!isOrganizer && myAttendeeRecord?.status === "PENDING" && effectiveStatus === "APPROVED" && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <SubmitButton
                 onClick={() => handleAction("attendee-accept")}
                 loading={actionLoading === "accept"}
                 variant="success"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Accept
               </SubmitButton>
@@ -689,6 +697,7 @@ export default function AppointmentDetail() {
                 onClick={() => handleAction("attendee-decline")}
                 loading={actionLoading === "decline"}
                 variant="danger"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Decline
               </SubmitButton>
@@ -709,7 +718,7 @@ export default function AppointmentDetail() {
         </div>
 
         {/* Back button — far right opposite actions */}
-        <SubmitButton onClick={() => router.back()} variant="secondary">
+        <SubmitButton onClick={() => router.back()} variant="secondary" className="w-full sm:w-auto py-3 sm:py-2">
           ← Back
         </SubmitButton>
       </div>

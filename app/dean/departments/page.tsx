@@ -189,31 +189,54 @@ export default function DeanDepartmentsPage() {
         {courses.length === 0 ? (
           <p className="text-xs text-slate-400 px-6 py-4">No courses configured yet. Add one above.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="px-6 py-3">Code</th>
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3 w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop table */}
+            <div className="desktop-only">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-3">Code</th>
+                    <th className="px-6 py-3">Name</th>
+                    <th className="px-6 py-3 w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courses.map((c) => (
+                    <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="px-6 py-3 font-mono text-xs font-semibold text-slate-700">{c.code}</td>
+                      <td className="px-6 py-3 text-slate-600">{c.name}</td>
+                      <td className="px-6 py-3">
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          className="text-xs font-semibold text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="mobile-only space-y-2 p-3">
               {courses.map((c) => (
-                <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
-                  <td className="px-6 py-3 font-mono text-xs font-semibold text-slate-700">{c.code}</td>
-                  <td className="px-6 py-3 text-slate-600">{c.name}</td>
-                  <td className="px-6 py-3">
-                    <button
-                      onClick={() => handleDelete(c.id)}
-                      className="text-xs font-semibold text-red-500 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
+                <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 font-mono">{c.code}</p>
+                    <p className="text-xs text-slate-600">{c.name}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(c.id)}
+                    className="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-2"
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>

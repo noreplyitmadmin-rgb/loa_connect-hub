@@ -149,18 +149,18 @@ export default function DataManagementPage() {
                 className="input text-sm w-full"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
               <button
                 onClick={closeModal}
                 disabled={loading}
-                className="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 cursor-pointer w-full sm:w-auto"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExportAndDelete}
                 disabled={confirmInput !== "CONFIRM" || loading}
-                className="text-xs font-semibold px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full sm:w-auto"
               >
                 {loading ? "Exporting & Deleting..." : "Export & Delete"}
               </button>

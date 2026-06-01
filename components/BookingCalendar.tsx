@@ -199,7 +199,7 @@ export default function BookingCalendar({ facultyWithRules }: Props) {
       )}
 
       {/* Faculty Filter */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
         <label className="text-xs font-semibold text-slate-500">Professor:</label>
         <select
           value={facultyFilter}
@@ -208,7 +208,7 @@ export default function BookingCalendar({ facultyWithRules }: Props) {
             setSelectedDay(null)
             setBookingMsg(null)
           }}
-          className="input text-xs w-auto py-1.5 min-w-[200px]"
+          className="input text-xs py-1.5 w-full sm:w-auto sm:min-w-[200px]"
         >
           <option value="">Select a professor...</option>
           {facultyWithRules.map((f) => (
@@ -221,7 +221,7 @@ export default function BookingCalendar({ facultyWithRules }: Props) {
       <div className="flex items-center justify-between">
         <button
           onClick={prevMonth}
-          className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+          className="p-3 sm:p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -232,7 +232,7 @@ export default function BookingCalendar({ facultyWithRules }: Props) {
         </h3>
         <button
           onClick={nextMonth}
-          className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+          className="p-3 sm:p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -264,40 +264,36 @@ export default function BookingCalendar({ facultyWithRules }: Props) {
               (currentYear === now.getFullYear() && currentMonth < now.getMonth()) ||
               (currentYear === now.getFullYear() && currentMonth === now.getMonth() && day < now.getDate())
 
-            return (
-              <button
-                key={day}
-                onClick={() => {
-                  if (hasSlots && !isPast) {
-                    setSelectedDay(day)
-                    setBookingMsg(null)
-                  }
-                }}
-                disabled={!hasSlots || isPast}
-                className={`
-                  p-2 min-h-[56px] border border-slate-50 relative transition-colors text-left
-                  ${isSelected ? "bg-gold-50 border-gold-200 z-10" : ""}
-                  ${hasSlots && !isPast ? "hover:bg-gold-50/50 cursor-pointer" : ""}
-                  ${!hasSlots || isPast ? "opacity-40" : ""}
-                `}
-              >
-                <span
-                  className={`
-                    text-xs font-semibold
-                    ${isToday ? "bg-gold-600 text-white w-5 h-5 rounded-full flex items-center justify-center" : "text-slate-700"}
-                  `}
-                >
-                  {day}
-                </span>
-                {hasSlots && !isPast && (
-                  <div className="mt-1">
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">
-                      Available
+                return (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      if (hasSlots && !isPast) {
+                        setSelectedDay(day)
+                        setBookingMsg(null)
+                      }
+                    }}
+                    disabled={!hasSlots || isPast}
+                    className={`
+                      p-1 sm:p-2 min-h-[44px] sm:min-h-[56px] border border-slate-50 relative transition-colors text-left flex flex-col items-center justify-start
+                      ${isSelected ? "bg-gold-50 border-gold-200 z-10" : ""}
+                      ${hasSlots && !isPast ? "hover:bg-gold-50/50 cursor-pointer" : ""}
+                      ${!hasSlots || isPast ? "opacity-40" : ""}
+                    `}
+                  >
+                    <span
+                      className={`
+                        text-xs font-semibold
+                        ${isToday ? "bg-gold-600 text-white w-6 h-6 rounded-full flex items-center justify-center" : "text-slate-700"}
+                      `}
+                    >
+                      {day}
                     </span>
-                  </div>
-                )}
-              </button>
-            )
+                    {hasSlots && !isPast && (
+                      <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    )}
+                  </button>
+                )
           })}
         </div>
       </div>
@@ -308,18 +304,18 @@ export default function BookingCalendar({ facultyWithRules }: Props) {
           <h4 className="text-sm font-bold text-slate-700">
             {selectedFaculty.name} &middot; {MONTH_NAMES[currentMonth]} {selectedDay}, {currentYear}
           </h4>
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {availableSlots.map((slot, i) => (
-              <div key={i} className="card p-3 bg-white border-slate-200 flex items-center justify-between">
+              <div key={i} className="card p-3 bg-white border-slate-200 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 sm:justify-between">
                 <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   {slot.start} – {slot.end}
                 </div>
                 <button
                   onClick={() => handleSlotBook(slot)}
-                  className="btn-primary text-xs py-1.5 px-4"
+                  className="btn-primary text-xs py-2 sm:py-1.5 px-4 w-full sm:w-auto"
                 >
                   Book
                 </button>

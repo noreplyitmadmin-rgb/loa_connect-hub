@@ -255,7 +255,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
         </div>
 
         {hasRole(role, "STUDENT") && effectiveStatus === "PENDING" && (
-          <div className="shrink-0 self-end md:self-center">
+          <div className="shrink-0 self-stretch sm:self-center">
             <SubmitButton
               onClick={async () => {
                 setLoading("cancel")
@@ -278,7 +278,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
               }}
               loading={loading === "cancel"}
               variant="danger"
-              className="text-xs font-semibold px-4 py-2"
+              className="text-xs font-semibold px-4 py-3 sm:py-2 w-full sm:w-auto"
             >
               {loading === "cancel" ? "Cancelling..." : "Cancel Request"}
             </SubmitButton>
@@ -286,12 +286,12 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
         )}
 
         {hasRole(role, "FACULTY") && effectiveStatus === "PENDING" && (
-          <div className="flex md:flex-col lg:flex-row gap-2 shrink-0 self-end md:self-center">
+          <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-2 shrink-0 self-stretch sm:self-center">
             <SubmitButton
               onClick={() => handleAction("accept")}
               loading={loading === "accept"}
               variant="success"
-              className="text-xs font-semibold px-4 py-2"
+              className="text-xs font-semibold px-4 py-3 sm:py-2 flex-1"
             >
               {loading === "accept" ? "Processing" : "Accept"}
             </SubmitButton>
@@ -299,7 +299,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
               onClick={() => handleAction("decline")}
               loading={loading === "decline"}
               variant="danger"
-              className="text-xs font-semibold px-4 py-2"
+              className="text-xs font-semibold px-4 py-3 sm:py-2 flex-1"
             >
               {loading === "decline" ? "Declining..." : "Decline"}
             </SubmitButton>
@@ -308,12 +308,12 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
 
         {hasRole(role, "FACULTY") && effectiveStatus === "APPROVED" && (
           <div className="flex flex-col gap-3 shrink-0 self-stretch md:self-center md:max-w-xs w-full">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <SubmitButton
                 onClick={() => handleAction("complete")}
                 loading={loading === "complete"}
                 variant="primary"
-                className="text-xs font-semibold py-2 flex-1"
+                className="text-xs font-semibold py-3 sm:py-2 flex-1"
               >
                 {loading === "complete" ? "Completing" : "Mark Complete"}
               </SubmitButton>
@@ -321,7 +321,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
                 onClick={() => handleAction("cancel")}
                 loading={loading === "cancel"}
                 variant="danger"
-                className="text-xs font-semibold py-2"
+                className="text-xs font-semibold py-3 sm:py-2 flex-1"
               >
                 {loading === "cancel" ? "Cancelling..." : "Cancel"}
               </SubmitButton>
@@ -373,7 +373,7 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
       <div className="mt-4 pt-3 border-t border-slate-100">
         <Link
           href={hasRole(role, "STUDENT") ? `/student/meetings/${appointment.id}` : `/appointments/${appointment.id}`}
-          className="text-xs font-semibold text-gold-600 hover:text-gold-700 inline-flex items-center gap-1"
+          className="text-xs font-semibold text-gold-600 hover:text-gold-700 inline-flex items-center justify-center sm:justify-start gap-1 w-full sm:w-auto min-h-[44px] sm:min-h-0"
         >
           View Details
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
