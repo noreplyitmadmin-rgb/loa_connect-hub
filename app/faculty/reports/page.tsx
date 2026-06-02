@@ -28,9 +28,9 @@ export default async function DeanReportsPage(props: {
   } catch (err) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12">
-        <h1 className="text-2xl font-bold text-slate-900">Department Performance Report</h1>
-        <div className="card p-8 bg-white text-center">
-          <p className="text-slate-500">{(err as Error).message}</p>
+        <div className="card p-8 bg-white text-center border-l-4 border-l-red-500">
+          <p className="text-sm text-slate-500 font-medium">Unable to load Department Performance Report</p>
+          <p className="text-xs text-slate-400 mt-2">{(err as Error).message}</p>
         </div>
       </div>
     )

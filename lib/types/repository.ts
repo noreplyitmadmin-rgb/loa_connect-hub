@@ -215,7 +215,7 @@ export interface AuditLogData {
 
 export interface IAuditLogRepository {
   create(data: { userId?: string | null; email?: string | null; action: string; details?: string | null }): Promise<AuditLogData>
-  list(limit?: number): Promise<AuditLogData[]>
+  list(limit?: number, offset?: number): Promise<AuditLogData[]>
 }
 
 // ── Reports ─────────────────────────────────────────────

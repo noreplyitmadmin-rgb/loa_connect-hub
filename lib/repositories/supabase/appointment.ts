@@ -5,12 +5,28 @@ import type {
 } from "@/lib/types"
 import { appointmentSelect } from "./common"
 import type { DbRecord } from "./common"
+import { auditLogRepository } from "./audit-log"
+
+// Helper to log appointment operations
+async function logAppointmentAction(email: string | null, action: string, details?: string) {
+  try {
+    await auditLogRepository.create({
+      email: email || undefined,
+      action,
+      details,
+    })
+  } catch (err) {
+    console.error("[audit] Failed to log appointment action:", err)
+  }
+}
 
 export const appointmentRepository: IAppointmentRepository = {
   async create(input) {
     const { data, error } = await supabase.from("appointments").insert(input).select(appointmentSelect).single()
     if (error) throw error
-    return data as unknown as AppointmentData
+    const appt = data as unknown as AppointmentData
+    await logAppointmentAction(input.createdByEmail, "CREATE_APPOINTMENT", `Created consultation: ${appt.title || "Untitled"} on ${appt.date}`)
+    return appt
   },
   async listByStudent(studentId) {
     const { data, error } = await supabase
@@ -79,7 +95,10 @@ export const appointmentRepository: IAppointmentRepository = {
       .select(appointmentSelect)
       .single()
     if (error) throw error
-    return updated as unknown as AppointmentData
+    const appt = updated as unknown as AppointmentData
+    const changes = Object.keys(data).join(", ")
+    await logAppointmentAction(appt.createdByEmail, "UPDATE_APPOINTMENT", `Updated consultation status to ${data.status || appt.status}: ${changes}`)
+    return appt
   },
   async addAttendee(appointmentId, userId, isMandatory = true) {
     const { data, error } = await supabase

@@ -1,4 +1,18 @@
 import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail, sendBookingAcknowledgement, sendMeetingInviteWithICS, sendStatusUpdateEmail, sendActivationEmail, sendForgotPasswordEmail } from "@/lib/services/email"
+import { auditLogRepository } from "@/lib/repositories/factory"
+
+// Helper to log email sends
+async function logEmailSend(email: string, action: string, status: "SUCCESS" | "FAILED", details?: string) {
+  try {
+    await auditLogRepository.create({
+      email,
+      action: status === "SUCCESS" ? "EMAIL_SENT" : "EMAIL_FAILED",
+      details: `${action}${details ? ` — ${details}` : ""}`,
+    })
+  } catch (err) {
+    console.error("[audit] Failed to log email send:", err)
+  }
+}
 
 export async function sendConsultationInviteWorkflow(
   to: { email: string; name: string },
@@ -27,7 +41,13 @@ export async function sendPasswordChangedWorkflow(
 ) {
   "use workflow"
 
-  await sendPasswordChangedEmail(email, name)
+  try {
+    await sendPasswordChangedEmail(email, name)
+    await logEmailSend(email, "Password changed notification", "SUCCESS", `sent to ${name}`)
+  } catch (err) {
+    await logEmailSend(email, "Password changed notification", "FAILED", err instanceof Error ? err.message : "Unknown error")
+    throw err
+  }
 }
 
 export async function sendActivationWorkflow(
@@ -37,7 +57,13 @@ export async function sendActivationWorkflow(
 ) {
   "use workflow"
 
-  await sendActivationEmail(email, name, activationUrl)
+  try {
+    await sendActivationEmail(email, name, activationUrl)
+    await logEmailSend(email, "Activation email", "SUCCESS", `sent to ${name}`)
+  } catch (err) {
+    await logEmailSend(email, "Activation email", "FAILED", err instanceof Error ? err.message : "Unknown error")
+    throw err
+  }
 }
 
 export async function sendForgotPasswordWorkflow(
@@ -47,7 +73,13 @@ export async function sendForgotPasswordWorkflow(
 ) {
   "use workflow"
 
-  await sendForgotPasswordEmail(email, name, resetUrl)
+  try {
+    await sendForgotPasswordEmail(email, name, resetUrl)
+    await logEmailSend(email, "Password reset email", "SUCCESS", `sent to ${name}`)
+  } catch (err) {
+    await logEmailSend(email, "Password reset email", "FAILED", err instanceof Error ? err.message : "Unknown error")
+    throw err
+  }
 }
 
 import type { ApptWithJoins } from "@/lib/controllers/appointments"

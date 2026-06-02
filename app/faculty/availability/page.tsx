@@ -27,9 +27,10 @@ function todayStr() {
 export default function AvailabilityPage() {
   const { data: session, status } = useSession()
   const [rules, setRules] = useState<Rule[]>([])
-  const [saving, setSaving] = useState<number | null>(null)
+  const [isSavingAll, setIsSavingAll] = useState(false)
   const [startDate, setStartDate] = useState(todayStr())
   const [endDate, setEndDate] = useState("")
+  const [pendingChanges, setPendingChanges] = useState<Map<number, Rule>>(new Map())
 
   const { data: rulesData, isLoading } = useApiGet<{ rules: Rule[] }>(
     status === "authenticated" ? "/api/availability-rules" : null
@@ -71,31 +72,22 @@ export default function AvailabilityPage() {
     pendingRef.current = true
     const current = getRule(day)
     const newBlocked = !current.isBlocked
-    setSaving(day)
-
-    const res = await fetch("/api/availability-rules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dayOfWeek: day,
-        isBlocked: newBlocked,
-        startTime: newBlocked ? null : current.startTime || "08:00",
-        endTime: newBlocked ? null : current.endTime || "18:00",
-        startDate,
-        endDate: endDate || null,
-      }),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      setRules((prev) => {
-        const filtered = prev.filter(
-          (r) => !(r.dayOfWeek === day && r.startDate === startDate)
-        )
-        return [...filtered, data.rule].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-      })
+    
+    const updated = {
+      ...current,
+      isBlocked: newBlocked,
+      startTime: newBlocked ? null : current.startTime || "08:00",
+      endTime: newBlocked ? null : current.endTime || "18:00",
     }
-    setSaving(null)
+    
+    setRules((prev) => {
+      const filtered = prev.filter(
+        (r) => !(r.dayOfWeek === day && r.startDate === startDate)
+      )
+      return [...filtered, updated].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    })
+    
+    setPendingChanges((prev) => new Map(prev).set(day, updated))
     pendingRef.current = false
   }
 
@@ -108,28 +100,32 @@ export default function AvailabilityPage() {
       )
       return [...filtered, updated as Rule].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
     })
+    
+    setPendingChanges((prev) => new Map(prev).set(day, updated))
+  }
 
-    const res = await fetch("/api/availability-rules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dayOfWeek: day,
-        isBlocked: updated.isBlocked,
-        startTime: updated.startTime,
-        endTime: updated.endTime,
-        startDate,
-        endDate: endDate || null,
-      }),
-    })
+  const saveAll = async () => {
+    if (pendingChanges.size === 0) return
+    setIsSavingAll(true)
 
-    if (res.ok) {
-      const data = await res.json()
-      setRules((prev) => {
-        const filtered = prev.filter(
-          (r) => !(r.dayOfWeek === day && r.startDate === startDate)
-        )
-        return [...filtered, data.rule].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-      })
+    try {
+      for (const [day, rule] of pendingChanges) {
+        await fetch("/api/availability-rules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dayOfWeek: day,
+            isBlocked: rule.isBlocked,
+            startTime: rule.startTime,
+            endTime: rule.endTime,
+            startDate,
+            endDate: endDate || null,
+          }),
+        })
+      }
+      setPendingChanges(new Map())
+    } finally {
+      setIsSavingAll(false)
     }
   }
 
@@ -198,12 +194,14 @@ export default function AvailabilityPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {DAY_LABELS.map((label, dayIndex) => {
           const rule = getRule(dayIndex)
-          const isSaving = saving === dayIndex
+          const hasPending = pendingChanges.has(dayIndex)
 
           return (
             <div
               key={dayIndex}
-              className={`card p-5 bg-white transition-all ${rule.isBlocked ? "opacity-70" : ""}`}
+              className={`card p-5 bg-white transition-all ${rule.isBlocked ? "opacity-70" : ""} ${
+                hasPending ? "border-amber-300 border-2 bg-amber-50/30" : ""
+              }`}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-bold text-slate-800">{label}</span>
@@ -213,14 +211,13 @@ export default function AvailabilityPage() {
                     className="sr-only peer"
                     checked={!rule.isBlocked}
                     onChange={() => toggleBlocked(dayIndex)}
-                    disabled={isSaving}
                   />
                   <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gold-600" />
                 </label>
               </div>
 
-              {isSaving && (
-                <div className="text-[10px] text-gold-600 font-semibold">Saving...</div>
+              {hasPending && (
+                <div className="text-[10px] text-amber-600 font-semibold mb-2">Pending changes</div>
               )}
 
               {!rule.isBlocked && (
@@ -260,6 +257,30 @@ export default function AvailabilityPage() {
           Faculty-to-faculty meetings bypass these restrictions. Rules with an end date
           will automatically become inactive after that date.
         </p>
+      </div>
+
+      <div className="flex items-center justify-between pt-4">
+        <div>
+          {pendingChanges.size > 0 && (
+            <p className="text-sm text-amber-600 font-semibold">
+              {pendingChanges.size} {pendingChanges.size === 1 ? "change" : "changes"} pending
+            </p>
+          )}
+          {pendingChanges.size === 0 && (
+            <p className="text-xs text-slate-500 font-medium">All changes saved ✓</p>
+          )}
+        </div>
+        <button
+          onClick={saveAll}
+          disabled={pendingChanges.size === 0 || isSavingAll}
+          className={`px-5 py-2 rounded-lg text-white text-sm font-semibold transition-all ${
+            pendingChanges.size === 0
+              ? "bg-slate-300 cursor-not-allowed"
+              : "bg-gold-600 hover:bg-gold-700"
+          } ${isSavingAll ? "opacity-70" : ""}`}
+        >
+          {isSavingAll ? "Saving..." : "Save Changes"}
+        </button>
       </div>
     </div>
   )

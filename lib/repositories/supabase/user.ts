@@ -5,6 +5,20 @@ import type {
 } from "@/lib/types"
 import { USER_SELECT, singleQueryWithRoles, toUsersWithRoles, toUserWithRole, isMissingUserrole } from "./common"
 import type { QueryError, DbRecord } from "./common"
+import { auditLogRepository } from "./audit-log"
+
+// Helper to log user operations
+async function logUserAction(email: string, action: string, details?: string) {
+  try {
+    await auditLogRepository.create({
+      email,
+      action,
+      details,
+    })
+  } catch (err) {
+    console.error("[audit] Failed to log user action:", err)
+  }
+}
 
 export const userRepository: IUserRepository = {
   async findByEmail(email) {
@@ -49,7 +63,9 @@ export const userRepository: IUserRepository = {
     }
 
     const { data: withRoles } = await supabase.from("users").select(USER_SELECT).eq("id", data.id).single()
-    return toUserWithRole(withRoles)
+    const user = toUserWithRole(withRoles)
+    await logUserAction(user.email, "CREATE_USER", `Created ${role} user: ${user.name}`)
+    return user
   },
   async listByRole(role, options) {
     try {
@@ -141,19 +157,28 @@ export const userRepository: IUserRepository = {
     }
     const { data: updated, error: fetchErr } = await supabase.from("users").select(USER_SELECT).eq("id", id).single()
     if (fetchErr) throw fetchErr
-    return toUserWithRole(updated)
+    const user = toUserWithRole(updated)
+    const changes = Object.keys(userFields).concat(role ? ["role"] : []).join(", ")
+    await logUserAction(user.email, "UPDATE_USER", `Updated user ${user.name}: ${changes}`)
+    return user
   },
   async softDelete(id) {
+    const user = await this.findById(id)
     const { error } = await supabase.from("users").update({ deletedAt: new Date().toISOString() }).eq("id", id)
     if (error) throw error
+    if (user) await logUserAction(user.email, "DISABLE_USER", `Soft-deleted user: ${user.name}`)
   },
   async restore(id) {
+    const user = await this.findById(id)
     const { error } = await supabase.from("users").update({ deletedAt: null }).eq("id", id)
     if (error) throw error
+    if (user) await logUserAction(user.email, "ENABLE_USER", `Restored user: ${user.name}`)
   },
   async permanentDelete(id) {
+    const user = await this.findById(id)
     const { error } = await supabase.from("users").delete().eq("id", id)
     if (error) throw error
+    if (user) await logUserAction(user.email, "DELETE_USER", `Permanently deleted user: ${user.name}`)
   },
   async listDeleted() {
     try {
