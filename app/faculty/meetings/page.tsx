@@ -203,9 +203,32 @@ export default async function MeetingsPage(props: {
         <div className="space-y-3">
           {sorted.map((meeting: MeetingData) => {
             const isOrganizer = meeting.organizerId === userId
-            const statusLabel = meeting.status === "APPROVED" && !isOrganizer
+            let statusLabel = meeting.status === "APPROVED" && !isOrganizer
               ? "YOU ACCEPTED"
               : statusLabels[meeting.status] || meeting.status
+
+            const getStatusLabel = () =>{
+              if (isOrganizer) {
+                if(meeting.status === "APPROVED"){
+                  return "SCHEDULED"
+                } else if(meeting.status === "REJECTED"){
+                  return "DECLINED BY PRIMARY PARTICIPANT"
+                } else {
+                  return statusLabels[meeting.status] || meeting.status
+                }
+              }else {
+                const participant = meeting.participants?.find((p: ParticipantData) => p.userId === userId)
+                if(participant?.status === "APPROVED"){
+                  return "YOU ACCEPTED"
+                } else if(participant?.status === "REJECTED"){
+                  return "YOU DECLINED"
+                } else {
+                  return statusLabels[meeting.status] || meeting.status
+                }
+              }
+            }
+
+            statusLabel = getStatusLabel()
 
             return (
               <Link
