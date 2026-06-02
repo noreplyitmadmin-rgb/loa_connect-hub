@@ -2,6 +2,7 @@ import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { hasPageAccess } from "@/lib/access"
+import { MOBILE_ROUTES, toDesktopPath } from "@/lib/mobile-routes"
 
 const PUBLIC_PAGES = new Set([
   "/login", "/activate", "/forgot-password",
@@ -19,28 +20,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/import/students",
 ]
 
-// Mobile UA redirect table
-const MOBILE_ROUTES: { desktop: string; mobile: string }[] = [
-  { desktop: "/student/book", mobile: "/student/m/book" },
-  { desktop: "/student/meetings", mobile: "/student/m/meetings" },
-  { desktop: "/faculty/meetings", mobile: "/faculty/m/meetings" },
-  { desktop: "/dean", mobile: "/dean/m" },
-  { desktop: "/dean/departments", mobile: "/dean/m/departments" },
-  { desktop: "/dean/upload", mobile: "/dean/m/upload" },
-]
-
 const MOBILE_UA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i
-
-/** Map a mobile path back to its desktop equivalent for access checks. */
-function toDesktopPath(pathname: string): string {
-  for (const { desktop, mobile } of MOBILE_ROUTES) {
-    if (pathname === mobile || pathname.startsWith(mobile + "/")) {
-      const rest = pathname.slice(mobile.length)
-      return desktop + rest
-    }
-  }
-  return pathname
-}
 
 function mobileRedirect(request: NextRequest): NextResponse | undefined {
   const { pathname } = request.nextUrl

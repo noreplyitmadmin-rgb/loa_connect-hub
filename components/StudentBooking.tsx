@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import TeamsLinkForm from "@/components/TeamsLinkForm"
 import { useRouter } from "next/navigation"
+import { useApiGet } from "@/lib/api/client"
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -91,8 +92,6 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   const [primaryDeptFilter, setPrimaryDeptFilter] = useState<string>("all")
   const [attendeeDeptFilter, setAttendeeDeptFilter] = useState<string>("all")
   const [bookedAppointments, setBookedAppointments] = useState<{ date: string; startTime: string; endTime: string }[]>([])
-  const [primaryUsers, setPrimaryUsers] = useState<SimpleUser[]>([])
-  const [attendeeUsers, setAttendeeUsers] = useState<SimpleUser[]>([])
   const primaryRef = useRef<HTMLDivElement>(null)
   const attendeeRef = useRef<HTMLDivElement>(null)
 
@@ -111,43 +110,29 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   const isSelectedToday = selectedDateStr === todayStr
 
   // Fetch primary faculty's booked (APPROVED) appointments for the visible month
+  const bookedUrl = primaryFacultyId && userRole === "STUDENT"
+    ? `/api/appointments/faculty-booked?facultyId=${primaryFacultyId}&startDate=${fmtDate(currentYear, currentMonth, 1)}&endDate=${fmtDate(currentYear, currentMonth, getDaysInMonth(currentYear, currentMonth))}`
+    : null
+
+  const { data: bookedData } = useApiGet<{ appointments: { date: string; startTime: string; endTime: string }[] }>(bookedUrl)
+
   useEffect(() => {
-    if (!primaryFacultyId || userRole !== "STUDENT") {
-      return
+    if (bookedData?.appointments && bookedAppointments.length === 0) {
+      setBookedAppointments(bookedData.appointments) // eslint-disable-line react-hooks/set-state-in-effect -- sync SWR data
     }
-    const startDate = fmtDate(currentYear, currentMonth, 1)
-    const endDate = fmtDate(currentYear, currentMonth, getDaysInMonth(currentYear, currentMonth))
-    let cancelled = false
-
-    fetch(`/api/appointments/faculty-booked?facultyId=${primaryFacultyId}&startDate=${startDate}&endDate=${endDate}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!cancelled && data.appointments) setBookedAppointments(data.appointments)
-      })
-      .catch(() => { if (!cancelled) setBookedAppointments([]) })
-
-    return () => { cancelled = true }
-  }, [primaryFacultyId, currentYear, currentMonth, userRole])
+  }, [bookedData, bookedAppointments.length])
 
   // Fetch primary faculty users (filtered by department)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/users/primary?department=${primaryDeptFilter}`)
-      .then(r => r.json())
-      .then(data => { if (!cancelled) setPrimaryUsers(data.users || []) })
-      .catch(() => { if (!cancelled) setPrimaryUsers([]) })
-    return () => { cancelled = true }
-  }, [primaryDeptFilter])
+  const { data: primaryData } = useApiGet<{ users: SimpleUser[] }>(
+    `/api/users/primary?department=${primaryDeptFilter}`
+  )
+  const primaryUsers = useMemo(() => primaryData?.users ?? [], [primaryData])
 
   // Fetch attendee users (filtered by department)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/users/attendees?department=${attendeeDeptFilter}`)
-      .then(r => r.json())
-      .then(data => { if (!cancelled) setAttendeeUsers(data.users || []) })
-      .catch(() => { if (!cancelled) setAttendeeUsers([]) })
-    return () => { cancelled = true }
-  }, [attendeeDeptFilter])
+  const { data: attendeeData } = useApiGet<{ users: SimpleUser[] }>(
+    `/api/users/attendees?department=${attendeeDeptFilter}`
+  )
+  const attendeeUsers = useMemo(() => attendeeData?.users ?? [], [attendeeData])
 
   const hourOptions = useMemo(() => {
     const base = allow24Hours

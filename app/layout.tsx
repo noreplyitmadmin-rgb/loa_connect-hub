@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
-import SessionWrapper from "@/components/SessionWrapper"
+import Providers from "@/components/Providers"
 import AppShell from "@/components/AppShell"
 
 export const metadata: Metadata = {
@@ -36,9 +36,9 @@ export default function RootLayout({
         }} />
       </head>
       <body className="min-h-full font-sans antialiased">
-        <SessionWrapper>
+        <Providers>
           <AppShell>{children}</AppShell>
-        </SessionWrapper>
+        </Providers>
       </body>
     </html>
   )

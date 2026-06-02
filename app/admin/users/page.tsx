@@ -3,6 +3,7 @@
 import { useRef, useState, useMemo, useEffect } from "react"
 import Skeleton from "@/components/Skeleton"
 import SubmitButton from "@/components/SubmitButton"
+import { useApiGet } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
 
 interface User {
@@ -41,7 +42,6 @@ const roleColors: Record<string, string> = {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -68,16 +68,12 @@ export default function AdminUsersPage() {
   const [createError, setCreateError] = useState("")
   const [createSaving, setCreateSaving] = useState(false)
 
+  const { data: adminData, isLoading } = useApiGet<{ users: User[]; departments: Department[] }>("/api/admin/users")
+
   useEffect(() => {
-    fetch("/api/admin/users")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.users) setUsers(data.users)
-        if (data.departments) setDepartments(data.departments)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+    if (adminData?.users && !users.length) setUsers(adminData.users) // eslint-disable-line react-hooks/set-state-in-effect
+    if (adminData?.departments && !departments.length) setDepartments(adminData.departments)
+  }, [adminData, users.length, departments.length])
 
   const pendingRef = useRef(false)
 
@@ -247,7 +243,7 @@ export default function AdminUsersPage() {
   const safePage = Math.min(page, totalPages - 1)
   const paginated = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize)
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12">
         <div className="flex items-center justify-between">

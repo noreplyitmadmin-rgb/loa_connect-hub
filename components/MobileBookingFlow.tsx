@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useApiGet } from "@/lib/api/client"
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -103,15 +104,17 @@ export default function MobileBookingFlow({ facultyWithRules, serverNow }: Props
   }, [filteredFaculty])
 
   // Fetch booked appointments when faculty or month changes
+  const bookedUrl = selectedFacultyId
+    ? `/api/appointments/faculty-booked?facultyId=${selectedFacultyId}&startDate=${fmtDate(currentYear, currentMonth, 1)}&endDate=${fmtDate(currentYear, currentMonth, getDaysInMonth(currentYear, currentMonth))}`
+    : null
+
+  const { data: bookedData } = useApiGet<{ appointments: { date: string; startTime: string; endTime: string }[] }>(bookedUrl)
+
   useEffect(() => {
-    if (!selectedFacultyId) return
-    const startDate = fmtDate(currentYear, currentMonth, 1)
-    const endDate = fmtDate(currentYear, currentMonth, getDaysInMonth(currentYear, currentMonth))
-    fetch(`/api/appointments/faculty-booked?facultyId=${selectedFacultyId}&startDate=${startDate}&endDate=${endDate}`)
-      .then((r) => r.json())
-      .then((data) => setBookedAppointments(data.appointments || []))
-      .catch(() => setBookedAppointments([]))
-  }, [selectedFacultyId, currentYear, currentMonth])
+    if (bookedData?.appointments && !bookedAppointments.length) {
+      setBookedAppointments(bookedData.appointments) // eslint-disable-line react-hooks/set-state-in-effect -- sync SWR data
+    }
+  }, [bookedData, bookedAppointments.length])
 
   const getActiveRule = (faculty: FacultyWithRules, dateStr: string) => {
     const dayOfWeek = toOurDayOfWeek(new Date(dateStr + "T12:00:00").getDay())

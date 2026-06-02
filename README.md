@@ -130,14 +130,9 @@ Desktop opt-out via `?desktop=1` query param.
 
 ### Known Issues & Risks
 
-1. ~~**Supabase repository is a monolith** — `lib/repositories/supabase.ts` is ~1015 lines implementing 7 repository interfaces in one file. Violates Single Responsibility Principle; hard to test and maintain.~~ **Resolved** — Split into 8 files under `lib/repositories/supabase/`.
-2. **Minimal test coverage** — Only 1 test file exists for ~17,619 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
-3. **No client data-fetching library** — All client components use `useEffect` + `fetch()`. No caching, deduplication, stale-while-revalidate, optimistic updates, or automatic retry.
-4. **Mitigated — Vercel Workflows for durable email** — Fire-and-forget `.catch()` call sites replaced with Vercel Workflow functions (`lib/workflows/email-workflows.ts`) that provide built-in retries per step. Status notifications (accept, complete, cancel) also use durable workflows. Silent failures remain for non-critical emails not yet migrated.
-5. ~~**No React Error Boundaries** — No `error.tsx` files. An uncaught client error can collapse the entire component tree.~~ **Resolved** — Added `error.tsx` at root, `global-error.tsx`, and per-route-group (`auth`, `admin`, `dean`, `faculty`, `student`).
-6. ~~**Scattered type definitions** — Types live across `lib/models/`, `lib/repositories/interfaces.ts`, and `lib/dtos/`. Inconsistent naming and organization.~~ **Resolved** — Consolidated into `lib/types/` (`entity.ts`, `dto.ts`, `repository.ts`).
-7. **HTML email templates via template literals** — Fragile string concatenation. No type safety or template engine.
-8. **Mobile route sync** — `proxy.ts` has a `toDesktopPath()` mapping and a `MOBILE_ROUTES` table that must be kept in sync when new mobile routes are added.
+1. **Minimal test coverage** — Only 2 test files exist for ~17,619 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
+2. **Mitigated — Vercel Workflows for durable email** — Fire-and-forget `.catch()` call sites replaced with Vercel Workflow functions (`lib/workflows/email-workflows.ts`) that provide built-in retries per step. Status notifications (accept, complete, cancel) also use durable workflows. Silent failures remain for non-critical emails not yet migrated.
+3. **HTML email templates via template literals** — Fragile string concatenation. No type safety or template engine.
 
 ## Environment Variables
 

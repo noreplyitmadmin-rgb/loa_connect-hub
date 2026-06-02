@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useSession } from "next-auth/react"
 import SubmitButton from "@/components/SubmitButton"
+import { useApiGet, invalidate } from "@/lib/api/client"
 
 interface DepartmentCourse {
   id: string
@@ -21,71 +22,29 @@ interface Department {
 
 export default function DeanDepartmentsPage() {
   const { data: session } = useSession()
-  const [courses, setCourses] = useState<DepartmentCourse[]>([])
-  const [department, setDepartment] = useState<Department | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [newName, setNewName] = useState("")
   const [newCode, setNewCode] = useState("")
   const [saving, setSaving] = useState(false)
 
-  const doFetch = async () => {
-    const userId = (session?.user as Record<string, unknown>)?.id as string
-    const deptRes = await fetch("/api/admin/users")
-    if (!deptRes.ok) throw new Error("Failed to load data")
-    const data = await deptRes.json()
-    const myDept = (data.departments || []).find((d: Department) => d.deanId === userId)
-    if (!myDept) {
-      setDepartment(null)
-      setCourses([])
-      return
-    }
-    setDepartment(myDept)
+  const userId = (session?.user as Record<string, unknown>)?.id as string
 
-    const coursesRes = await fetch("/api/admin/department-courses")
-    if (!coursesRes.ok) throw new Error("Failed to load courses")
-    const allCourses: DepartmentCourse[] = await coursesRes.json()
-    setCourses(allCourses.filter((c) => c.departmentId === myDept.id))
+  const { data: usersData, isLoading: usersLoading } = useApiGet<{ users: unknown[]; departments: Department[] }>(
+    session ? "/api/admin/users" : null
+  )
+
+  const { data: allCourses, isLoading: coursesLoading } = useApiGet<DepartmentCourse[]>(
+    session ? "/api/admin/department-courses" : null
+  )
+
+  const loading = usersLoading || coursesLoading
+
+  const department = usersData?.departments?.find((d: Department) => d.deanId === userId) ?? null
+  const courses = department && allCourses ? allCourses.filter((c) => c.departmentId === department.id) : []
+
+  const refresh = () => {
+    invalidate("/api/admin/users", "/api/admin/department-courses")
   }
-
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      await doFetch()
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!session) return
-    const uid = (session?.user as Record<string, unknown>)?.id as string
-    let deptId: string | null = null
-    fetch("/api/admin/users")
-      .then((r) => { if (!r.ok) throw new Error("Failed to load data"); return r.json() })
-      .then((data) => {
-        const myDept = (data.departments || []).find((d: Record<string, unknown>) => d.deanId === uid)
-        if (!myDept) {
-          setDepartment(null)
-          setCourses([])
-          return null
-        }
-        deptId = myDept.id as string
-        setDepartment(myDept as Department)
-        return fetch("/api/admin/department-courses")
-      })
-      .then((coursesRes) => {
-        if (!coursesRes || !deptId) return
-        return coursesRes.json()
-      })
-      .then((allCourses) => {
-        if (allCourses && deptId) setCourses(allCourses.filter((c: DepartmentCourse) => c.departmentId === deptId))
-      })
-      .catch((err) => setError((err as Error).message))
-      .finally(() => setLoading(false))
-  }, [session])
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,7 +63,7 @@ export default function DeanDepartmentsPage() {
       }
       setNewName("")
       setNewCode("")
-      await fetchData()
+      await refresh()
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -120,7 +79,7 @@ export default function DeanDepartmentsPage() {
         const data = await res.json()
         throw new Error(data.error || "Failed to delete")
       }
-      await fetchData()
+      await refresh()
     } catch (err) {
       setError((err as Error).message)
     }

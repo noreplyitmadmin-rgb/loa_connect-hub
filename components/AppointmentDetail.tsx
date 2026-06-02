@@ -8,6 +8,7 @@ import SubmitButton from "@/components/SubmitButton"
 import TeamsLinkForm from "@/components/TeamsLinkForm"
 import AppointmentDetailSkeleton from "@/components/AppointmentDetailSkeleton"
 import type { AppointmentDetailDto } from "@/lib/types"
+import { useApiGet } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
 
 function getInitial(name: string) {
@@ -35,10 +36,10 @@ export default function AppointmentDetail() {
   const router = useRouter()
   const { data: session } = useSession()
   const [appointment, setAppointment] = useState<AppointmentDetailDto | null>(null)
-  const [localStatus, setLocalStatus] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [actionLoading, setActionLoading] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [localStatus, setLocalStatus] = useState<string | null>(null)
   const [teamsLinkMode, setTeamsLinkMode] = useState<"single" | "per-slot">("single")
   const [showTeamsLinkForm, setShowTeamsLinkForm] = useState(false)
   const [singleLink, setSingleLink] = useState("")
@@ -55,17 +56,19 @@ export default function AppointmentDetail() {
   const userId = (session?.user as Record<string, unknown>)?.id as string
   const appointmentId = params.id as string
 
+  const { data: fetchData, error: fetchError, isLoading } = useApiGet<{ appointment: AppointmentDetailDto }>(
+    appointmentId ? `/api/appointments/${appointmentId}` : null
+  )
+
   useEffect(() => {
-    if (!appointmentId) return
-    fetch(`/api/appointments/${appointmentId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.appointment) setAppointment(data.appointment)
-        else setError(data.error || "Appointment not found")
-      })
-      .catch(() => setError("Failed to load appointment"))
-      .finally(() => setLoading(false))
-  }, [appointmentId])
+    if (isLoading) return
+    if (fetchData?.appointment) {
+      setAppointment(fetchData.appointment) // eslint-disable-line react-hooks/set-state-in-effect
+    } else if (fetchError) {
+      setError(fetchError.message || "Failed to load appointment")
+    }
+    setLoading(false)
+  }, [fetchData, fetchError, isLoading])
 
   const effectiveStatus = localStatus || appointment?.status || ""
   const pendingRef = useRef(false)

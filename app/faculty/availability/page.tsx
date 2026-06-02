@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
 import { redirect } from "next/navigation"
+import { useApiGet } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
 
 const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -26,12 +27,25 @@ function todayStr() {
 export default function AvailabilityPage() {
   const { data: session, status } = useSession()
   const [rules, setRules] = useState<Rule[]>([])
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<number | null>(null)
   const [startDate, setStartDate] = useState(todayStr())
   const [endDate, setEndDate] = useState("")
 
-  // Determine active rules for the selected date range
+  const { data: rulesData, isLoading } = useApiGet<{ rules: Rule[] }>(
+    status === "authenticated" ? "/api/availability-rules" : null
+  )
+
+  useEffect(() => {
+    if (rulesData?.rules) setRules(rulesData.rules) // eslint-disable-line react-hooks/set-state-in-effect -- sync SWR data
+  }, [rulesData])
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login")
+    if (status === "authenticated" && !hasRole((session?.user as Record<string, unknown>)?.role as string, "FACULTY") && !hasRole((session?.user as Record<string, unknown>)?.role as string, "DEAN")) redirect("/login")
+  }, [status, session])
+
+  const loading = isLoading
+
   const activeRules = rules.filter((r) => {
     if (r.startDate > startDate) return false
     if (r.endDate && r.endDate < startDate) return false
@@ -49,21 +63,6 @@ export default function AvailabilityPage() {
       startDate: startDate,
       endDate: endDate || null,
     }
-
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login")
-    if (status === "authenticated" && !hasRole((session?.user as Record<string, unknown>)?.role as string, "FACULTY") && !hasRole((session?.user as Record<string, unknown>)?.role as string, "DEAN")) redirect("/login")
-
-    if (status === "authenticated") {
-      fetch("/api/availability-rules")
-        .then((res) => res.json())
-        .then((data) => {
-          setRules(data.rules || [])
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    }
-  }, [status, session])
 
   const pendingRef = useRef(false)
 

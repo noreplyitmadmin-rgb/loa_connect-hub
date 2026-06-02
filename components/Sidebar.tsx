@@ -3,7 +3,8 @@
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useApiGet } from "@/lib/api/client"
 import { getPrimaryRole } from "@/lib/utils/roles"
 
 const roleColors: Record<string, { bg: string; label: string }> = {
@@ -22,16 +23,12 @@ export default function Sidebar() {
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [allowedPages, setAllowedPages] = useState<string[] | null>(null)
   const [dark, setDark] = useState(false)
 
-  useEffect(() => {
-    if (!session) return
-    fetch("/api/auth/access")
-      .then((r) => r.json())
-      .then((data) => setAllowedPages(data.pages || []))
-      .catch(() => setAllowedPages([]))
-  }, [session])
+  const { data: accessData } = useApiGet<{ pages: string[] }>(
+    session ? "/api/auth/access" : null
+  )
+  const allowedPages = accessData?.pages ?? null
 
   // Initialise theme from localStorage
   useEffect(() => {
