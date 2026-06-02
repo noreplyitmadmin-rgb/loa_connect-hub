@@ -1,12 +1,21 @@
-/**
- * Timeslot configuration constants
- */
+// ── Timeslot configuration ───────────────────────────────
 
-/** Minimum timeslot duration in minutes (30 minutes) */
-export const MIN_TIMESLOT_DURATION_MINUTES = 30;
+export const MIN_TIMESLOT_DURATION_MINUTES = 30
+export const MAX_TIMESLOT_DURATION_MINUTES = 8 * 60
+export const TIMESLOT_INCREMENT_MINUTES = 30
 
-/** Maximum timeslot duration in minutes (8 hours = 480 minutes) */
-export const MAX_TIMESLOT_DURATION_MINUTES = 8 * 60;
+// ── Email domain rules ───────────────────────────────────
 
-/** Timeslot increment in minutes (generates slots in 30-minute intervals) */
-export const TIMESLOT_INCREMENT_MINUTES = 30;
+export const STUDENT_DOMAIN = "@itmlyceumalabang.onmicrosoft.com"
+export const FACULTY_DOMAIN = "@lyceumalabang.edu.ph"
+
+export const STUDENT_ROLE = "STUDENT"
+export const FACULTY_ROLE = "FACULTY"
+export const DEAN_ROLE = "DEAN"
+export const ADMIN_ROLE = "ADMIN"
+export const GUEST_ROLE = "GUEST"
+
+export const ETL_UPLOAD_TYPE_STUDENT = "student"
+export const ETL_UPLOAD_TYPE_FACULTY = "faculty"
+
+export type EtlUploadType = "student" | "faculty"
