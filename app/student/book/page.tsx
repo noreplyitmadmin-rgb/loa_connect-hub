@@ -37,7 +37,7 @@ export default async function StudentBookPage() {
         <h1 className="text-2xl font-bold text-slate-900">Book a Consultation</h1>
         <p className="text-sm text-slate-500 mt-1">Select faculty and schedule your consultation time.</p>
       </div>
-      <StudentBooking facultyWithRules={facultyWithRules as FacultyWithRules[]} userRole="STUDENT" serverNow={new Date().toISOString()} />
+      <StudentBooking facultyList={facultyWithRules as FacultyWithRules[]} userRole="STUDENT" serverNow={new Date().toISOString()} />
     </div>
   )
 }

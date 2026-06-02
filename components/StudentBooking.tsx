@@ -31,13 +31,12 @@ interface FacultyRule {
   endDate: string | null
 }
 
-interface FacultyWithRules {
+interface BasicFaculty {
   id: string
   name: string
   email: string
   hasLoggedInBefore: boolean
   department: string | null
-  rules: FacultyRule[]
 }
 
 interface SimpleUser {
@@ -48,7 +47,7 @@ interface SimpleUser {
 }
 
 interface Props {
-  facultyWithRules: FacultyWithRules[]
+  facultyList: BasicFaculty[]
   userRole: "STUDENT" | "FACULTY" | "DEAN"
   students?: SimpleUser[]
   serverNow?: string
@@ -72,13 +71,12 @@ function fmtDate(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
-export default function StudentBooking({ facultyWithRules, userRole, students, serverNow, currentUserId }: Props) {
+export default function StudentBooking({ facultyList, userRole, students, serverNow, currentUserId }: Props) {
 
   const now = useMemo(() => serverNow ? new Date(serverNow) : new Date(), [serverNow])
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const router = useRouter()
-
 
   // Faculty selection
   const [primaryFacultyId, setPrimaryFacultyId] = useState<string | null>(
@@ -120,7 +118,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
     if (bookedData?.appointments && bookedAppointments.length === 0) {
       setBookedAppointments(bookedData.appointments) // eslint-disable-line react-hooks/set-state-in-effect -- sync SWR data
     }
-  }, [bookedData, bookedAppointments.length])
+  }, [bookedData, primaryFacultyId])
 
   // Fetch primary faculty users (filtered by department)
   const { data: primaryData } = useApiGet<{ users: SimpleUser[] }>(
@@ -133,6 +131,10 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
     `/api/users/attendees?department=${attendeeDeptFilter}`
   )
   const attendeeUsers = useMemo(() => attendeeData?.users ?? [], [attendeeData])
+
+  // --- NEW: Fetch active rules dynamically for the selected primary faculty ---
+  const rulesUrl = primaryFacultyId ? `/api/availability-rules?facultyId=${primaryFacultyId}` : null
+  const { data: rulesData } = useApiGet<{ rules: FacultyRule[] }>(rulesUrl)
 
   const hourOptions = useMemo(() => {
     const base = allow24Hours
@@ -157,17 +159,15 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   // Conflict warnings
   const [conflicts, setConflicts] = useState<{ userName: string; message: string; appointments?: { appointmentId: string; title: string | null; meetingType: string; date: string; startTime: string; endTime: string }[] }[]>([])
 
-  const selectedFaculty = useMemo(
-    () => facultyWithRules.filter((f) => f.id === primaryFacultyId),
-    [facultyWithRules, primaryFacultyId]
-  )
+  const getActiveRule = (dateStr: string) => {
+    if (!rulesData?.rules) return null
 
-  const getActiveRule = (faculty: FacultyWithRules, dateStr: string) => {
     // Parse date string as UTC to avoid timezone issues
     const [year, month, day] = dateStr.split('-').map(Number)
     const utcDate = new Date(Date.UTC(year, month - 1, day))
     const dayOfWeek = toOurDayOfWeek(utcDate.getUTCDay())
-    return faculty.rules.find(
+    
+    return rulesData.rules.find(
       (r) =>
         r.dayOfWeek === dayOfWeek &&
         r.startDate <= dateStr &&
@@ -177,10 +177,9 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
 
   // Free time ranges for selected date — rule window minus booked (APPROVED) appointments
   const freeRanges = useMemo(() => {
-    if (!selectedDay || selectedFaculty.length === 0) return []
+    if (!selectedDay || !primaryFacultyId) return []
     const dateStr = fmtDate(currentYear, currentMonth, selectedDay)
-    const faculty = selectedFaculty[0]
-    const rule = getActiveRule(faculty, dateStr)
+    const rule = getActiveRule(dateStr)
 
     if (!rule || rule.isBlocked || !rule.startTime || !rule.endTime) return []
 
@@ -209,7 +208,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
     }
 
     return ranges.sort((a, b) => a.start.localeCompare(b.start))
-  }, [selectedDay, selectedFaculty, currentYear, currentMonth, bookedAppointments])
+  }, [selectedDay, primaryFacultyId, currentYear, currentMonth, bookedAppointments, rulesData])
 
   // For students: constrain hour options to only hours within free time ranges
   const studentHourOptions = useMemo(() => {
@@ -256,14 +255,13 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
 
   // Determine day status for student booking (primary faculty only)
   const getDayStatus = (year: number, month: number, day: number): "available" | "partially" | "not-available" | "blocked" => {
-    if (selectedFaculty.length === 0) return "not-available"
+    if (!primaryFacultyId) return "not-available"
     const dateStr = fmtDate(year, month, day)
-    const faculty = selectedFaculty[0]
-    const rule = getActiveRule(faculty, dateStr)
+    const rule = getActiveRule(dateStr)
 
     if (!rule) return "not-available"
-    if (rule.isBlocked) return "blocked"
-    if (!rule.startTime || !rule.endTime) return "blocked"
+    if (rule.isBlocked) return "not-available"
+    if (!rule.startTime || !rule.endTime) return "not-available"
 
     // Get ACCEPTED appointments for this day
     const dayBookings = bookedAppointments.filter((a) => a.date === dateStr)
@@ -436,11 +434,11 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
   // Departments for filter
   const allDepartments = useMemo(() => {
     const depts = new Set<string>()
-    for (const f of facultyWithRules) {
+    for (const f of facultyList) {
       if (f.department) depts.add(f.department)
     }
     return Array.from(depts).sort()
-  }, [facultyWithRules])
+  }, [facultyList])
 
   // Search results — API handles role/department filtering, client handles text search
   const primarySearchResults = useMemo(() => {
@@ -554,7 +552,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
 
           {/* Selected primary chip */}
           {primaryFacultyId && (() => {
-            const f = facultyWithRules.find((x) => x.id === primaryFacultyId)
+            const f = facultyList.find((x) => x.id === primaryFacultyId)
             if (!f) return null
             return (
               <div className="flex items-center gap-2 p-2.5 rounded-lg bg-gold-50 border border-gold-200">
@@ -588,7 +586,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             </h3>
           </div>
           {primaryFacultyId && (() => {
-            const f = facultyWithRules.find((x) => x.id === primaryFacultyId)
+            const f = facultyList.find((x) => x.id === primaryFacultyId)
             if (!f) return null
             return (
               <div className="flex items-center gap-2 p-2.5 rounded-lg bg-gold-50 border border-gold-200">
@@ -670,7 +668,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
           {attendeeIds.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {attendeeIds.map((id) => {
-                const f = facultyWithRules.find((x) => x.id === id)
+                const f = facultyList.find((x) => x.id === id)
                 const s = students?.find((x) => x.id === id)
                 const person = f || s
                 if (!person) return null
@@ -707,7 +705,7 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
             <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Available</span>
             <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" /> Partial</span>
             <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" /> Unavail.</span>
-            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" /> Blocked</span>
+            {/* <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" /> Blocked</span> */}
           </div>
 
           {/* Calendar */}
@@ -930,27 +928,6 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
                 </div>
               </div>
 
-              {/* {selectedSlots.filter((s) => s.date === fmtDate(currentYear, currentMonth, selectedDay)).length > 0 && (
-                <div className="p-3 rounded-lg bg-gold-50 border border-gold-200">
-                  <p className="text-xs font-semibold text-gold-700 mb-2">Selected blocks for this day:</p>
-                  <div className="space-y-1">
-                    {selectedSlots
-                      .filter((s) => s.date === fmtDate(currentYear, currentMonth, selectedDay))
-                      .map((slot, idx) => (
-                        <div key={`${slot.date}-${slot.start}-${slot.end}-${idx}`} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-gold-200">
-                          <span className="text-slate-700 font-medium">{slot.start} – {slot.end}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSlot(selectedSlots.indexOf(slot))}
-                            className="text-red-600 hover:text-red-800 text-xs font-semibold"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )} */}
             </div>
           )}
         </section>
@@ -979,12 +956,12 @@ export default function StudentBooking({ facultyWithRules, userRole, students, s
               <p className="text-gold-700 font-semibold">Participants</p>
               <p className="text-gold-600 text-xs mt-1">
                 {(() => {
-                  const primary = facultyWithRules.find((f) => f.id === primaryFacultyId)
+                  const primary = facultyList.find((f) => f.id === primaryFacultyId)
 
                   const attendeeMap = new Map<string, string>()
 
                   // Faculty/Dean attendees first
-                  facultyWithRules
+                  facultyList
                     .filter((f) => attendeeIds.includes(f.id))
                     .forEach((f) => {
                       attendeeMap.set(
