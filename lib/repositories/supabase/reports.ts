@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase"
-import type { FacultyStatsData, IReportsRepository } from "@/lib/types"
+import type { FacultyStatsData, DailyFrequencyData, WeeklyFrequencyData, IReportsRepository } from "@/lib/types"
 import { userRepository } from "./user"
 import type { DbRecord } from "./common"
 
@@ -358,6 +358,105 @@ export const reportsRepository: IReportsRepository = {
         year: parseInt(year, 10),
         count,
       }))
+  },
+
+  async getDepartmentDailyFrequency(departmentId, filters?) {
+    const facultyUsers = (await userRepository.listByDepartment(departmentId))
+      .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
+      .map(({ id, name }) => ({ id, name }))
+
+    const facultyIds = facultyUsers.map((u) => u.id)
+    if (facultyIds.length === 0) return []
+
+    let query = supabase
+      .from("appointments")
+      .select("date")
+      .eq("meetingType", "CONSULTATION")
+      .in("facultyId", facultyIds)
+
+    if (filters?.startDate) {
+      query = query.gte("date", filters.startDate)
+    }
+    if (filters?.endDate) {
+      query = query.lte("date", filters.endDate)
+    }
+
+    const { data: appointments, error: apptError } = await query
+    if (apptError) throw apptError
+
+    const dayMap = new Map<string, number>()
+
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const date = apt.date as string
+      dayMap.set(date, (dayMap.get(date) || 0) + 1)
+    }
+
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    return Array.from(dayMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => {
+        const d = new Date(date + "T00:00:00")
+        return {
+          date,
+          dayName: dayNames[d.getDay()],
+          count,
+        } as DailyFrequencyData
+      })
+  },
+
+  async getDepartmentWeeklyFrequency(departmentId, filters?) {
+    const facultyUsers = (await userRepository.listByDepartment(departmentId))
+      .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
+      .map(({ id, name }) => ({ id, name }))
+
+    const facultyIds = facultyUsers.map((u) => u.id)
+    if (facultyIds.length === 0) return []
+
+    let query = supabase
+      .from("appointments")
+      .select("date")
+      .eq("meetingType", "CONSULTATION")
+      .in("facultyId", facultyIds)
+
+    if (filters?.startDate) {
+      query = query.gte("date", filters.startDate)
+    }
+    if (filters?.endDate) {
+      query = query.lte("date", filters.endDate)
+    }
+
+    const { data: appointments, error: apptError } = await query
+    if (apptError) throw apptError
+
+    const weekMap = new Map<string, number>()
+
+    for (const apt of (appointments || []) as DbRecord[]) {
+      const d = new Date((apt.date as string) + "T00:00:00")
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      const monday = new Date(d.setDate(diff))
+      const weekStart = monday.toISOString().slice(0, 10)
+      weekMap.set(weekStart, (weekMap.get(weekStart) || 0) + 1)
+    }
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    return Array.from(weekMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([weekStart, count]) => {
+        const start = new Date(weekStart + "T00:00:00")
+        const end = new Date(start)
+        end.setDate(end.getDate() + 6)
+        const weekEnd = end.toISOString().slice(0, 10)
+        const label = `${monthNames[start.getMonth()]} ${start.getDate()} - ${monthNames[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`
+        return {
+          weekStart,
+          weekEnd,
+          label,
+          count,
+        } as WeeklyFrequencyData
+      })
   },
 
   async getFacultyYearlyFrequency(departmentId, filters?) {

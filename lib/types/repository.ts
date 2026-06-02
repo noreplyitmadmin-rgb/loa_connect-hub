@@ -289,6 +289,19 @@ export interface FacultyYearlyData {
   yearlyCounts: { year: number; count: number }[]
 }
 
+export interface DailyFrequencyData {
+  date: string
+  dayName: string
+  count: number
+}
+
+export interface WeeklyFrequencyData {
+  weekStart: string
+  weekEnd: string
+  label: string
+  count: number
+}
+
 export interface DepartmentSummary {
   id: string
   name: string
@@ -327,6 +340,16 @@ export interface IReportsRepository {
     departmentId: string,
     filters?: { startDate?: string; endDate?: string }
   ): Promise<FacultyFrequencyData[]>
+
+  getDepartmentDailyFrequency(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<DailyFrequencyData[]>
+
+  getDepartmentWeeklyFrequency(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<WeeklyFrequencyData[]>
 
   getDepartmentYearlyFrequency(
     departmentId: string,
