@@ -226,6 +226,8 @@ export interface FacultyStatsData {
   total: number
   completed: number
   pending: number
+  approved: number
+  rejected: number
   cancelled: number
   completionRate: number
 }
@@ -294,6 +296,8 @@ export interface DepartmentSummary {
   total: number
   completed: number
   pending: number
+  approved: number
+  rejected: number
   cancelled: number
   completionRate: number
 }

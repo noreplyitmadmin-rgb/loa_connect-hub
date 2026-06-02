@@ -44,10 +44,10 @@ const MOCK_DEPARTMENTS = [
 ]
 
 const MOCK_STATS_1: FacultyStatsData[] = [
-  { facultyId: "f1", facultyName: "Dr. Smith", total: 10, completed: 7, pending: 2, cancelled: 1, completionRate: 70 },
+  { facultyId: "f1", facultyName: "Dr. Smith", total: 10, completed: 7, pending: 2, approved: 0, rejected: 0, cancelled: 1, completionRate: 70 },
 ]
 const MOCK_STATS_2: FacultyStatsData[] = [
-  { facultyId: "f2", facultyName: "Dr. Jones", total: 5, completed: 3, pending: 1, cancelled: 1, completionRate: 60 },
+  { facultyId: "f2", facultyName: "Dr. Jones", total: 5, completed: 3, pending: 1, approved: 0, rejected: 0, cancelled: 1, completionRate: 60 },
 ]
 
 const MOCK_DEPT_FREQ_1: DepartmentFrequencyEntry[] = [

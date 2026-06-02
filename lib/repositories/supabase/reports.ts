@@ -48,6 +48,8 @@ export const reportsRepository: IReportsRepository = {
         total: 0,
         completed: 0,
         pending: 0,
+        approved: 0,
+        rejected: 0,
         cancelled: 0,
         completionRate: 0,
       })
@@ -64,8 +66,13 @@ export const reportsRepository: IReportsRepository = {
           stat.completed++
           break
         case "PENDING":
-        case "APPROVED":
           stat.pending++
+          break
+        case "APPROVED":
+          stat.approved++
+          break
+        case "REJECTED":
+          stat.rejected++
           break
         case "CANCELLED":
           stat.cancelled++
