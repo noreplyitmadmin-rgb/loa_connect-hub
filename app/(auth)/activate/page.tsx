@@ -3,14 +3,22 @@
 import SubmitButton from "@/components/SubmitButton"
 import { useState, FormEvent, useEffect, use } from "react"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 const REQUIRED_STUDENT_DOMAIN = "@itmlyceumalabang.onmicrosoft.com"
 const REQUIRED_FACULTY_DOMAIN = "@lyceumalabang.edu.ph"
 const RESEND_COOLDOWN = 60 // seconds
 
-export default function ActivatePage(props: { searchParams?: Promise<{ callbackUrl?: string }> }) {
+export default function ActivatePage(props: { searchParams?: Promise<{ callbackUrl?: string; token?: string }> }) {
   const searchParams = props.searchParams ? use(props.searchParams) : undefined
+  const token = searchParams?.token
   const callbackUrl = searchParams?.callbackUrl || ""
+
+  if (token) {
+    const dest = `/change-password?token=${encodeURIComponent(token)}${callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`
+    redirect(dest)
+  }
+
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")

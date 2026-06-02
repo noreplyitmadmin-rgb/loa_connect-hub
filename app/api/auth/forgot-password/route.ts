@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       const token = randomBytes(32).toString("hex")
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
       await passwordResetTokenRepository.create(user.email, token, expiresAt)
-      const activationUrl = `${process.env.NEXTAUTH_URL}/change-password?token=${token}`
+      const activationUrl = `${process.env.NEXTAUTH_URL}/activate?token=${token}`
       sendActivationWorkflow(user.email, user.name, activationUrl).catch((err) =>
         console.error("Failed to send activation email:", err)
       )

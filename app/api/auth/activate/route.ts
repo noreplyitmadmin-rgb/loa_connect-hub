@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     await passwordResetTokenRepository.create(user.email, token, expiresAt)
 
     const cb = callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
-    const activationUrl = `${process.env.NEXTAUTH_URL}/change-password?token=${token}${cb}`
+    const activationUrl = `${process.env.NEXTAUTH_URL}/activate?token=${token}${cb}`
 
     sendActivationWorkflow(user.email, user.name, activationUrl).catch((err) =>
       console.error("Failed to send activation email:", err)
