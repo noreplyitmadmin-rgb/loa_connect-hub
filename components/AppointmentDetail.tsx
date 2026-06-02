@@ -175,7 +175,7 @@ export default function AppointmentDetail() {
   const handleCompleteSubmit = async () => {
     setCompleteError("")
 
-    if (actionTaken.trim().length < 100) {
+    if (actionTaken.trim().length < 20) {
       setCompleteError("Actions taken must be at least 100 characters")
       return
     }
