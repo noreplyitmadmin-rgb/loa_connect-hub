@@ -65,47 +65,9 @@ export default function AvailabilityPage() {
     }
 
     return null;
-    //TODO: Remove this fallback once we have full coverage of all days in the database. This is just to ensure the UI doesn't break if a day is missing from the DB.
-    // return {
-    //   id: "",
-    //   facultyId: "",
-    //   dayOfWeek: day,
-    //   isBlocked: day >= 5,
-    //   startTime: day < 5 ? "08:00" : null,
-    //   endTime: day < 5 ? "18:00" : null,
-    //   startDate,
-    //   endDate: endDate || null,
-    // }
   }
 
   const pendingRef = useRef(false)
-
-  // const toggleBlocked = async (day: number) => {
-  //   if (pendingRef.current) return
-  //   pendingRef.current = true
-  //   const current = getRule(day)
-  //   const newBlocked = !current.isBlocked
-
-  //   const updated = {
-  //     ...current,
-  //     isBlocked: newBlocked,
-  //     startTime: newBlocked ? null : current.startTime || "08:00",
-  //     endTime: newBlocked ? null : current.endTime || "18:00",
-  //   }
-
-  //   setRules((prev) => {
-  //     const filtered = prev.filter(
-  //       (r) => r.dayOfWeek !== day
-  //     )
-
-  //     return [...filtered, updated].sort(
-  //       (a, b) => a.dayOfWeek - b.dayOfWeek
-  //     )
-  //   })
-
-  //   setPendingChanges((prev) => new Map(prev).set(day, updated))
-  //   pendingRef.current = false
-  // }
 
   const toggleBlocked = async (day: number) => {
     if (pendingRef.current) return
@@ -143,22 +105,6 @@ export default function AvailabilityPage() {
 
     pendingRef.current = false
   }
-
-  // const updateTime = async (day: number, field: "startTime" | "endTime", value: string) => {
-  //   const current = getRule(day)
-  //   const updated = { ...current, [field]: value }
-  //   setRules((prev) => {
-  //     const filtered = prev.filter(
-  //       (r) => r.dayOfWeek !== day
-  //     )
-
-  //     return [...filtered, updated as Rule].sort(
-  //       (a, b) => a.dayOfWeek - b.dayOfWeek
-  //     )
-  //   })
-
-  //   setPendingChanges((prev) => new Map(prev).set(day, updated))
-  // }
 
   const updateTime = (day: number, field: "startTime" | "endTime", value: string) => {
     const current = getRule(day)

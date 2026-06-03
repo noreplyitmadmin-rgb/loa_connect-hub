@@ -56,31 +56,6 @@ export function ReportFilters() {
         </div>
       )}
       <div className="space-y-4">
-      {/* ── Semester Presets ── */}
-      {/* <div className="flex flex-wrap items-center gap-2 p-4 bg-white rounded-2xl border border-slate-200/70 shadow-sm">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 mr-1">
-          Semester:
-        </span>
-        {presetSemesters.map((sem) => {
-          const isActive = activePresetLabel === sem.label
-          return (
-            <button
-              key={sem.label}
-              onClick={() => handlePreset(sem)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${isActive
-                  ? "bg-gold-600 text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
-                }`}
-            >
-              {sem.label}
-            </button>
-          )
-        })}
-        {hasFilters && !activePresetLabel && (
-          <span className="text-xs text-slate-400 italic">(custom range)</span>
-        )}
-      </div> */}
-
       {/* ── Manual Date + Status Filters ── */}
       <div className="flex flex-wrap items-end gap-4 p-5 bg-white rounded-2xl border border-slate-200/70 shadow-sm transition-all duration-200 hover:shadow-md">
         {/* Start Date */}

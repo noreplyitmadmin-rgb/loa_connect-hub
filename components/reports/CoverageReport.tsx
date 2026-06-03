@@ -204,16 +204,16 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
   const exportCSV = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const rows: string[][] = [
-      ["Consultation Coverage Report"],
+      ["Consultation Reach Report"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
       ["Total Students", String(overall.totalStudents)],
       ["Students with Consultations", String(overall.studentsWithConsultations)],
       ["Students without Consultations", String(overall.studentsWithoutConsultations)],
-      ["Coverage Percentage", `${overall.coveragePercentage}%`],
+      ["Reach Rate", `${overall.coveragePercentage}%`],
       [],
-      ["Department", "Total Students", "With Consultations", "Without Consultations", "Coverage %"],
+      ["Department", "Total Students", "With Consultations", "Without Consultations", "Reach %"],
       ...byDepartment.map((d) => [
         esc(d.departmentName),
         String(d.totalStudents),
@@ -224,7 +224,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
     ]
 
     if (trend.length > 0) {
-      rows.push([], ["Monthly Trend"], ["Month", "Year", "Total Students", "Students with Consultations", "Coverage %"])
+      rows.push([], ["Monthly Trend"], ["Month", "Year", "Total Students", "Students with Consultations", "Reach %"])
       for (const t of trend) {
         rows.push([t.monthName, String(t.year), String(t.totalStudents), String(t.studentsWithConsultations), `${t.coveragePercentage}%`])
       }
@@ -235,7 +235,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Coverage_Report_${dateStr}.csv`
+    a.download = `Consultation_Reach_${dateStr}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -245,16 +245,16 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
   const exportExcel = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const rows: string[][] = [
-      ["Consultation Coverage Report"],
+      ["Consultation Reach Report"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
       ["Total Students", String(overall.totalStudents)],
       ["Students with Consultations", String(overall.studentsWithConsultations)],
       ["Students without Consultations", String(overall.studentsWithoutConsultations)],
-      ["Coverage Percentage", `${overall.coveragePercentage}%`],
+      ["Reach Rate", `${overall.coveragePercentage}%`],
       [],
-      ["Department", "Total Students", "With Consultations", "Without Consultations", "Coverage %"],
+      ["Department", "Total Students", "With Consultations", "Without Consultations", "Reach %"],
       ...byDepartment.map((d) => [
         esc(d.departmentName),
         String(d.totalStudents),
@@ -265,7 +265,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
     ]
 
     if (trend.length > 0) {
-      rows.push([], ["Monthly Trend"], ["Month", "Year", "Total Students", "Students with Consultations", "Coverage %"])
+      rows.push([], ["Monthly Trend"], ["Month", "Year", "Total Students", "Students with Consultations", "Reach %"])
       for (const t of trend) {
         rows.push([t.monthName, String(t.year), String(t.totalStudents), String(t.studentsWithConsultations), `${t.coveragePercentage}%`])
       }
@@ -276,7 +276,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Coverage_Report_${dateStr}.xls`
+    a.download = `Consultation_Reach_${dateStr}.xls`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -295,7 +295,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Consultation Coverage Report</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Consultation Reach Report</h1>
           <p className="text-sm text-slate-500 mt-1">{departmentName}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -325,14 +325,14 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
         <SummaryCard label="Total Students" value={overall.totalStudents} color="blue" />
         <SummaryCard label="With Consultations" value={overall.studentsWithConsultations} color="green" />
         <SummaryCard label="Without Consultations" value={overall.studentsWithoutConsultations} color="amber" />
-        <SummaryCard label="Coverage" value={`${overall.coveragePercentage}%`} color="purple" />
+        <SummaryCard label="Reach Rate" value={`${overall.coveragePercentage}%`} color="purple" />
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Donut Chart */}
         <div className="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
-          <h3 className="text-sm font-bold text-slate-800 mb-1">Student Coverage Distribution</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-1">Student Reach Distribution</h3>
           <p className="text-xs text-slate-400 mb-5">{overall.totalStudents} total students</p>
           {hasData ? (
             <CoverageDonut
@@ -348,7 +348,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
 
         {/* Trend Chart */}
         <div className="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
-          <h3 className="text-sm font-bold text-slate-800 mb-1">Coverage Trend</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-1">Reach Trend</h3>
           <p className="text-xs text-slate-400 mb-4">Cumulative students with consultations over time</p>
           {trend.length > 0 ? (
             <>
@@ -356,7 +356,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-emerald-400" />
-                  <span className="text-xs text-slate-500">Coverage %</span>
+                  <span className="text-xs text-slate-500">Reach %</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 bg-gold-400 border-0" style={{ borderTop: "2.5px dashed #d4a04a", width: 16, height: 0 }} />
@@ -375,7 +375,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
       {/* Department Breakdown Table */}
       <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800">Department Coverage Breakdown</h3>
+          <h3 className="text-sm font-bold text-slate-800">Department Reach Breakdown</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -385,7 +385,7 @@ export function CoverageReport({ overall, byDepartment, trend, departmentName }:
                 <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Total Students</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-emerald-600">With Consultations</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-amber-600">Without</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Coverage</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Reach</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

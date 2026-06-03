@@ -1,24 +1,18 @@
 "use client"
 
-import { useState, useMemo, useRef, useEffect } from "react"
-import TeamsLinkForm from "@/components/TeamsLinkForm"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useApiGet } from "@/lib/api/client"
-
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-
-const MINUTE_OPTIONS = [0, 15, 30, 45]
+import UserSearchSelect from "@/components/booking/UserSearchSelect"
+import AvailabilityCalendar from "@/components/booking/AvailabilityCalendar"
+import SlotSuggestions from "@/components/booking/SlotSuggestions"
+import TimeSlotPicker from "@/components/booking/TimeSlotPicker"
+import SelectedSlotsOverview from "@/components/booking/SelectedSlotsOverview"
+import ConflictBanner from "@/components/booking/ConflictBanner"
+import ResultBanner from "@/components/booking/ResultBanner"
 
 function timeToMinutes(h: number, m: number): number {
   return h * 60 + m
-}
-
-/** Validate that time is at a 15-minute boundary (HH:00, HH:15, HH:30, HH:45) */
-function isValid15MinuteTime(time: string): boolean {
-  if (!time) return false
-  const [, mins] = time.split(":").map(Number)
-  return MINUTE_OPTIONS.includes(mins)
 }
 
 interface FacultyRule {
@@ -58,11 +52,6 @@ function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
 
-function getFirstDayOfMonth(year: number, month: number) {
-  const day = new Date(year, month, 1).getDay()
-  return day === 0 ? 6 : day - 1
-}
-
 function toOurDayOfWeek(jsDay: number): number {
   return jsDay === 0 ? 6 : jsDay - 1
 }
@@ -83,15 +72,9 @@ export default function StudentBooking({ facultyList, userRole, students, server
     userRole !== "STUDENT" ? (currentUserId || null) : null
   )
   const [attendeeIds, setAttendeeIds] = useState<string[]>([])
-  const [primarySearch, setPrimarySearch] = useState("")
-  const [attendeeSearch, setAttendeeSearch] = useState("")
-  const [showPrimaryDropdown, setShowPrimaryDropdown] = useState(false)
-  const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false)
   const [primaryDeptFilter, setPrimaryDeptFilter] = useState<string>("all")
   const [attendeeDeptFilter, setAttendeeDeptFilter] = useState<string>("all")
   const [bookedAppointments, setBookedAppointments] = useState<{ date: string; startTime: string; endTime: string }[]>([])
-  const primaryRef = useRef<HTMLDivElement>(null)
-  const attendeeRef = useRef<HTMLDivElement>(null)
 
   // Date & slot selection
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
@@ -133,7 +116,7 @@ export default function StudentBooking({ facultyList, userRole, students, server
   )
   const attendeeUsers = useMemo(() => attendeeData?.users ?? [], [attendeeData])
 
-  // --- NEW: Fetch active rules dynamically for the selected primary faculty ---
+  // Fetch active rules dynamically for the selected primary faculty
   const rulesUrl = primaryFacultyId ? `/api/availability-rules?facultyId=${primaryFacultyId}` : null
   const { data: rulesData } = useApiGet<{ rules: FacultyRule[] }>(rulesUrl)
 
@@ -144,7 +127,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
 
     if (!isSelectedToday) return base
 
-    // Hide current hour once it has started — only future hours are selectable
     const currentHour = now.getHours()
     return base.filter((h) => h > currentHour)
   }, [allow24Hours, isSelectedToday, now])
@@ -157,17 +139,15 @@ export default function StudentBooking({ facultyList, userRole, students, server
   const [slotLinks, setSlotLinks] = useState<Record<string, string>>({})
   const [teamsLinkError, setTeamsLinkError] = useState("")
 
-  // Conflict warnings
   const [conflicts, setConflicts] = useState<{ userName: string; message: string; appointments?: { appointmentId: string; title: string | null; meetingType: string; date: string; startTime: string; endTime: string }[] }[]>([])
 
   const getActiveRule = (dateStr: string) => {
     if (!rulesData?.rules) return null
 
-    // Parse date string as UTC to avoid timezone issues
     const [year, month, day] = dateStr.split('-').map(Number)
     const utcDate = new Date(Date.UTC(year, month - 1, day))
     const dayOfWeek = toOurDayOfWeek(utcDate.getUTCDay())
-    
+
     return rulesData.rules.find(
       (r) =>
         r.dayOfWeek === dayOfWeek &&
@@ -195,20 +175,16 @@ export default function StudentBooking({ facultyList, userRole, students, server
 
     if (!rule || rule.isBlocked || !rule.startTime || !rule.endTime) return []
 
-    // Start with the full rule window
     let ranges = [{ start: rule.startTime, end: rule.endTime }]
 
-    // Subtract booked appointments
     const dayBookings = bookedAppointments.filter((a) => a.date === dateStr)
     for (const apt of dayBookings) {
       const newRanges: { start: string; end: string }[] = []
       for (const r of ranges) {
         if (apt.startTime < r.end && apt.endTime > r.start) {
-          // Range before the booked slot
           if (apt.startTime > r.start) {
             newRanges.push({ start: r.start, end: apt.startTime })
           }
-          // Range after the booked slot
           if (apt.endTime < r.end) {
             newRanges.push({ start: apt.endTime, end: r.end })
           }
@@ -233,37 +209,12 @@ export default function StudentBooking({ facultyList, userRole, students, server
         availableHours.add(h)
       }
     }
-    // Also respect today's past-hour filter
     if (!isSelectedToday) return Array.from(availableHours).sort((a, b) => a - b)
     const currentHour = now.getHours()
     return Array.from(availableHours).filter((h) => h > currentHour).sort((a, b) => a - b)
   }, [hourOptions, freeRanges, userRole, isSelectedToday, now])
 
-  // All available start hours (overlap is validated on add)
   const startHourOpts = studentHourOptions
-
-  // All available start minutes (overlap is validated server-side on add)
-  const getStartMinuteOpts = () => MINUTE_OPTIONS
-
-  // Filtered end hours: must be >= start hour (for 30-min min duration)
-  const getEndHourOpts = (start: string | null) => {
-    if (!start) return studentHourOptions
-    const [sH, sM] = start.split(":").map(Number)
-    const minEndMinutes = sH * 60 + sM + 30
-    const minEndH = Math.floor(minEndMinutes / 60)
-    return studentHourOptions.filter(h => h >= minEndH)
-  }
-
-  // Filtered end minutes: when same hour as min end hour, only allow minutes >= min end minute
-  const getEndMinuteOpts = (start: string | null, selEndHour: number) => {
-    if (!start) return MINUTE_OPTIONS
-    const [sH, sM] = start.split(":").map(Number)
-    const minEndMinutes = sH * 60 + sM + 30
-    const minEndH = Math.floor(minEndMinutes / 60)
-    const minEndM = minEndMinutes % 60
-    if (selEndHour !== minEndH) return MINUTE_OPTIONS
-    return MINUTE_OPTIONS.filter(m => m >= minEndM)
-  }
 
   // Determine day status for student booking (primary faculty only)
   const getDayStatus = (year: number, month: number, day: number): "available" | "partially" | "not-available" | "blocked" => {
@@ -275,16 +226,13 @@ export default function StudentBooking({ facultyList, userRole, students, server
     if (rule.isBlocked) return "not-available"
     if (!rule.startTime || !rule.endTime) return "not-available"
 
-    // Get ACCEPTED appointments for this day
     const dayBookings = bookedAppointments.filter((a) => a.date === dateStr)
     if (dayBookings.length === 0) return "available"
 
-    // Calculate total available time from rule
     const ruleStart = timeToMinutes(parseInt(rule.startTime.split(":")[0]), parseInt(rule.startTime.split(":")[1]))
     const ruleEnd = timeToMinutes(parseInt(rule.endTime.split(":")[0]), parseInt(rule.endTime.split(":")[1]))
     const totalAvailableMinutes = ruleEnd - ruleStart
 
-    // Calculate overlapping booked minutes
     let bookedMinutes = 0
     for (const apt of dayBookings) {
       const aptStart = timeToMinutes(parseInt(apt.startTime.split(":")[0]), parseInt(apt.startTime.split(":")[1]))
@@ -300,13 +248,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
     if (bookedMinutes >= totalAvailableMinutes) return "not-available"
     return "partially"
   }
-
-  const daysInMonth = getDaysInMonth(currentYear, currentMonth)
-  const firstDayOffset = getFirstDayOfMonth(currentYear, currentMonth)
-
-  const calendarCells: (number | null)[] = []
-  for (let i = 0; i < firstDayOffset; i++) calendarCells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d)
 
   const prevMonth = () => {
     if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear((y) => y - 1) }
@@ -344,7 +285,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
     setSelectedSlots((prev) => {
       const exists = prev.some((s) => s.date === newSlot.date && s.start === newSlot.start && s.end === newSlot.end)
       if (exists) return prev
-      // Also reject overlap with existing slots on same day
       const overlaps = prev.some((s) => {
         if (s.date !== dateStr) return false
         return slot.start < s.end && slot.end > s.start
@@ -366,7 +306,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
     setSubmitting(true)
 
     try {
-      // Build payload
       const payload: Record<string, unknown> = {
         facultyIds: [primaryFacultyId],
         timeSlots: selectedSlots.map((s) => ({ date: s.date, startTime: s.start, endTime: s.end })),
@@ -376,7 +315,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
         meetingType: userRole === "STUDENT" ? "CONSULTATION" : "INTERNAL",
       }
 
-      // If creator is faculty/dean and teams form is shown, validate and attach links
       if ((userRole === "FACULTY" || userRole === "DEAN") && showTeamsLinkForm) {
         setTeamsLinkError("")
         if (teamsLinkMode === "single") {
@@ -387,7 +325,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
           }
           payload.teamsLink = singleLink.trim()
         } else {
-          // per-slot: ensure each selected slot has a link
           const missing = selectedSlots.find((s) => !slotLinks[`${s.date}-${s.start}-${s.end}`]?.trim())
           if (missing) {
             setTeamsLinkError("Please provide a Teams link for each time slot")
@@ -403,9 +340,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
       }
 
       const req = JSON.stringify(payload)
-
-      console.log("Booking request payload:", payload);
-
       const res = await fetch("/api/appointments/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: req })
 
       const data = await res.json()
@@ -427,14 +361,12 @@ export default function StudentBooking({ facultyList, userRole, students, server
         setResult({ success: 0, errors: [data.error || "Booking failed"] })
       }
     } catch (err: unknown) {
-      console.error("DEBUG: Frontend Caught Error:", err);
       const errObj = err as Record<string, unknown>
       setResult({
         success: 0,
         errors: [(errObj.message as string) || "An unexpected error occurred. Check server logs."]
       });
     } finally {
-      //TODO: Remove if error 
       if (userRole === "STUDENT") {
         router.push("/student/meetings")
       } else {
@@ -452,29 +384,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
     return Array.from(depts).sort()
   }, [facultyList])
 
-  // Search results — API handles role/department filtering, client handles text search
-  const primarySearchResults = useMemo(() => {
-    if (!primarySearch.trim()) return []
-    const q = primarySearch.toLowerCase()
-    const exclude = primaryFacultyId ? [primaryFacultyId] : []
-    return primaryUsers.filter(
-      (u) =>
-        !exclude.includes(u.id) &&
-        (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-    )
-  }, [primarySearch, primaryFacultyId, primaryUsers])
-
-  const attendeeSearchResults = useMemo(() => {
-    if (!attendeeSearch.trim()) return []
-    const q = attendeeSearch.toLowerCase()
-    const exclude = [primaryFacultyId, ...attendeeIds].filter(Boolean) as string[]
-    return attendeeUsers.filter(
-      (u) =>
-        !exclude.includes(u.id) &&
-        (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-    )
-  }, [attendeeSearch, attendeeIds, primaryFacultyId, attendeeUsers])
-
   const teamsLinkSlots = useMemo(
     () => selectedSlots.map((slot) => ({
       key: `${slot.date}-${slot.start}-${slot.end}`,
@@ -484,16 +393,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
     })),
     [selectedSlots]
   )
-
-  // Click outside to close dropdowns
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (primaryRef.current && !primaryRef.current.contains(e.target as Node)) setShowPrimaryDropdown(false)
-      if (attendeeRef.current && !attendeeRef.current.contains(e.target as Node)) setShowAttendeeDropdown(false)
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
 
   return (
     <div className="space-y-6">
@@ -513,41 +412,12 @@ export default function StudentBooking({ facultyList, userRole, students, server
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <div ref={primaryRef} className="relative flex-1">
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  value={primarySearch}
-                  onChange={(e) => { setPrimarySearch(e.target.value); setShowPrimaryDropdown(true) }}
-                  onFocus={() => { if (primarySearch.trim()) setShowPrimaryDropdown(true) }}
-                  placeholder="Search by name or email..."
-                  className="input text-xs pl-9 w-full"
-                />
-              </div>
-              {showPrimaryDropdown && primarySearchResults.length > 0 && (
-                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {primarySearchResults.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => { selectPrimary(f.id); setPrimarySearch(""); setShowPrimaryDropdown(false) }}
-                      className="w-full text-left px-3 py-2.5 hover:bg-gold-50 border-b border-slate-50 last:border-b-0 transition-colors"
-                    >
-                      <p className="text-sm font-medium text-slate-800">{f.name}</p>
-                      <p className="text-xs text-slate-400">{f.email}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {showPrimaryDropdown && primarySearch.trim() && primarySearchResults.length === 0 && (
-                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg p-3">
-                  <p className="text-xs text-slate-400">No faculty match your search.</p>
-                </div>
-              )}
-            </div>
+            <UserSearchSelect
+              users={primaryUsers}
+              excludeIds={primaryFacultyId ? [primaryFacultyId] : []}
+              onSelect={(user) => selectPrimary(user.id)}
+              placeholder="Search by name or email..."
+            />
             {allDepartments.length > 0 && (
               <select
                 value={primaryDeptFilter}
@@ -626,41 +496,12 @@ export default function StudentBooking({ facultyList, userRole, students, server
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <div ref={attendeeRef} className="relative flex-1">
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  value={attendeeSearch}
-                  onChange={(e) => { setAttendeeSearch(e.target.value); setShowAttendeeDropdown(true) }}
-                  onFocus={() => { if (attendeeSearch.trim()) setShowAttendeeDropdown(true) }}
-                  placeholder="Search by name or email..."
-                  className="input text-xs pl-9 w-full"
-                />
-              </div>
-              {showAttendeeDropdown && attendeeSearchResults.length > 0 && (
-                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {attendeeSearchResults.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => { toggleAttendee(p.id); setAttendeeSearch(""); setShowAttendeeDropdown(false) }}
-                      className="w-full text-left px-3 py-2.5 hover:bg-gold-50 border-b border-slate-50 last:border-b-0 transition-colors"
-                    >
-                      <p className="text-sm font-medium text-slate-800">{p.name}</p>
-                      <p className="text-xs text-slate-400">{p.email}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {showAttendeeDropdown && attendeeSearch.trim() && attendeeSearchResults.length === 0 && (
-                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg p-3">
-                  <p className="text-xs text-slate-400">No users match your search.</p>
-                </div>
-              )}
-            </div>
+            <UserSearchSelect
+              users={attendeeUsers}
+              excludeIds={[primaryFacultyId, ...attendeeIds].filter(Boolean) as string[]}
+              onSelect={(user) => toggleAttendee(user.id)}
+              placeholder="Search by name or email..."
+            />
             {allDepartments.length > 0 && (
               <select
                 value={attendeeDeptFilter}
@@ -673,7 +514,6 @@ export default function StudentBooking({ facultyList, userRole, students, server
                 ))}
               </select>
             )}
-
           </div>
 
           {/* Selected attendee chips */}
@@ -713,72 +553,19 @@ export default function StudentBooking({ facultyList, userRole, students, server
       {primaryFacultyId && (userRole === "STUDENT" || attendeeIds.length > 0) && (
         <section className="space-y-3">
           <h3 className="text-sm font-bold text-slate-700">3. Pick a Date & Time</h3>
-          {userRole === "STUDENT" && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-semibold">
-              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Available</span>
-              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" /> Partial</span>
-              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 shrink-0" /> Unavail.</span>
-              {/* <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" /> Blocked</span> */}
-            </div>
-          )}
 
-          {/* Calendar */}
-          <div className="flex items-center justify-between">
-            <button onClick={prevMonth} className="p-3 sm:p-2 rounded-lg hover:bg-slate-100 text-slate-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h4 className="text-base font-bold text-slate-800">{MONTH_NAMES[currentMonth]} {currentYear}</h4>
-            <button onClick={nextMonth} className="p-3 sm:p-2 rounded-lg hover:bg-slate-100 text-slate-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="card overflow-hidden bg-white">
-            <div className="grid grid-cols-7 border-b border-slate-100">
-              {DAY_NAMES.map((d) => (
-                <div key={d} className="px-1 sm:px-2 py-2 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">{d}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {calendarCells.map((day, idx) => {
-                if (day === null) return <div key={`empty-${idx}`} className="p-2" />
-                const dayStatus = getDayStatus(currentYear, currentMonth, day)
-                const isToday = day === now.getDate() && currentMonth === now.getMonth() && currentYear === now.getFullYear()
-                const isSelected = selectedDay === day
-                const isPast = currentYear < now.getFullYear() ||
-                  (currentYear === now.getFullYear() && currentMonth < now.getMonth()) ||
-                  (currentYear === now.getFullYear() && currentMonth === now.getMonth() && day < now.getDate())
-
-                const dotColor = dayStatus === "available" ? "bg-emerald-500" :
-                  dayStatus === "partially" ? "bg-blue-400" :
-                    dayStatus === "not-available" ? "bg-red-400" :
-                      "bg-slate-400"
-
-                return (
-                  <button
-                    key={day}
-                    onClick={() => { if (!isPast) handleDayClick(day) }}
-                    disabled={isPast}
-                    className={`p-1 sm:p-2 min-h-[40px] sm:min-h-[56px] border border-slate-50 relative transition-colors flex flex-col items-center justify-start
-                      ${isSelected ? "bg-gold-50 border-gold-200 z-10" : ""}
-                      ${!isPast ? "hover:bg-gold-50/50 cursor-pointer" : ""}
-                      ${isPast ? "opacity-40" : ""}`}
-                  >
-                    <span className={`text-xs font-semibold ${isToday ? "bg-gold-600 text-white w-6 h-6 rounded-full flex items-center justify-center" : "text-slate-700"}`}>
-                      {day}
-                    </span>
-                    {(!isPast) && (
-                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${userRole === "STUDENT" ? dotColor : ""}`}>{}</span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <AvailabilityCalendar
+            currentYear={currentYear}
+            currentMonth={currentMonth}
+            selectedDay={selectedDay}
+            now={now}
+            userRole={userRole}
+            onDayClick={handleDayClick}
+            onPrevMonth={prevMonth}
+            onNextMonth={nextMonth}
+            getDayStatus={getDayStatus}
+            showLegend
+          />
 
           {/* Available Slots & Manual Time Entry */}
           {selectedDay && (
@@ -787,179 +574,28 @@ export default function StudentBooking({ facultyList, userRole, students, server
                 {fmtDate(currentYear, currentMonth, selectedDay)}
               </h4>
 
-              {/* Hourly suggestions — click to pre-fill time selectors, then adjust */}
-              {freeRanges.length > 0 && (() => {
-                const isToday =
-                  selectedDay === now.getDate() &&
-                  currentMonth === now.getMonth() &&
-                  currentYear === now.getFullYear()
-                const currentMinutes = now.getHours() * 60 + now.getMinutes()
-                const suggestions = freeRanges.flatMap((range) => {
-                  const result: { start: string; end: string }[] = []
-                  const startH = parseInt(range.start.split(":")[0])
-                  const endH = parseInt(range.end.split(":")[0])
-                  for (let h = startH; h < endH; h++) {
-                    if (isToday && timeToMinutes(h, 0) < currentMinutes) continue
-                    result.push({
-                      start: `${String(h).padStart(2, "0")}:00`,
-                      end: `${String(h + 1).padStart(2, "0")}:00`,
-                    })
-                  }
-                  return result
-                })
-                const currentDateStr = fmtDate(currentYear, currentMonth, selectedDay)
-                const addedSlotsForDate = selectedSlots.filter(s => s.date === currentDateStr)
-                const filteredSuggestions = suggestions.filter(s =>
-                  !addedSlotsForDate.some(a =>
-                    a.start < s.end && s.start < a.end
-                  )
-                )
-                const displayed = showAllBlocks ? filteredSuggestions : filteredSuggestions.slice(0, 5)
-                return (
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600 mb-2">Suggested — click to use, then edit the time:</p>
-                    <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {displayed.map((slot, i) => {
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => setManualTime({ start: slot.start, end: slot.end })}
-                            className="card p-3 bg-white border border-slate-200 hover:border-slate-300 flex items-center justify-between transition-colors"
-                          >
-                            <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-                              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {slot.start} – {slot.end}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {filteredSuggestions.length > 5 && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllBlocks(!showAllBlocks)}
-                        className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-700"
-                      >
-                        {showAllBlocks ? "Show less" : `Show more (${filteredSuggestions.length - 5} more)`}
-                      </button>
-                    )}
-                  </div>
-                )
-              })()}
+              <SlotSuggestions
+                freeRanges={freeRanges}
+                selectedDay={selectedDay}
+                currentYear={currentYear}
+                currentMonth={currentMonth}
+                now={now}
+                selectedSlots={selectedSlots}
+                showAllBlocks={showAllBlocks}
+                onToggleShowAll={() => setShowAllBlocks((v) => !v)}
+                onSlotClick={(slot) => setManualTime({ start: slot.start, end: slot.end })}
+              />
 
-              <div className="space-y-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                {freeRanges.length === 0 && userRole === "STUDENT" ? (
-                  <div className="text-xs text-red-700">
-                    <p className="font-semibold">No common availability</p>
-                    <p className="opacity-75">Add a custom block and invited faculty will review it.</p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">You can also add additional custom blocks for this day.</p>
-                )}
-                <div className="flex flex-col gap-2">
-                  {userRole !== "STUDENT" && (
-                    <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={allow24Hours}
-                        onChange={(e) => setAllow24Hours(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded border-slate-300 text-gold-600 focus:ring-gold-500"
-                      />
-                      Allow 24-hour range (00:00 – 23:00)
-                    </label>
-                  )}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="text-[10px] font-semibold text-slate-400 sm:hidden w-8">Start</label>
-                      <select
-                        value={manualTime?.start ? manualTime.start.split(":")[0] : ""}
-                        onChange={(e) => {
-                          const h = e.target.value
-                          const m = manualTime?.start?.split(":")[1] || "00"
-                          const endH = Math.min(parseInt(h) + 1, 23)
-                          setManualTime({ start: `${h}:${m}`, end: `${String(endH).padStart(2, "0")}:00` })
-                        }}
-                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
-                      >
-                        <option value="" disabled>HH</option>
-                        {startHourOpts.map((h) => (
-                          <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>
-                        ))}
-                      </select>
-                      <span className="text-slate-400 font-bold shrink-0">:</span>
-                      <select
-                        value={manualTime?.start?.split(":")[1] || ""}
-                        onChange={(e) => {
-                          const m = e.target.value
-                          const h = manualTime?.start?.split(":")[0] || "00"
-                          setManualTime((prev) => ({ start: `${h}:${m}`, end: prev?.end || "" }))
-                        }}
-                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
-                      >
-                        <option value="" disabled>MM</option>
-                        {getStartMinuteOpts().map((m) => (
-                          <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-center sm:px-2">
-                      <span className="text-xs font-semibold text-slate-400">to</span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <label className="text-[10px] font-semibold text-slate-400 sm:hidden w-8">End</label>
-                      <select
-                        value={manualTime?.end ? manualTime.end.split(":")[0] : ""}
-                        onChange={(e) => {
-                          const h = e.target.value
-                          const m = manualTime?.end?.split(":")[1] || "00"
-                          setManualTime((prev) => ({ start: prev?.start || "", end: `${h}:${m}` }))
-                        }}
-                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
-                      >
-                        <option value="" disabled>HH</option>
-                        {getEndHourOpts(manualTime?.start || null).map((h) => (
-                          <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>
-                        ))}
-                      </select>
-                      <span className="text-slate-400 font-bold shrink-0">:</span>
-                      <select
-                        value={manualTime?.end?.split(":")[1] || ""}
-                        onChange={(e) => {
-                          const m = e.target.value
-                          const h = manualTime?.end?.split(":")[0] || "00"
-                          setManualTime((prev) => ({ start: prev?.start || "", end: `${h}:${m}` }))
-                        }}
-                        className="input text-xs py-2 flex-1 sm:w-auto min-w-0"
-                      >
-                        <option value="" disabled>MM</option>
-                        {getEndMinuteOpts(manualTime?.start || null, parseInt(manualTime?.end?.split(":")[0] || "0")).map((m) => (
-                          <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        if (manualTime?.start && manualTime?.end && isValid15MinuteTime(manualTime.start) && isValid15MinuteTime(manualTime.end)) {
-                          handleAddSlot({ start: manualTime.start, end: manualTime.end })
-                          setManualTime(null)
-                        }
-                      }}
-                      disabled={!manualTime?.start || !manualTime?.end}
-                      className="btn-primary text-xs py-3 sm:py-1.5 px-4 disabled:opacity-50 shrink-0"
-                    >
-                      Add Block
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-slate-500">Min 30 min, max 8 hrs per block. 15-min intervals.</p>
-                </div>
-              </div>
-
+              <TimeSlotPicker
+                freeRanges={freeRanges}
+                userRole={userRole}
+                startHourOpts={startHourOpts}
+                manualTime={manualTime}
+                onManualTimeChange={setManualTime}
+                onAddBlock={handleAddSlot}
+                allow24Hours={allow24Hours}
+                onToggle24Hours={() => setAllow24Hours((v) => !v)}
+              />
             </div>
           )}
         </section>
@@ -967,160 +603,42 @@ export default function StudentBooking({ facultyList, userRole, students, server
 
       {/* 4. Booking Form */}
       {selectedSlots.length > 0 && primaryFacultyId && (
-        <form onSubmit={handleBook} className="card p-5 bg-white space-y-4">
-          <h3 className="text-sm font-bold text-slate-700">4. Confirm Booking</h3>
-
-          <div className="p-3 rounded-lg bg-gold-50 border border-gold-100 text-sm space-y-3">
-            <div>
-              <p className="text-gold-700 font-semibold">Selected Time Slots</p>
-              <ul className="mt-2 space-y-2">
-                {selectedSlots.map((slot, index) => (
-                  <li key={`${slot.date}-${slot.start}-${slot.end}-${index}`} className="flex items-center justify-between rounded-lg bg-white border border-slate-200 px-3 py-2 text-sm">
-                    <span>{slot.date} · {slot.start} – {slot.end}</span>
-                    <button type="button" onClick={() => handleRemoveSlot(index)} className="text-xs text-red-600 hover:text-red-700">
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className="text-gold-700 font-semibold">Participants</p>
-              <p className="text-gold-600 text-xs mt-1">
-                {(() => {
-                  const primary = facultyList.find((f) => f.id === primaryFacultyId)
-
-                  const attendeeMap = new Map<string, string>()
-
-                  // Faculty/Dean attendees first
-                  facultyList
-                    .filter((f) => attendeeIds.includes(f.id))
-                    .forEach((f) => {
-                      attendeeMap.set(
-                        f.id,
-                        `${f.name}${f.department ? ` (${f.department})` : ""}`
-                      )
-                    })
-
-                    // Only add students that are not already faculty/deans
-                    ; (students || [])
-                      .filter((s) => attendeeIds.includes(s.id))
-                      .forEach((s) => {
-                        if (!attendeeMap.has(s.id)) {
-                          attendeeMap.set(s.id, `${s.name} (Student)`)
-                        }
-                      })
-
-                  const parts: string[] = []
-
-                  if (primary) {
-                    parts.push(`${primary.name} (Primary)`)
-                  }
-
-                  parts.push(...attendeeMap.values())
-
-                  return parts.length > 0 ? parts.join(", ") : "No participants"
-                })()}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <label className="input-label">Meeting Title <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="input"
-              placeholder="e.g. Thesis Consultation"
-              required
-            />
-          </div>
-          <div>
-            <label className="input-label">Concern / Agenda (optional)</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="input min-h-[80px]"
-              placeholder="Topics to discuss, questions..."
-            />
-          </div>
-
-          {/* Teams link form for Faculty/Dean — shown after initial click */}
-          {(userRole === "FACULTY" || userRole === "DEAN") && showTeamsLinkForm && (
-            <TeamsLinkForm
-              teamsLinkMode={teamsLinkMode}
-              onModeChange={setTeamsLinkMode}
-              singleLink={singleLink}
-              onSingleLinkChange={setSingleLink}
-              slotLinks={slotLinks}
-              onSlotLinkChange={(key, value) => setSlotLinks((prev) => ({ ...prev, [key]: value }))}
-              timeSlots={teamsLinkSlots}
-              error={teamsLinkError}
-            />
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            {userRole === "STUDENT" ? (
-              <button type="submit" disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-3 sm:py-2.5 disabled:opacity-50 w-full sm:w-auto">
-                {submitting ? "Booking..." : "Book Consultation"}
-              </button>
-            ) : (
-              <button type="button" onClick={() => {
-                if (!showTeamsLinkForm) {
-                  setShowTeamsLinkForm(true)
-                  return
-                }
-                // If form already shown, submit normally
-                const submitEvent = { preventDefault: () => { } } as unknown as React.FormEvent
-                handleBook(submitEvent)
-              }} disabled={submitting || !title.trim()} className="btn-primary text-sm font-semibold px-6 py-3 sm:py-2.5 disabled:opacity-50 w-full sm:w-auto">
-                {submitting ? "Booking..." : "Create Meeting"}
-              </button>
-            )}
-          </div>
-        </form>
+        <SelectedSlotsOverview
+          selectedSlots={selectedSlots}
+          primaryFacultyId={primaryFacultyId}
+          facultyList={facultyList.map((f) => ({ id: f.id, name: f.name, email: f.email, department: f.department }))}
+          attendeeIds={attendeeIds}
+          students={students?.map((s) => ({ id: s.id, name: s.name, email: s.email, department: s.department }))}
+          onRemoveSlot={handleRemoveSlot}
+          title={title}
+          onTitleChange={setTitle}
+          description={description}
+          onDescriptionChange={setDescription}
+          userRole={userRole}
+          submitting={submitting}
+          onBook={handleBook}
+          showTeamsLinkForm={showTeamsLinkForm}
+          onShowTeamsLinkForm={() => setShowTeamsLinkForm(true)}
+          teamsLinkMode={teamsLinkMode}
+          onTeamsLinkModeChange={setTeamsLinkMode}
+          singleLink={singleLink}
+          onSingleLinkChange={setSingleLink}
+          slotLinks={slotLinks}
+          onSlotLinkChange={(key, value) => setSlotLinks((prev) => ({ ...prev, [key]: value }))}
+          teamsLinkSlots={teamsLinkSlots}
+          teamsLinkError={teamsLinkError}
+        />
       )}
 
-      {/* Conflicts (outside form so it persists) */}
-      {conflicts.length > 0 && (
-        <div className={`p-3 rounded-lg text-xs space-y-1 border ${result?.success ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-red-50 text-red-700 border-red-200"}`}>
-          <p className="font-semibold">Schedule Conflicts Detected</p>
-          {conflicts.map((c, i) => (
-            <div key={i} className="space-y-0.5">
-              <p className="font-semibold">{c.userName}: {c.message}</p>
-              {c.appointments && c.appointments.map((a, j) => (
-                <a
-                  key={j}
-                  href={`/${userRole === "STUDENT" ? "student" : "faculty"}/meetings/${a.appointmentId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 underline hover:opacity-80 ml-2"
-                >
-                  {a.meetingType === "CONSULTATION" ? "Consultation" : "Meeting"}{a.title ? `: ${a.title}` : ""} &mdash; {a.date} {a.startTime}&ndash;{a.endTime}
-                </a>
-              ))}
-            </div>
-          ))}
-          {result?.success ? (
-            <p className="opacity-75 pt-1">You can still proceed with booking. Invited faculty will review and accept/decline.</p>
-          ) : (
-            <p className="opacity-75 pt-1">Please resolve the conflicts before booking.</p>
-          )}
-        </div>
-      )}
+      {/* Conflicts */}
+      <ConflictBanner
+        conflicts={conflicts}
+        userRole={userRole}
+        isSuccess={result?.success ? true : false}
+      />
 
       {/* Result */}
-      {result && (
-        <div className={`p-3 rounded-lg text-xs font-medium border ${result.errors.length > 0
-          ? "bg-amber-50 text-amber-700 border-amber-200"
-          : "bg-emerald-50 text-emerald-700 border-emerald-200"
-          }`}>
-          {result.success > 0 && <p>{result.success} appointment(s) created successfully.</p>}
-          {result.sessionGroupId && <p className="text-[10px] opacity-75 mt-1">Session: {result.sessionGroupId}</p>}
-          {result.errors.map((err, i) => <p key={i} className="text-red-600">{err}</p>)}
-        </div>
-      )}
+      <ResultBanner result={result} />
 
       {!primaryFacultyId && (
         <div className="card p-12 text-center bg-white">

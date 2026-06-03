@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getWorkloadDistributionData } from "@/lib/controllers/distribution-reports"
 import { WorkloadDistributionReport } from "@/components/reports/WorkloadDistributionReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
+import { ReportHeader } from "@/components/reports/ReportHeader"
 import { resolveReportDepartment } from "@/lib/utils/report-helpers"
 import { getDefaultDateRange } from "@/lib/utils/date"
 import { Suspense } from "react"
@@ -29,7 +30,7 @@ export default async function DistributionPage(props: {
   } catch (err) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12">
-        <h1 className="text-2xl font-bold text-slate-900">Consultation Workload Distribution Report</h1>
+        <ReportHeader title="Distribution Report" />
         <div className="rounded-2xl border border-slate-200/70 bg-white p-8 shadow-sm text-center">
           <p className="text-slate-500">{(err as Error).message}</p>
         </div>
@@ -39,13 +40,15 @@ export default async function DistributionPage(props: {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      <Suspense fallback={<div className="h-12" />}>
-        <ReportFiltersWithDept
-          departments={departments}
-          selectedDepartmentId={departmentId}
-          isDean={isDean}
-        />
-      </Suspense>
+      <ReportHeader title="Distribution Report">
+        <Suspense fallback={<div className="h-12" />}>
+          <ReportFiltersWithDept
+            departments={departments}
+            selectedDepartmentId={departmentId}
+            isDean={isDean}
+          />
+        </Suspense>
+      </ReportHeader>
 
       <WorkloadDistributionReport
         entries={data.entries}

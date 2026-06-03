@@ -240,7 +240,6 @@ export function AppointmentCard({ appointment, role }: AppointmentCardProps) {
                     }`}
                   >
                     {att.status}
-                    {/* {att.isMandatory !== false ? "Required" : "Optional"} */}
                   </span>
                 </span>
               ))}

@@ -48,7 +48,7 @@ export function ResponsivenessReport({
     }
 
     const csvRows: string[][] = [
-      ["Department Responsiveness Report"],
+      ["Turn-around Time (TAT) Report"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -78,7 +78,7 @@ export function ResponsivenessReport({
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Responsiveness_${dateStr}.csv`
+    a.download = `TAT_Report_${dateStr}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -96,7 +96,7 @@ export function ResponsivenessReport({
     }
 
     const csvRows: string[][] = [
-      ["Department Responsiveness Report"],
+      ["Turn-around Time (TAT) Report"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -127,7 +127,7 @@ export function ResponsivenessReport({
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Responsiveness_${dateStr}.xls`
+    a.download = `TAT_Report_${dateStr}.xls`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -139,7 +139,7 @@ export function ResponsivenessReport({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Department Responsiveness Report</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Turn-around Time (TAT) Report</h1>
           <p className="text-sm text-slate-500 mt-1">{departmentName}</p>
         </div>
         <div className="flex items-center gap-2">

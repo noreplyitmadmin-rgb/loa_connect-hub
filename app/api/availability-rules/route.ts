@@ -32,18 +32,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ rules })
 }
 
-// export async function GET() {
-//   const session = await auth()
-//   const role = (session?.user as Record<string, unknown>)?.role as string
-//   if (!role || (!hasRole(role, "FACULTY") && !hasRole(role, "DEAN"))) {
-//     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-//   }
-
-//   const facultyId = (session!.user as Record<string, unknown>).id as string
-//   const rules = await listAvailabilityRules(facultyId)
-//   return NextResponse.json({ rules })
-// }
-
 export async function POST(request: NextRequest) {
   const session = await auth()
   const role = (session?.user as Record<string, unknown>)?.role as string

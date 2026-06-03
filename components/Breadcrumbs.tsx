@@ -16,6 +16,12 @@ const LABELS: Record<string, string> = {
   "graph-users": "Entra ID Users",
   users: "Users",
   new: "New",
+  responsiveness: "TAT Report",
+  distribution: "Faculty Consultation Load",
+  coverage: "Consultation Reach",
+  backlog: "Faculty Response Monitor",
+  health: "General Report",
+  demand: "Demand Trend",
 }
 
 export default function Breadcrumbs() {

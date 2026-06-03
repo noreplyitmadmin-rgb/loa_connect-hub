@@ -62,7 +62,7 @@ function pageLabel(p: string): string {
     "/student/meetings": "Student Consultations",
     "/faculty": "Faculty Dashboard",
     "/faculty/meetings": "Faculty Meetings",
-    "/faculty/availability": "Availability Rules",
+    "/faculty/availability": "Availability Settings",
     "/faculty/upload": "Import Students",
     "/faculty/reports": "Department Reports",
     "/dean": "Dean Dashboard",

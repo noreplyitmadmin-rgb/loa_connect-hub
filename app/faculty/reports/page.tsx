@@ -82,11 +82,6 @@ export default async function DeanReportsPage(props: {
         stats={data.stats}
         rawAppointments={data.rawAppointments}
         summaries={data.summaries}
-        departmentFrequency={data.departmentFrequency}
-        facultyFrequency={data.facultyFrequency}
-        departmentYearlyFrequency={data.departmentYearlyFrequency}
-        facultyYearlyFrequency={data.facultyYearlyFrequency}
-        deanId={deanId}
       />
     </div>
   )
