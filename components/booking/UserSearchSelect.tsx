@@ -15,6 +15,27 @@ interface UserSearchSelectProps {
   placeholder?: string
 }
 
+function getSurname(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return parts.length > 1 ? parts[parts.length - 1] : name
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function highlightMatch(text: string, query: string) {
+  if (!query.trim()) return text
+  const escaped = escapeRegex(query)
+  const regex = new RegExp(`(${escaped})`, "gi")
+  const parts = text.split(regex)
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <span key={i} className="bg-yellow-200 font-semibold rounded px-0.5">{part}</span>
+      : part
+  )
+}
+
 export default function UserSearchSelect({
   users,
   excludeIds,
@@ -38,11 +59,27 @@ export default function UserSearchSelect({
   const results = useMemo(() => {
     if (!search.trim()) return []
     const q = search.toLowerCase()
-    return users.filter(
+    const filtered = users.filter(
       (u) =>
         !excludeIds.includes(u.id) &&
         (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
     )
+    return filtered.sort((a, b) => {
+      const aNameStarts = a.name.toLowerCase().startsWith(q)
+      const bNameStarts = b.name.toLowerCase().startsWith(q)
+      const aEmailStarts = a.email.toLowerCase().startsWith(q)
+      const bEmailStarts = b.email.toLowerCase().startsWith(q)
+
+      if (aNameStarts && !bNameStarts) return -1
+      if (!aNameStarts && bNameStarts) return 1
+
+      if (aEmailStarts && !bEmailStarts) return -1
+      if (!aEmailStarts && bEmailStarts) return 1
+
+      const aSurname = getSurname(a.name)
+      const bSurname = getSurname(b.name)
+      return aSurname.localeCompare(bSurname)
+    })
   }, [search, users, excludeIds])
 
   const handleSelect = (user: UserItem) => {
@@ -78,8 +115,8 @@ export default function UserSearchSelect({
               onClick={() => handleSelect(u)}
               className="w-full text-left px-3 py-2.5 hover:bg-gold-50 border-b border-slate-50 last:border-b-0 transition-colors"
             >
-              <p className="text-sm font-medium text-slate-800">{u.name}</p>
-              <p className="text-xs text-slate-400">{u.email}</p>
+              <p className="text-sm font-medium text-slate-800">{highlightMatch(u.name, search)}</p>
+              <p className="text-xs text-slate-400">{highlightMatch(u.email, search)}</p>
             </button>
           ))}
         </div>
