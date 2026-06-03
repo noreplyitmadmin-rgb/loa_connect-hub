@@ -78,7 +78,7 @@ export async function sendMeetingInviteEmail(
 }
 
 export async function sendConsultationInvite(
-  to: { email: string; name: string },
+  recipient: { email: string; name: string },
   data: {
     studentName: string
     studentEmail: string
@@ -89,14 +89,13 @@ export async function sendConsultationInvite(
     endTime: string
     title?: string | null
     description?: string | null
-    viewUrl: string,
-    cc?: string | string[] | null
+    viewUrl: string
   },
   icalString?: string
 ) {
   const { consultationInviteHtml } = await import("@/lib/email-templates/consultation-invite")
   const html = consultationInviteHtml({
-    recipientName: to.name,
+    recipientName: recipient.name,
     studentName: data.studentName,
     studentEmail: data.studentEmail,
     facultyName: data.facultyName,
@@ -107,12 +106,11 @@ export async function sendConsultationInvite(
     title: data.title,
     description: data.description,
     viewUrl: data.viewUrl,
-    cc: data.cc,
   })
 
   if (!isEmailEnabled()) {
     console.log("[DEV] Consultation invite email (EMAIL_FEATURE_FLAG=false):")
-    console.log(`  To: ${to.email} (${to.name})`)
+    console.log(`  To: ${recipient.email} (${recipient.name})`)
     console.log(`  .ics: ${icalString ? "attached" : "none"}`)
     return
   }
@@ -121,10 +119,9 @@ export async function sendConsultationInvite(
 
   const mail: Mail.Options = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
-    to: to.email,
+    to: recipient.email,
     subject: `${data.studentName} is requesting for Consultation`,
     html,
-    cc: data.cc ?? undefined,
     ...(icalString ? {
       attachments: [{
         filename: "event.ics",
@@ -138,7 +135,7 @@ export async function sendConsultationInvite(
 }
 
 export async function sendMeetingInviteWithICS(
-  to: { email: string; name: string },
+  recipient: { email: string; name: string },
   data: {
     organizerName: string
     title: string
@@ -147,14 +144,13 @@ export async function sendMeetingInviteWithICS(
     startTime: string
     endTime: string
     participantNames: string[]
-    viewUrl: string,
-    cc?: string | string[] | null
+    viewUrl: string
   },
   icalString?: string
 ) {
   const { meetingInviteHtml } = await import("@/lib/email-templates/meeting-invite")
   const html = meetingInviteHtml({
-    recipientName: to.name,
+    recipientName: recipient.name,
     organizerName: data.organizerName,
     title: data.title,
     description: data.description,
@@ -163,12 +159,11 @@ export async function sendMeetingInviteWithICS(
     endTime: data.endTime,
     participantNames: data.participantNames,
     viewUrl: data.viewUrl,
-    cc: data.cc,
   })
 
   if (!isEmailEnabled()) {
     console.log("[DEV] Consultation invite email (EMAIL_FEATURE_FLAG=false):")
-    console.log(`  To: ${to.email} (${to.name})`)
+    console.log(`  To: ${recipient.email} (${recipient.name})`)
     console.log(`  .ics: ${icalString ? "attached" : "none"}`)
     return
   }
@@ -177,10 +172,9 @@ export async function sendMeetingInviteWithICS(
 
   const mail: Mail.Options = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
-    to: to.email,
+    to: recipient.email,
     subject: `Consultation Invitation — ${data.title}`,
     html,
-    ...(data.cc ? { cc: data.cc } : {}),
     ...(icalString ? {
       attachments: [{
         filename: "event.ics",
@@ -194,8 +188,7 @@ export async function sendMeetingInviteWithICS(
 }
 
 export async function sendApprovedWithTeamsLink(
-  to: { email: string; name: string },
-  ccList: { email: string; name: string }[],
+  recipient: { email: string; name: string },
   data: {
     studentName: string
     studentEmail: string
@@ -213,7 +206,7 @@ export async function sendApprovedWithTeamsLink(
 ) {
   const { consultationApprovedHtml } = await import("@/lib/email-templates/consultation-approved")
   const html = consultationApprovedHtml({
-    recipientName: to.name,
+    recipientName: recipient.name,
     studentName: data.studentName,
     studentEmail: data.studentEmail,
     facultyName: data.facultyName,
@@ -229,8 +222,7 @@ export async function sendApprovedWithTeamsLink(
 
   if (!isEmailEnabled()) {
     console.log("[DEV] Consultation approved email (EMAIL_FEATURE_FLAG=false):")
-    console.log(`  To: ${to.email} (${to.name})`)
-    console.log(`  CC: ${ccList.map(c => c.email).join(", ")}`)
+    console.log(`  To: ${recipient.email} (${recipient.name})`)
     console.log(`  Teams link: ${data.teamsLink}`)
     console.log(`  .ics: ${icalString ? "attached" : "none"}`)
     return
@@ -240,10 +232,9 @@ export async function sendApprovedWithTeamsLink(
 
   const mail: Mail.Options = {
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
-    to: to.email,
+    to: recipient.email,
     subject: `Consultation Accepted — Microsoft Teams Link Inside`,
     html,
-    cc: ccList.map(c => c.email),
     ...(icalString ? {
       attachments: [{
         filename: "event.ics",
@@ -328,8 +319,7 @@ export async function sendBookingAcknowledgement(
 }
 
 export async function sendStatusUpdateEmail(
-  to: { email: string; name: string },
-  cc: { email: string; name: string }[],
+  recipient: { email: string; name: string },
   data: {
     variant: "cancelled" | "completed" | "accepted"
     actorName: string
@@ -347,7 +337,7 @@ export async function sendStatusUpdateEmail(
 ) {
   const { statusNotificationHtml } = await import("@/lib/email-templates/status-notification")
   const html = statusNotificationHtml({
-    recipientName: to.name,
+    recipientName: recipient.name,
     variant: data.variant,
     actorName: data.actorName,
     meetingTitle: data.meetingTitle,
@@ -364,8 +354,7 @@ export async function sendStatusUpdateEmail(
 
   if (!isEmailEnabled()) {
     console.log(`[DEV] Status update (${data.variant}) email (EMAIL_FEATURE_FLAG=false):`)
-    console.log(`  To: ${to.email} (${to.name})`)
-    console.log(`  CC: ${cc.map(c => `${c.email} (${c.name})`).join(", ")}`)
+    console.log(`  To: ${recipient.email} (${recipient.name})`)
     console.log(`  Appointment: ${data.meetingTitle}`)
     return
   }
@@ -380,8 +369,7 @@ export async function sendStatusUpdateEmail(
 
   await transporter.sendMail({
     from: `"e-Consultation" <${process.env.GMAIL_USER}>`,
-    to: to.email,
-    cc: cc.map(c => c.email),
+    to: recipient.email,
     subject: subjectMap[data.variant] || `Status Update: ${data.meetingTitle}`,
     html,
   })

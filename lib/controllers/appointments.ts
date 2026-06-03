@@ -3,7 +3,9 @@ import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/
 import { generateICal } from "@/lib/services/ical"
 import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow, sendMeetingInviteWithAcknowledgementWorkflow, sendConsultationInviteWithAcknowledgementWorkflow, sendStatusUpdateWorkflow } from "@/lib/workflows/email-workflows"
 import { hasRole } from "@/lib/utils/roles"
+import { getAppointmentUrl, getRecipientType } from "@/lib/utils/appointment-url"
 import type { AppointmentData } from "@/lib/types"
+import type { EmailRecipient } from "@/lib/workflows/email-workflows"
 
 type DbRecord = Record<string, unknown>
 
@@ -362,8 +364,6 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
   if (!appointment) return
 
   // ── Determine primary recipient (the TO) ──
-  // The primary recipient is appointment.faculty (or first attendee as fallback).
-  // If the primary user is the creator (self-booking), fall through to attendees.
   let primaryUser = appointment.faculty?.id ? appointment.faculty : appointment.attendees?.[0]?.user
   if (!primaryUser?.id || !primaryUser?.email) return
   if (primaryUser.id === creatorId && appointment.attendees && appointment.attendees.length > 0) {
@@ -374,14 +374,25 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
   }
   if (primaryUser.id === creatorId) return
 
-  // ── Build CC list from attendees (excluding primary TO) ──
-  const ccList: { name: string; email: string }[] = []
+  // ── Build full recipient list with per-person viewUrls ──
+  const allRecipients: EmailRecipient[] = []
+
+  const addRecipient = (u: { email: string; name: string }) => {
+    const rtype = getRecipientType(u.email, appointment)
+    allRecipients.push({
+      email: u.email,
+      name: u.name,
+      viewUrl: getAppointmentUrl(appointment.id!, rtype),
+    })
+  }
+
+  addRecipient(primaryUser)
   if (appointment.attendees) {
     for (const attendee of appointment.attendees) {
       const user = attendee?.user
       if (!user || !user.id || !user.email) continue
       if (user.id === primaryUser.id) continue
-      ccList.push({ name: user.name || "Attendee", email: user.email })
+      addRecipient(user)
     }
   }
 
@@ -389,9 +400,6 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
   const creatorUser = appointment.faculty?.id === creatorId
     ? appointment.faculty
     : appointment.attendees?.find(a => a.user?.id === creatorId)?.user ?? null
-
-  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
-  const viewUrl = `${host}/appointments/${appointment.id}`
 
   const organizerName = appointment.student?.id === creatorId
     ? appointment.student?.name
@@ -417,10 +425,7 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
     `Organizer: ${organizerName}`,
   ].filter(Boolean).join("\n")
 
-  const allParticipants = [
-    { name: primaryUser.name || "Faculty", email: primaryUser.email },
-    ...ccList,
-  ]
+  const allParticipants = allRecipients.map(r => ({ name: r.name, email: r.email }))
 
   const icalString = generateICal({
     uid: `appt-${appointment.id}@e-consultation`,
@@ -435,28 +440,45 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
   })
 
   const participantNames = allParticipants.map(r => r.name)
-  const ccEmails = ccList.map(r => r.email)
+
+  // ── Build acknowledgement recipient (creator gets separate confirmation) ──
+  const studentCreator = appointment.student?.email ? appointment.student : null
+  const isConsultation = appointment.meetingType === "CONSULTATION"
+
+  const creatorForAck = isConsultation
+    ? studentCreator
+    : creatorUser
+
+  const ackVariant = isConsultation ? "request" as const : "booking" as const
+  const ackTitle = isConsultation
+    ? (appointment.title || "Consultation Request")
+    : (appointment.title || "Meeting")
+
+  const shouldSendAck = creatorForAck && creatorForAck.email !== primaryUser.email
+  const acknowledgementRecipient: EmailRecipient | null = shouldSendAck
+    ? {
+        email: creatorForAck!.email,
+        name: creatorForAck!.name,
+        viewUrl: getAppointmentUrl(appointment.id!, "student"),
+      }
+    : null
+
+  const acknowledgementData = shouldSendAck
+    ? {
+        meetingTitle: ackTitle,
+        attendeeNames: allParticipants.map(p => p.name),
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        viewUrl: acknowledgementRecipient!.viewUrl,
+        variant: ackVariant,
+      }
+    : null
 
   // ── Send emails ──
-  if (appointment.meetingType === "CONSULTATION") {
-    // Student booking: sequenced send via workflow (invite then acknowledgement)
-    const studentCreator = appointment.student?.email ? appointment.student : null
-
-    const acknowledgementData = studentCreator && studentCreator.email !== primaryUser.email
-      ? {
-          meetingTitle: appointment.title || "Consultation Request",
-          attendeeNames: allParticipants.map(p => p.name),
-          date: appointment.date,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          viewUrl,
-          variant: "request" as const,
-        }
-      : null
-
+  if (isConsultation) {
     await sendConsultationInviteWithAcknowledgementWorkflow(
-      { email: primaryUser.email, name: primaryUser.name },
-      ccEmails,
+      allRecipients,
       {
         studentName: appointment.student?.name || "Student",
         studentEmail: appointment.student?.email || "",
@@ -467,31 +489,14 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
         endTime: appointment.endTime,
         title: appointment.title,
         description: appointment.description,
-        viewUrl,
       },
       icalString,
-      acknowledgementData ? { email: studentCreator!.email, name: studentCreator!.name } : null,
+      acknowledgementRecipient,
       acknowledgementData,
     )
   } else {
-    // Faculty/Dean booking: sequenced sends via workflow
-    const isCreatorAttendee = creatorUser?.email && ccEmails.includes(creatorUser.email)
-
-    const acknowledgementData = creatorUser && creatorUser.id !== primaryUser.id && !isCreatorAttendee
-      ? {
-          meetingTitle: appointment.title || "Meeting",
-          attendeeNames: allParticipants.map(p => p.name),
-          date: appointment.date,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          viewUrl,
-          variant: "booking" as const,
-        }
-      : null
-
     await sendMeetingInviteWithAcknowledgementWorkflow(
-      { email: primaryUser.email, name: primaryUser.name },
-      ccEmails,
+      allRecipients,
       {
         organizerName,
         title: appointment.title || "Appointment",
@@ -500,10 +505,9 @@ export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, cr
         startTime: appointment.startTime,
         endTime: appointment.endTime,
         participantNames,
-        viewUrl,
       },
       icalString,
-      acknowledgementData ? { email: creatorUser!.email, name: creatorUser!.name } : null,
+      acknowledgementRecipient,
       acknowledgementData,
     )
   }
@@ -529,17 +533,25 @@ export async function acceptAppointment(id: string, facultyId: string) {
     })
   } else {
     // Self-booking (faculty is both creator and accepter): notify attendees
-    const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
-    const viewUrl = `${host}/appointments/${id}`
     const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
     const attendeeNames = (appt.attendees || []).map(a => a.user?.name || "Attendee").filter(Boolean)
-    const attendeeRecipients = (appt.attendees || [])
-      .map(a => a.user)
-      .filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
+
+    const recipients: EmailRecipient[] = []
+    const addRecipient = (u: { email: string; name: string }) => {
+      const rtype = getRecipientType(u.email, appt)
+      recipients.push({
+        email: u.email,
+        name: u.name,
+        viewUrl: getAppointmentUrl(id, rtype),
+      })
+    }
+    if (faculty.email) addRecipient(faculty)
+    for (const att of (appt.attendees || [])) {
+      if (att.user?.email && att.user.email !== faculty.email) addRecipient(att.user)
+    }
 
     sendStatusUpdateWorkflow(
-      { email: faculty.email, name: faculty.name },
-      attendeeRecipients,
+      recipients,
       {
         variant: "accepted",
         actorName: faculty.name,
@@ -548,7 +560,6 @@ export async function acceptAppointment(id: string, facultyId: string) {
         startTime: appt.startTime,
         endTime: appt.endTime,
         description: appt.description,
-        viewUrl,
         attendeeNames,
         isCreator: true,
         meetingType: "INTERNAL",
@@ -611,24 +622,30 @@ export async function completeAppointment(id: string, facultyId: string, actionT
 
   // Fire-and-forget completion notification
   const appt = appointment as unknown as ApptWithJoins
-  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
-  const viewUrl = `${host}/appointments/${id}`
 
   const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
   const student = appt.student
   const attendees = (appt.attendees || []).map(a => a.user).filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
 
-  // TO = creator (student if exists, otherwise faculty for self-booking)
-  const to = student?.email ? { email: student.email, name: student.name } : { email: faculty.email, name: faculty.name }
-  const cc = attendees.filter(a => a.email !== to.email)
-  const allNames = [
-    ...(student ? [student.name] : [faculty.name]),
-    ...attendees.map(a => a.name),
-  ]
+  const recipients: EmailRecipient[] = []
+  const addRecipient = (u: { email: string; name: string }) => {
+    const rtype = getRecipientType(u.email, appt)
+    recipients.push({
+      email: u.email,
+      name: u.name,
+      viewUrl: getAppointmentUrl(id, rtype),
+    })
+  }
+  if (student?.email) addRecipient(student)
+  if (faculty.email) addRecipient(faculty)
+  for (const a of attendees) {
+    if (!recipients.find(r => r.email === a.email)) addRecipient(a)
+  }
+
+  const allNames = [...new Set(recipients.map(r => r.name))]
 
   sendStatusUpdateWorkflow(
-    to,
-    cc,
+    recipients,
     {
       variant: "completed",
       actorName: faculty.name,
@@ -637,7 +654,6 @@ export async function completeAppointment(id: string, facultyId: string, actionT
       startTime: appt.startTime,
       endTime: appt.endTime,
       description: appt.description,
-      viewUrl,
       extraInfo: actionTaken,
       attendeeNames: allNames,
       isCreator: !student?.email,
@@ -679,48 +695,32 @@ export async function cancelAppointment(id: string, userId: string, userEmail?: 
   const actorName = actor?.name || (isFaculty ? "Faculty" : "Creator")
 
   const appt = result as unknown as ApptWithJoins
-  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
-  const viewUrl = `${host}/appointments/${id}`
 
   const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
   const student = appt.student
   const attendees = (appt.attendees || []).map(a => a.user).filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
 
-  // Determine TO: non-actor priority order = student (creator) → faculty → first attendee
-  let to: { email: string; name: string } | null = null
-  if (student?.email && !isCreator) {
-    to = { email: student.email, name: student.name }
-  } else if (faculty.email && !isFaculty) {
-    to = { email: faculty.email, name: faculty.name }
-  } else {
-    const first = attendees.find(a => a.id !== userId)
-    if (first) to = { email: first.email, name: first.name }
+  // Collect all participants with per-person viewUrls
+  const recipients: EmailRecipient[] = []
+  const addRecipient = (u: { email: string; name: string }) => {
+    const rtype = getRecipientType(u.email, appt)
+    recipients.push({
+      email: u.email,
+      name: u.name,
+      viewUrl: getAppointmentUrl(id, rtype),
+    })
+  }
+  if (student?.email) addRecipient(student)
+  if (faculty.email) addRecipient(faculty)
+  for (const a of attendees) {
+    if (!recipients.find(r => r.email === a.email)) addRecipient(a)
   }
 
-  if (to) {
-    const cc = [
-      ...(student?.email && to.email !== student.email ? [{ email: student.email, name: student.name }] : []),
-      ...(faculty.email && to.email !== faculty.email ? [{ email: faculty.email, name: faculty.name }] : []),
-      ...attendees.filter(a => a.email !== to!.email),
-    ]
-    // Deduplicate by email
-    const seen = new Set<string>()
-    const uniqueCc = cc.filter(c => {
-      if (seen.has(c.email)) return false
-      seen.add(c.email)
-      return true
-    })
-
-    const allNames = [
-      ...(student ? [student.name] : []),
-      ...(faculty ? [faculty.name] : []),
-      ...attendees.map(a => a.name),
-    ]
-    const uniqueNames = [...new Set(allNames)]
+  if (recipients.length > 0) {
+    const allNames = [...new Set(recipients.map(r => r.name))]
 
     sendStatusUpdateWorkflow(
-      to,
-      uniqueCc,
+      recipients,
       {
         variant: "cancelled",
         actorName,
@@ -729,8 +729,7 @@ export async function cancelAppointment(id: string, userId: string, userEmail?: 
         startTime: appt.startTime,
         endTime: appt.endTime,
         description: appt.description,
-        viewUrl,
-        attendeeNames: uniqueNames,
+        attendeeNames: allNames,
         isCreator: false,
         meetingType: student?.email ? "CONSULTATION" : "INTERNAL",
       }
@@ -766,8 +765,7 @@ export async function studentResendInvitation(id: string, userId: string) {
   ])
 
   if (faculty && student) {
-    const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
-    const viewUrl = `${host}/appointments/${id}`
+    const viewUrl = getAppointmentUrl(id, "faculty")
     sendConsultationInviteWorkflow(
       { email: faculty.email, name: faculty.name },
       {
@@ -933,31 +931,37 @@ export async function getAppointmentDetail(id: string) {
 // ─── Email helpers (fire-and-forget) ────────────────────────────
 
 export async function sendConsultationApprovedEmail(appointment: ApptWithJoins) {
-  const host = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`
-  const viewUrl = `${host}/appointments/${appointment.id}`
-
   const student = appointment.student || { name: "Student", email: "" }
   const faculty = appointment.faculty || { name: "Faculty", email: "" }
 
   const { generateICal } = await import("@/lib/services/ical")
   const { sendApprovedWithTeamsLink } = await import("@/lib/services/email")
 
-  // Collect CC list: faculty + all attendees (excluding student)
-  const ccMap = new Map<string, { email: string; name: string }>()
-  if (faculty.email && faculty.email !== student.email) {
-    ccMap.set(faculty.email, { email: faculty.email, name: faculty.name })
+  const teamsLink = appointment.teamsLink || null
+
+  // Collect all recipients with per-person viewUrls
+  const recipients: EmailRecipient[] = []
+
+  const addRecipient = (u: { email: string; name: string }) => {
+    const rtype = getRecipientType(u.email, appointment)
+    recipients.push({
+      email: u.email,
+      name: u.name,
+      viewUrl: getAppointmentUrl(appointment.id!, rtype),
+    })
   }
+
+  if (student.email) addRecipient(student)
+  if (faculty.email && faculty.email !== student.email) addRecipient(faculty)
   if (appointment.attendees) {
     for (const att of appointment.attendees) {
       const user = att.user
-      if (!user || !user.email || user.email === student.email) continue
-      if (!ccMap.has(user.email)) {
-        ccMap.set(user.email, { email: user.email, name: user.name })
-      }
+      if (!user || !user.email || user.email === student.email || user.email === faculty.email) continue
+      addRecipient(user)
     }
   }
 
-  const teamsLink = appointment.teamsLink || null
+  const allParticipants = recipients.map(r => ({ name: r.name, email: r.email }))
 
   const icalString = generateICal({
     uid: `appt-${appointment.id}@e-consultation`,
@@ -975,30 +979,28 @@ export async function sendConsultationApprovedEmail(appointment: ApptWithJoins) 
     endTime: appointment.endTime,
     location: teamsLink || "Microsoft Teams",
     organizer: { name: faculty.name, email: faculty.email },
-    attendees: [
-      { name: student.name, email: student.email },
-      ...Array.from(ccMap.values()),
-    ],
+    attendees: allParticipants,
   })
 
-  await sendApprovedWithTeamsLink(
-    { email: student.email, name: student.name },
-    Array.from(ccMap.values()),
-    {
-      studentName: student.name,
-      studentEmail: student.email,
-      facultyName: faculty.name,
-      facultyEmail: faculty.email,
-      date: appointment.date,
-      startTime: appointment.startTime,
-      endTime: appointment.endTime,
-      title: appointment.title,
-      description: appointment.description,
-      teamsLink,
-      viewUrl,
-    },
-    icalString,
-  )
+  for (const r of recipients) {
+    await sendApprovedWithTeamsLink(
+      { email: r.email, name: r.name },
+      {
+        studentName: student.name,
+        studentEmail: student.email,
+        facultyName: faculty.name,
+        facultyEmail: faculty.email,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        title: appointment.title,
+        description: appointment.description,
+        teamsLink,
+        viewUrl: r.viewUrl,
+      },
+      icalString,
+    )
+  }
 }
 
 export async function getMeetingsForUser(userId: string) {

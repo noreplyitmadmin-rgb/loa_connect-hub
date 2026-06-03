@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { StatusBadge } from "@/components/StatusBadge"
 import SubmitButton from "@/components/SubmitButton"
@@ -34,6 +34,8 @@ const attendeeBadgeColors: Record<string, string> = {
 export default function AppointmentDetail() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isOptional = searchParams.get("role") === "optional"
   const { data: session } = useSession()
   const [appointment, setAppointment] = useState<AppointmentDetailDto | null>(null)
   const [error, setError] = useState("")
@@ -293,6 +295,14 @@ export default function AppointmentDetail() {
           </p>
         )}
 
+        {isOptional && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 mb-4">
+            <p className="text-xs font-semibold text-indigo-700 text-center">
+              You are an optional attendee — viewing only
+            </p>
+          </div>
+        )}
+
         {/* Time slots */}
         {appointment.timeSlots && appointment.timeSlots.length > 0 && (
           <div className="mb-6 space-y-2">
@@ -510,6 +520,10 @@ export default function AppointmentDetail() {
       <div className="card p-5 bg-white">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="space-y-3 flex-1 w-full">
+          {isOptional ? (
+            <p className="text-sm text-slate-400 italic text-center">View-only mode</p>
+          ) : (
+            <>
             {/* Student: cancel PENDING */}
           {isStudent && effectiveStatus === "PENDING" && (
             <SubmitButton
@@ -717,6 +731,8 @@ export default function AppointmentDetail() {
           {/* Terminal states */}
           {(effectiveStatus === "REJECTED" || effectiveStatus === "COMPLETED" || effectiveStatus === "CANCELLED") && (
             <p className="text-sm text-slate-400 italic">No further actions available</p>
+          )}
+            </>
           )}
         </div>
 

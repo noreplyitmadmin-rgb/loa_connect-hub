@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import SubmitButton from "@/components/SubmitButton"
 
@@ -49,6 +49,8 @@ function getStyle(status: string) {
 
 export default function FacultyMobileMeetingDetail() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const isOptional = searchParams.get("role") === "optional"
   const [appointment, setAppointment] = useState<AppointmentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -190,6 +192,14 @@ export default function FacultyMobileMeetingDetail() {
           </span>
         </div>
 
+        {isOptional && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+            <p className="text-xs font-semibold text-indigo-700 text-center">
+              You are an optional attendee — viewing only
+            </p>
+          </div>
+        )}
+
         <div className="space-y-3">
           {appointment.date && (
             <div className="flex items-center gap-3 text-sm text-slate-600">
@@ -266,87 +276,93 @@ export default function FacultyMobileMeetingDetail() {
           <p className="text-xs text-red-600 font-semibold text-center">{actionError}</p>
         )}
 
-        {appointment.status === "PENDING" && !showAcceptForm && (
-          <div className="flex flex-col gap-3">
-            <SubmitButton
-              onClick={() => setShowAcceptForm(true)}
-              variant="success"
-              className="w-full py-3 min-h-[44px] text-sm"
-            >
-              Accept
-            </SubmitButton>
-            <SubmitButton
-              onClick={() => handleAction("decline")}
-              loading={actionLoading === "decline"}
-              variant="danger"
-              className="w-full py-3 min-h-[44px] text-sm"
-            >
-              {actionLoading === "decline" ? "Declining..." : "Decline"}
-            </SubmitButton>
-          </div>
-        )}
+        {isOptional ? (
+          <p className="text-sm text-slate-400 italic text-center">View-only mode</p>
+        ) : (
+          <>
+            {appointment.status === "PENDING" && !showAcceptForm && (
+              <div className="flex flex-col gap-3">
+                <SubmitButton
+                  onClick={() => setShowAcceptForm(true)}
+                  variant="success"
+                  className="w-full py-3 min-h-[44px] text-sm"
+                >
+                  Accept
+                </SubmitButton>
+                <SubmitButton
+                  onClick={() => handleAction("decline")}
+                  loading={actionLoading === "decline"}
+                  variant="danger"
+                  className="w-full py-3 min-h-[44px] text-sm"
+                >
+                  {actionLoading === "decline" ? "Declining..." : "Decline"}
+                </SubmitButton>
+              </div>
+            )}
 
-        {appointment.status === "PENDING" && showAcceptForm && (
-          <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                Teams Meeting Link <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="url"
-                value={teamsLink}
-                onChange={(e) => setTeamsLink(e.target.value)}
-                placeholder="https://teams.microsoft.com/l/..."
-                className="input text-sm py-2.5 w-full mt-1"
-              />
-            </div>
-            <div className="flex flex-col gap-3">
-              <SubmitButton
-                onClick={handleAcceptFlow}
-                loading={actionLoading === "accept"}
-                variant="success"
-                className="w-full py-3 min-h-[44px] text-sm"
-              >
-                {actionLoading === "accept" ? "Approving..." : "Confirm & Approve"}
-              </SubmitButton>
-              <SubmitButton
-                onClick={() => {
-                  setShowAcceptForm(false)
-                  setTeamsLink("")
-                  setActionError("")
-                }}
-                variant="secondary"
-                className="w-full py-3 min-h-[44px] text-sm"
-              >
-                Cancel
-              </SubmitButton>
-            </div>
-          </div>
-        )}
+            {appointment.status === "PENDING" && showAcceptForm && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Teams Meeting Link <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={teamsLink}
+                    onChange={(e) => setTeamsLink(e.target.value)}
+                    placeholder="https://teams.microsoft.com/l/..."
+                    className="input text-sm py-2.5 w-full mt-1"
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <SubmitButton
+                    onClick={handleAcceptFlow}
+                    loading={actionLoading === "accept"}
+                    variant="success"
+                    className="w-full py-3 min-h-[44px] text-sm"
+                  >
+                    {actionLoading === "accept" ? "Approving..." : "Confirm & Approve"}
+                  </SubmitButton>
+                  <SubmitButton
+                    onClick={() => {
+                      setShowAcceptForm(false)
+                      setTeamsLink("")
+                      setActionError("")
+                    }}
+                    variant="secondary"
+                    className="w-full py-3 min-h-[44px] text-sm"
+                  >
+                    Cancel
+                  </SubmitButton>
+                </div>
+              </div>
+            )}
 
-        {appointment.status === "APPROVED" && (
-          <div className="flex flex-col gap-3">
-            <SubmitButton
-              onClick={() => handleAction("complete")}
-              loading={actionLoading === "complete"}
-              variant="primary"
-              className="w-full py-3 min-h-[44px] text-sm"
-            >
-              {actionLoading === "complete" ? "Completing..." : "Mark Complete"}
-            </SubmitButton>
-            <SubmitButton
-              onClick={() => handleAction("cancel")}
-              loading={actionLoading === "cancel"}
-              variant="danger"
-              className="w-full py-3 min-h-[44px] text-sm"
-            >
-              {actionLoading === "cancel" ? "Cancelling..." : "Cancel"}
-            </SubmitButton>
-          </div>
-        )}
+            {appointment.status === "APPROVED" && (
+              <div className="flex flex-col gap-3">
+                <SubmitButton
+                  onClick={() => handleAction("complete")}
+                  loading={actionLoading === "complete"}
+                  variant="primary"
+                  className="w-full py-3 min-h-[44px] text-sm"
+                >
+                  {actionLoading === "complete" ? "Completing..." : "Mark Complete"}
+                </SubmitButton>
+                <SubmitButton
+                  onClick={() => handleAction("cancel")}
+                  loading={actionLoading === "cancel"}
+                  variant="danger"
+                  className="w-full py-3 min-h-[44px] text-sm"
+                >
+                  {actionLoading === "cancel" ? "Cancelling..." : "Cancel"}
+                </SubmitButton>
+              </div>
+            )}
 
-        {(appointment.status === "COMPLETED" || appointment.status === "CANCELLED" || appointment.status === "REJECTED") && (
-          <p className="text-sm text-slate-400 italic text-center">No further actions</p>
+            {(appointment.status === "COMPLETED" || appointment.status === "CANCELLED" || appointment.status === "REJECTED") && (
+              <p className="text-sm text-slate-400 italic text-center">No further actions</p>
+            )}
+          </>
         )}
       </div>
 

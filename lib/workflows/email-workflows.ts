@@ -1,7 +1,12 @@
 import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail, sendBookingAcknowledgement, sendMeetingInviteWithICS, sendStatusUpdateEmail, sendActivationEmail, sendForgotPasswordEmail } from "@/lib/services/email"
 import { auditLogRepository } from "@/lib/repositories/factory"
 
-// Helper to log email sends
+export interface EmailRecipient {
+  email: string
+  name: string
+  viewUrl: string
+}
+
 async function logEmailSend(email: string, action: string, status: "SUCCESS" | "FAILED", details?: string) {
   try {
     await auditLogRepository.create({
@@ -15,24 +20,29 @@ async function logEmailSend(email: string, action: string, status: "SUCCESS" | "
 }
 
 export async function sendConsultationInviteWorkflow(
-  to: { email: string; name: string },
+  recipient: { email: string; name: string },
   data: Parameters<typeof sendConsultationInvite>[1],
   icalString?: string
 ) {
   "use workflow"
 
-  await sendConsultationInvite(to, data, icalString)
+  await sendConsultationInvite(recipient, data, icalString)
 }
 
 export async function sendApprovedWorkflow(
-  to: { email: string; name: string },
-  ccList: { email: string; name: string }[],
-  data: Parameters<typeof sendApprovedWithTeamsLink>[2],
+  recipients: EmailRecipient[],
+  data: Omit<Parameters<typeof sendApprovedWithTeamsLink>[1], "viewUrl">,
   icalString?: string
 ) {
   "use workflow"
 
-  await sendApprovedWithTeamsLink(to, ccList, data, icalString)
+  for (const r of recipients) {
+    await sendApprovedWithTeamsLink(
+      { email: r.email, name: r.name },
+      { ...data, viewUrl: r.viewUrl },
+      icalString,
+    )
+  }
 }
 
 export async function sendPasswordChangedWorkflow(
@@ -108,8 +118,7 @@ export async function sendConsultationApprovedWorkflow(
 }
 
 export async function sendMeetingInviteWithAcknowledgementWorkflow(
-  primaryUser: { email: string; name: string },
-  ccEmails: string[],
+  recipients: EmailRecipient[],
   inviteData: {
     organizerName: string
     title: string
@@ -118,10 +127,9 @@ export async function sendMeetingInviteWithAcknowledgementWorkflow(
     startTime: string
     endTime: string
     participantNames: string[]
-    viewUrl: string
   },
   icalString: string | undefined,
-  creator: { email: string; name: string } | null,
+  acknowledgementRecipient: EmailRecipient | null,
   acknowledgementData: {
     meetingTitle: string
     attendeeNames: string[]
@@ -134,15 +142,16 @@ export async function sendMeetingInviteWithAcknowledgementWorkflow(
 ) {
   "use workflow"
 
-  await sendInviteStep(primaryUser, ccEmails, inviteData, icalString)
-  if (creator && acknowledgementData) {
-    await sendAcknowledgementStep(creator, acknowledgementData)
+  for (const r of recipients) {
+    await sendInviteStep(r, inviteData, icalString)
+  }
+  if (acknowledgementRecipient && acknowledgementData) {
+    await sendAcknowledgementStep(acknowledgementRecipient, acknowledgementData)
   }
 }
 
 export async function sendConsultationInviteWithAcknowledgementWorkflow(
-  primaryUser: { email: string; name: string },
-  ccEmails: string[],
+  recipients: EmailRecipient[],
   inviteData: {
     studentName: string
     studentEmail: string
@@ -153,10 +162,9 @@ export async function sendConsultationInviteWithAcknowledgementWorkflow(
     endTime: string
     title?: string | null
     description?: string | null
-    viewUrl: string
   },
   icalString: string | undefined,
-  creator: { email: string; name: string } | null,
+  acknowledgementRecipient: EmailRecipient | null,
   acknowledgementData: {
     meetingTitle: string
     attendeeNames: string[]
@@ -169,15 +177,16 @@ export async function sendConsultationInviteWithAcknowledgementWorkflow(
 ) {
   "use workflow"
 
-  await sendConsultationInviteStep(primaryUser, ccEmails, inviteData, icalString)
-  if (creator && acknowledgementData) {
-    await sendAcknowledgementStep(creator, acknowledgementData)
+  for (const r of recipients) {
+    await sendConsultationInviteStep(r, inviteData, icalString)
+  }
+  if (acknowledgementRecipient && acknowledgementData) {
+    await sendAcknowledgementStep(acknowledgementRecipient, acknowledgementData)
   }
 }
 
 async function sendConsultationInviteStep(
-  primaryUser: { email: string; name: string },
-  ccEmails: string[],
+  recipient: EmailRecipient,
   inviteData: {
     studentName: string
     studentEmail: string
@@ -188,14 +197,13 @@ async function sendConsultationInviteStep(
     endTime: string
     title?: string | null
     description?: string | null
-    viewUrl: string
   },
   icalString: string | undefined
 ) {
   "use step"
 
   await sendConsultationInvite(
-    { email: primaryUser.email, name: primaryUser.name },
+    { email: recipient.email, name: recipient.name },
     {
       studentName: inviteData.studentName,
       studentEmail: inviteData.studentEmail,
@@ -206,16 +214,14 @@ async function sendConsultationInviteStep(
       endTime: inviteData.endTime,
       title: inviteData.title,
       description: inviteData.description,
-      viewUrl: inviteData.viewUrl,
-      cc: ccEmails.length > 0 ? ccEmails : undefined,
+      viewUrl: recipient.viewUrl,
     },
     icalString,
   )
 }
 
 async function sendInviteStep(
-  primaryUser: { email: string; name: string },
-  ccEmails: string[],
+  recipient: EmailRecipient,
   inviteData: {
     organizerName: string
     title: string
@@ -224,21 +230,29 @@ async function sendInviteStep(
     startTime: string
     endTime: string
     participantNames: string[]
-    viewUrl: string
   },
   icalString: string | undefined
 ) {
   "use step"
 
   await sendMeetingInviteWithICS(
-    { email: primaryUser.email, name: primaryUser.name },
-    { ...inviteData, cc: ccEmails.length > 0 ? ccEmails : undefined },
+    { email: recipient.email, name: recipient.name },
+    {
+      organizerName: inviteData.organizerName,
+      title: inviteData.title,
+      description: inviteData.description,
+      date: inviteData.date,
+      startTime: inviteData.startTime,
+      endTime: inviteData.endTime,
+      participantNames: inviteData.participantNames,
+      viewUrl: recipient.viewUrl,
+    },
     icalString,
   )
 }
 
 async function sendAcknowledgementStep(
-  creator: { email: string; name: string },
+  recipient: { email: string; name: string },
   data: {
     meetingTitle: string
     attendeeNames: string[]
@@ -251,12 +265,11 @@ async function sendAcknowledgementStep(
 ) {
   "use step"
 
-  await sendBookingAcknowledgement({ email: creator.email, name: creator.name }, data)
+  await sendBookingAcknowledgement({ email: recipient.email, name: recipient.name }, data)
 }
 
 export async function sendStatusUpdateWorkflow(
-  to: { email: string; name: string },
-  cc: { email: string; name: string }[],
+  recipients: EmailRecipient[],
   data: {
     variant: "cancelled" | "completed" | "accepted"
     actorName: string
@@ -265,7 +278,6 @@ export async function sendStatusUpdateWorkflow(
     startTime: string
     endTime: string
     description?: string | null
-    viewUrl: string
     extraInfo?: string | null
     attendeeNames: string[]
     isCreator: boolean
@@ -274,5 +286,10 @@ export async function sendStatusUpdateWorkflow(
 ) {
   "use workflow"
 
-  await sendStatusUpdateEmail(to, cc, data)
+  for (const r of recipients) {
+    await sendStatusUpdateEmail(
+      { email: r.email, name: r.name },
+      { ...data, viewUrl: r.viewUrl },
+    )
+  }
 }

@@ -9,8 +9,7 @@ export interface ConsultationInviteData {
   endTime: string
   title?: string | null
   description?: string | null
-  viewUrl: string,
-  cc?: string | string[] | null
+  viewUrl: string
 }
 
 export function consultationInviteHtml(data: ConsultationInviteData): string {
