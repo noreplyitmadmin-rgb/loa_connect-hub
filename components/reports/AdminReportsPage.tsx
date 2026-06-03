@@ -55,6 +55,8 @@ export function AdminReportsPage({
       total,
       completed,
       pending: departments.reduce((s, d) => s + d.pending, 0),
+      approved: departments.reduce((s, d) => s + d.approved, 0),
+      rejected: departments.reduce((s, d) => s + d.rejected, 0),
       cancelled: departments.reduce((s, d) => s + d.cancelled, 0),
       completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
     }

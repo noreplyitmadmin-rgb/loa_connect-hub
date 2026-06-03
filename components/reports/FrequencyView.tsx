@@ -263,7 +263,7 @@ function DepartmentFrequencyChart({ entries }: { entries: DepartmentFrequencyEnt
           {yTicks.map((tick, index) => {
             const y = padding.top + plotHeight - (tick / maxCount) * plotHeight
             return (
-              <g key={`ytick-${tick}-${index}-${Math.random().toString(36).substr(2, 9)}`}>
+              <g key={`ytick-${tick}-${index}`}>
                 <line
                   x1={padding.left}
                   y1={y}

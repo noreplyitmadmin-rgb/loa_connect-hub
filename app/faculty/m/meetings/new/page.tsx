@@ -2,17 +2,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import StudentBooking from "@/components/StudentBooking"
-import { userRepository, availabilityRuleRepository, departmentRepository } from "@/lib/repositories/factory"
-import type { AvailabilityRuleData } from "@/lib/types"
-
-interface FacultyWithRules {
-  id: string
-  name: string
-  email: string
-  hasLoggedInBefore: boolean
-  department: string | null
-  rules: AvailabilityRuleData[]
-}
+import { userRepository, departmentRepository } from "@/lib/repositories/factory"
 
 export default async function MobileFacultyNewMeetingPage() {
   const session = await auth()
@@ -38,19 +28,13 @@ export default async function MobileFacultyNewMeetingPage() {
     department: s.departmentId ? deptMap.get(s.departmentId) || null : null,
   }))
 
-  const facultyWithRules = await Promise.all(
-    allFaculty.map(async (f) => {
-      const rules = await availabilityRuleRepository.listByFaculty(f.id)
-      return {
-        id: f.id,
-        name: f.name,
-        email: f.email,
-        hasLoggedInBefore: f.hasLoggedInBefore,
-        department: f.departmentId ? deptMap.get(f.departmentId) || null : null,
-        rules,
-      }
-    })
-  )
+  const facultyList = allFaculty.map((f) => ({
+    id: f.id,
+    name: f.name,
+    email: f.email,
+    hasLoggedInBefore: f.hasLoggedInBefore,
+    department: f.departmentId ? deptMap.get(f.departmentId) || null : null,
+  }))
 
   return (
     <div className="px-4 py-6 max-w-lg mx-auto space-y-6 pb-24">
@@ -69,7 +53,7 @@ export default async function MobileFacultyNewMeetingPage() {
         </Link>
       </div>
       <StudentBooking
-        facultyWithRules={facultyWithRules as FacultyWithRules[]}
+        facultyList={facultyList}
         userRole={role as "STUDENT" | "FACULTY" | "DEAN"}
         students={students}
         serverNow={new Date().toISOString()}

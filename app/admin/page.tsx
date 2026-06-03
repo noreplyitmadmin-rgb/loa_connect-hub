@@ -11,12 +11,13 @@ async function getAuditLogs(page = 1, pageSize = 25) {
   return auditLogRepository.list(pageSize, offset)
 }
 
-export default async function AdminDashboard({ searchParams }: { searchParams?: { page?: string } }) {
+export default async function AdminDashboard({ searchParams }: { searchParams?: Promise<{ page?: string }> }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
   if (!hasRole((session.user as Record<string, unknown>).role as string, "ADMIN")) redirect("/login")
 
-  const page = Number(searchParams?.page) || 1
+  const resolvedParams = await searchParams
+  const page = Number(resolvedParams?.page) || 1
   const pageSize = 25
 
   const [auditLogs, dbSize] = await Promise.all([

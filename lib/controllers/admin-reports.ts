@@ -30,6 +30,8 @@ async function getDepartmentSummary(
   let total = 0
   let completed = 0
   let pending = 0
+  let approved = 0
+  let rejected = 0
   let cancelled = 0
 
   if (facultyIds.length > 0) {
@@ -52,8 +54,9 @@ async function getDepartmentSummary(
         total++
         switch (apt.status) {
           case "COMPLETED": completed++; break
-          case "PENDING":
-          case "APPROVED": pending++; break
+          case "PENDING": pending++; break
+          case "APPROVED": approved++; break
+          case "REJECTED": rejected++; break
           case "CANCELLED": cancelled++; break
         }
       }
@@ -67,6 +70,8 @@ async function getDepartmentSummary(
     total,
     completed,
     pending,
+    approved,
+    rejected,
     cancelled,
     completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
   }

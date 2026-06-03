@@ -226,6 +226,8 @@ export interface FacultyStatsData {
   total: number
   completed: number
   pending: number
+  approved: number
+  rejected: number
   cancelled: number
   completionRate: number
 }
@@ -287,6 +289,75 @@ export interface FacultyYearlyData {
   yearlyCounts: { year: number; count: number }[]
 }
 
+export interface DailyFrequencyData {
+  date: string
+  dayName: string
+  count: number
+}
+
+export interface WeeklyFrequencyData {
+  weekStart: string
+  weekEnd: string
+  label: string
+  count: number
+}
+
+export interface ResponseTimeStats {
+  averageHours: number
+  medianHours: number
+  fastestHours: number
+  slowestHours: number
+  totalResponded: number
+}
+
+export interface FacultyResponseTime {
+  facultyId: string
+  facultyName: string
+  averageHours: number
+  medianHours: number
+  fastestHours: number
+  slowestHours: number
+  totalResponded: number
+}
+
+export interface ResponseTimeDistribution {
+  label: string
+  fromHours: number
+  toHours: number | null
+  count: number
+}
+
+export interface BacklogEntry {
+  id: string
+  facultyId: string
+  facultyName: string
+  studentName: string
+  date: string
+  startTime: string
+  endTime: string
+  status: "PENDING" | "APPROVED"
+  title: string | null
+  ageDays: number
+  agingBucket: string
+}
+
+export interface BacklogAgingBucket {
+  label: string
+  fromDays: number
+  toDays: number | null
+  count: number
+}
+
+export interface BacklogSummary {
+  totalPending: number
+  totalApproved: number
+  totalUnresolved: number
+  oldestDays: number
+  oldestDate: string | null
+  oldestFaculty: string
+  oldestStudent: string
+}
+
 export interface DepartmentSummary {
   id: string
   name: string
@@ -294,6 +365,8 @@ export interface DepartmentSummary {
   total: number
   completed: number
   pending: number
+  approved: number
+  rejected: number
   cancelled: number
   completionRate: number
 }
@@ -324,6 +397,34 @@ export interface IReportsRepository {
     filters?: { startDate?: string; endDate?: string }
   ): Promise<FacultyFrequencyData[]>
 
+  getDepartmentDailyFrequency(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<DailyFrequencyData[]>
+
+  getDepartmentWeeklyFrequency(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<WeeklyFrequencyData[]>
+
+  getDepartmentBacklog(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<{
+    entries: BacklogEntry[]
+    agingBuckets: BacklogAgingBucket[]
+    summary: BacklogSummary
+  }>
+
+  getDepartmentResponseTimes(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<{
+    stats: ResponseTimeStats
+    byFaculty: FacultyResponseTime[]
+    distribution: ResponseTimeDistribution[]
+  }>
+
   getDepartmentYearlyFrequency(
     departmentId: string,
     filters?: { startDate?: string; endDate?: string }
@@ -333,4 +434,58 @@ export interface IReportsRepository {
     departmentId: string,
     filters?: { startDate?: string; endDate?: string }
   ): Promise<FacultyYearlyData[]>
+
+  getConsultationCoverageData(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<CoverageReportData>
+
+  getWorkloadDistribution(
+    departmentId: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<WorkloadDistributionData>
+}
+
+export interface CoverageData {
+  totalStudents: number
+  studentsWithConsultations: number
+  studentsWithoutConsultations: number
+  coveragePercentage: number
+}
+
+export interface CoverageTrendEntry {
+  month: string
+  monthName: string
+  year: number
+  totalStudents: number
+  studentsWithConsultations: number
+  coveragePercentage: number
+}
+
+export interface CoverageReportData {
+  overall: CoverageData
+  byDepartment: (CoverageData & { departmentId: string; departmentName: string })[]
+  trend: CoverageTrendEntry[]
+  departmentName: string
+}
+
+export interface WorkloadDistributionEntry {
+  facultyId: string
+  facultyName: string
+  departmentId: string
+  departmentName: string
+  total: number
+  completed: number
+  pending: number
+  approved: number
+  rejected: number
+  cancelled: number
+  completionRate: number
+  departmentShare: number
+}
+
+export interface WorkloadDistributionData {
+  entries: WorkloadDistributionEntry[]
+  departmentTotal: number
+  departmentName: string
 }

@@ -118,7 +118,7 @@ export default function StudentBooking({ facultyList, userRole, students, server
     if (bookedData?.appointments && bookedAppointments.length === 0) {
       setBookedAppointments(bookedData.appointments) // eslint-disable-line react-hooks/set-state-in-effect -- sync SWR data
     }
-  }, [bookedData, primaryFacultyId])
+  }, [bookedData, primaryFacultyId, bookedAppointments.length])
 
   // Fetch primary faculty users (filtered by department)
   const { data: primaryData } = useApiGet<{ users: SimpleUser[] }>(
@@ -179,7 +179,18 @@ export default function StudentBooking({ facultyList, userRole, students, server
   const freeRanges = useMemo(() => {
     if (!selectedDay || !primaryFacultyId) return []
     const dateStr = fmtDate(currentYear, currentMonth, selectedDay)
-    const rule = getActiveRule(dateStr)
+    const rule = (() => {
+      if (!rulesData?.rules) return null
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const utcDate = new Date(Date.UTC(year, month - 1, day))
+      const dayOfWeek = toOurDayOfWeek(utcDate.getUTCDay())
+      return rulesData.rules.find(
+        (r) =>
+          r.dayOfWeek === dayOfWeek &&
+          r.startDate <= dateStr &&
+          (r.endDate === null || r.endDate >= dateStr)
+      ) || null
+    })()
 
     if (!rule || rule.isBlocked || !rule.startTime || !rule.endTime) return []
 
