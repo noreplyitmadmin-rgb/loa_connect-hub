@@ -20,8 +20,6 @@ export function BacklogReport({
   departmentName,
   byFaculty,
 }: BacklogReportProps) {
-  const hasData = entries.length > 0
-
   const exporter = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const esc = (val: unknown): string => {
@@ -33,7 +31,7 @@ export function BacklogReport({
     }
 
     const csvRows: string[][] = [
-      ["Consultation Backlog Report"],
+      ["Faculty Response Monitor"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -69,7 +67,7 @@ export function BacklogReport({
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Backlog_${dateStr}.csv`
+    a.download = `Faculty_Response_Monitor_${dateStr}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -87,7 +85,7 @@ export function BacklogReport({
     }
 
     const csvRows: string[][] = [
-      ["Consultation Backlog Report"],
+      ["Faculty Response Monitor"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -123,7 +121,7 @@ export function BacklogReport({
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Backlog_${dateStr}.xls`
+    a.download = `Faculty_Response_Monitor_${dateStr}.xls`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -135,7 +133,7 @@ export function BacklogReport({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Consultation Backlog Report</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Faculty Response Monitor</h1>
           <p className="text-sm text-slate-500 mt-1">{departmentName}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -183,23 +181,6 @@ export function BacklogReport({
           color={summary.oldestDays > 14 ? "red" : summary.oldestDays > 7 ? "amber" : "green"}
         />
       </div>
-
-      {/* Oldest Detail Card */}
-      {hasData && summary.oldestDate && (
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-6 text-sm">
-            <span className="text-slate-500 font-medium">Oldest unresolved:</span>
-            <span className="text-slate-800">{summary.oldestStudent}</span>
-            <span className="text-slate-400">&rarr;</span>
-            <span className="text-slate-800 font-medium">{summary.oldestFaculty}</span>
-            <span className="text-slate-400">on</span>
-            <span className="font-mono text-slate-600">{summary.oldestDate}</span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-              {summary.oldestDays} days old
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Chart + Table */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

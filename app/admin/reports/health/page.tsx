@@ -29,7 +29,7 @@ export default async function HealthReportPage(props: {
   } catch (err) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12">
-        <h1 className="text-2xl font-bold text-slate-900">Department Consultation Health Report</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Department Health</h1>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-8 shadow-sm text-center">
           <p className="text-slate-500">{(err as Error).message}</p>
         </div>
@@ -47,7 +47,12 @@ export default async function HealthReportPage(props: {
         />
       </Suspense>
 
-      <DepartmentHealthReport departments={data.departments} />
+      <DepartmentHealthReport
+        departments={data.departments}
+        stats={data.stats}
+        rawAppointments={data.rawAppointments}
+        summaries={data.summaries}
+      />
     </div>
   )
 }

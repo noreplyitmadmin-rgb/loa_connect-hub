@@ -3,44 +3,32 @@
 import { useState, useCallback } from "react"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
-import type { FacultyStatsData, RawAppointmentData, ConsultationSummaryData, DepartmentFrequencyEntry, FacultyFrequencyData, DepartmentYearlyEntry, FacultyYearlyData } from "@/lib/types"
+import type { FacultyStatsData, RawAppointmentData, ConsultationSummaryData } from "@/lib/types"
 import { ReportCharts } from "@/components/reports/ReportCharts"
 import { ReportsView } from "@/components/reports/ReportsView"
-import { ScheduleView } from "@/components/reports/ScheduleView"
 import { ConsultationSummaryView } from "@/components/reports/ConsultationSummaryView"
-import { FrequencyView } from "@/components/reports/FrequencyView"
+import { ScheduleView } from "@/components/reports/ScheduleView"
 
-type TabId = "performance" | "schedule" | "summary" | "frequency"
+type TabId = "performance" | "summary"
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "performance", label: "Performance" },
-  { id: "schedule", label: "Schedule" },
   { id: "summary", label: "Consultation Summary" },
-  { id: "frequency", label: "Frequency" },
 ]
 
 interface DeanReportsTabsProps {
   stats: FacultyStatsData[]
   rawAppointments: RawAppointmentData[]
   summaries: ConsultationSummaryData[]
-  departmentFrequency: DepartmentFrequencyEntry[]
-  facultyFrequency: FacultyFrequencyData[]
-  departmentYearlyFrequency: DepartmentYearlyEntry[]
-  facultyYearlyFrequency: FacultyYearlyData[]
-  deanId?: string
 }
 
 export function DeanReportsTabs({
   stats,
   rawAppointments,
   summaries,
-  departmentFrequency,
-  facultyFrequency,
-  departmentYearlyFrequency,
-  facultyYearlyFrequency,
-  deanId = "",
 }: DeanReportsTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("performance")
+  const [summaryView, setSummaryView] = useState<"timeline" | "details">("timeline")
 
   const totalConsultations = stats.reduce((sum, s) => sum + s.total, 0)
   const totalCompleted = stats.reduce((sum, s) => sum + s.completed, 0)
@@ -87,15 +75,6 @@ export function DeanReportsTabs({
     }
     downloadCSV(rows, `Performance_${dateStr}.csv`)
   }, [stats, rawAppointments, esc, downloadCSV])
-
-  const exportScheduleCSV = useCallback(() => {
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const rows: string[][] = [["Faculty", "Student", "Date", "Start", "End", "Status", "Title"]]
-    for (const a of rawAppointments) {
-      rows.push([esc(a.facultyName), esc(a.studentName), a.date, a.startTime, a.endTime, a.status, esc(a.title)])
-    }
-    downloadCSV(rows, `Schedule_${dateStr}.csv`)
-  }, [rawAppointments, esc, downloadCSV])
 
   const exportSummaryCSV = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
@@ -188,7 +167,7 @@ export function DeanReportsTabs({
               <ExportCsvButton onClick={exportPerformanceCSV} />
             </div>
           </div>
-          <div id="pdf-performance">
+          <div id="pdf-performance" className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               <SummaryCard label="Total Consultations" value={totalConsultations} color="blue" />
               <SummaryCard label="Overall Completion Rate" value={`${overallCompletionRate}%`} color="green" />
@@ -200,53 +179,43 @@ export function DeanReportsTabs({
         </>
       )}
 
-      {/* ── Schedule Tab ─────────────────────────────── */}
-      {activeTab === "schedule" && (
-        <>
-          <div className="flex items-center justify-between">
-            <div />
-            <div className="flex items-center gap-2">
-              <PdfExportButton onClick={() => exportTabPdf("pdf-schedule", `Schedule_${new Date().toISOString().slice(0, 10)}`)} />
-              <ExportCsvButton onClick={exportScheduleCSV} />
-            </div>
-          </div>
-          <div id="pdf-schedule">
-            <ScheduleView rawAppointments={rawAppointments} />
-          </div>
-        </>
-      )}
-
       {/* ── Consultation Summary Tab ────────────────── */}
       {activeTab === "summary" && (
         <>
           <div className="flex items-center justify-between">
-            <div />
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit transition-all duration-200">
+              <button
+                onClick={() => setSummaryView("timeline")}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  summaryView === "timeline"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setSummaryView("details")}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  summaryView === "details"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Table
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <PdfExportButton onClick={() => exportTabPdf("pdf-summary", `Summary_${new Date().toISOString().slice(0, 10)}`)} />
               <ExportCsvButton onClick={exportSummaryCSV} />
             </div>
           </div>
           <div id="pdf-summary">
-            <ConsultationSummaryView summaries={summaries} />
-          </div>
-        </>
-      )}
-
-      {/* ── Frequency Tab ──────────────────────────── */}
-      {activeTab === "frequency" && (
-        <>
-          <div className="flex items-center justify-end">
-            <PdfExportButton onClick={() => exportTabPdf("pdf-frequency", `Frequency_${new Date().toISOString().slice(0, 10)}`)} />
-          </div>
-          <div id="pdf-frequency">
-            <FrequencyView
-              departmentFrequency={departmentFrequency}
-              facultyFrequency={facultyFrequency}
-              departmentYearlyFrequency={departmentYearlyFrequency}
-              facultyYearlyFrequency={facultyYearlyFrequency}
-              stats={stats}
-              deanId={deanId}
-            />
+            {summaryView === "timeline" ? (
+              <ScheduleView rawAppointments={rawAppointments} />
+            ) : (
+              <ConsultationSummaryView summaries={summaries} />
+            )}
           </div>
         </>
       )}

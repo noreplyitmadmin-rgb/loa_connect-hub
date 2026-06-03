@@ -33,11 +33,13 @@ async function getDepartmentSummary(
   let approved = 0
   let rejected = 0
   let cancelled = 0
+  let overdueCompletion = 0
+  const activeFaculty = new Set<string>()
 
   if (facultyIds.length > 0) {
     let query = supabase
       .from("appointments")
-      .select("status")
+      .select("status, date, facultyId")
       .eq("meetingType", "CONSULTATION")
       .in("facultyId", facultyIds)
 
@@ -60,19 +62,28 @@ async function getDepartmentSummary(
     }
 
     const { data: appointments } = await query
+    const today = new Date().toISOString().slice(0, 10)
+
     if (appointments) {
       for (const apt of appointments as Record<string, unknown>[]) {
         total++
+        activeFaculty.add(apt.facultyId as string)
+
         switch (apt.status) {
           case "COMPLETED": completed++; break
           case "PENDING": pending++; break
-          case "APPROVED": approved++; break
+          case "APPROVED":
+            approved++
+            if ((apt.date as string) < today) overdueCompletion++
+            break
           case "REJECTED": rejected++; break
           case "CANCELLED": cancelled++; break
         }
       }
     }
   }
+
+  const inactiveFaculty = facultyIds.length - activeFaculty.size
 
   return {
     id: deptId,
@@ -85,6 +96,9 @@ async function getDepartmentSummary(
     rejected,
     cancelled,
     completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    inactiveFaculty,
+    unresponded: pending,
+    overdueCompletion,
   }
 }
 
@@ -183,6 +197,7 @@ export async function getAdminReportData(
 
   const departmentSummaries: DepartmentSummary[] = []
   for (const dept of departments) {
+    if (selectedDepartmentId && dept.id !== selectedDepartmentId) continue
     const summary = await getDepartmentSummary(dept.id, dept.name, filters)
     departmentSummaries.push(summary)
   }

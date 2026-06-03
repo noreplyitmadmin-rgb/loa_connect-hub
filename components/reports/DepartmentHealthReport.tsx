@@ -1,110 +1,36 @@
 "use client"
 
-import { useMemo, useCallback, useRef } from "react"
-import type { DepartmentSummary } from "@/lib/types"
-import { KpiCards } from "@/components/reports/KpiCards"
-import { StatusDistributionChart } from "@/components/reports/StatusDistributionChart"
+import { useMemo } from "react"
+import type { DepartmentSummary, FacultyStatsData, RawAppointmentData, ConsultationSummaryData } from "@/lib/types"
+import { DeanReportsTabs } from "@/components/reports/DeanReportsTabs"
 
 interface DepartmentHealthReportProps {
   departments: DepartmentSummary[]
+  departmentName?: string
+  stats: FacultyStatsData[]
+  rawAppointments: RawAppointmentData[]
+  summaries: ConsultationSummaryData[]
 }
 
-export function DepartmentHealthReport({ departments }: DepartmentHealthReportProps) {
-  const reportRef = useRef<HTMLDivElement>(null)
-
+export function DepartmentHealthReport({
+  departments,
+  stats,
+  rawAppointments,
+  summaries,
+}: DepartmentHealthReportProps) {
   const totals = useMemo(() => {
-    const total = departments.reduce((s, d) => s + d.total, 0)
-    const completed = departments.reduce((s, d) => s + d.completed, 0)
-    const pending = departments.reduce((s, d) => s + d.pending, 0)
-    const approved = departments.reduce((s, d) => s + d.approved, 0)
-    const rejected = departments.reduce((s, d) => s + d.rejected, 0)
-    const cancelled = departments.reduce((s, d) => s + d.cancelled, 0)
-    return {
-      total,
-      completed,
-      pending,
-      approved,
-      rejected,
-      cancelled,
-      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-    }
+    const inactiveFaculty = departments.reduce((s, d) => s + d.inactiveFaculty, 0)
+    const unresponded = departments.reduce((s, d) => s + d.unresponded, 0)
+    const overdueCompletion = departments.reduce((s, d) => s + d.overdueCompletion, 0)
+    const totalFaculty = departments.reduce((s, d) => s + d.facultyCount, 0)
+    return { inactiveFaculty, unresponded, overdueCompletion, totalFaculty }
   }, [departments])
-
-  // ── CSV Export ──────────────────────────────────
-  const esc = useCallback((val: unknown): string => {
-    const str = String(val ?? "")
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-      return `"${str.replace(/"/g, '""')}"`
-    }
-    return str
-  }, [])
-
-  const downloadCSV = useCallback((rows: string[][], filename: string) => {
-    const csv = rows.map((r) => r.join(",")).join("\n")
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, [])
-
-  const exportCSV = useCallback(() => {
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const rows: string[][] = []
-    rows.push(["Department", "Faculty Count", "Total", "Completed", "Pending", "Approved", "Rejected", "Cancelled", "Completion Rate"])
-    for (const d of departments) {
-      rows.push([
-        esc(d.name), String(d.facultyCount), String(d.total),
-        String(d.completed), String(d.pending), String(d.approved),
-        String(d.rejected), String(d.cancelled), `${d.completionRate}%`,
-      ])
-    }
-    downloadCSV(rows, `Health_Report_${dateStr}.csv`)
-  }, [departments, esc, downloadCSV])
-
-  // ── Excel Export (client-side XLSX via CSV) ────
-  const exportExcel = useCallback(() => {
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const csvRows: string[][] = [
-      ["Department Consultation Health Report"],
-      [],
-      ["Metric", "Value"],
-      ["Total Consultations", String(totals.total)],
-      ["Completed", String(totals.completed)],
-      ["Pending", String(totals.pending)],
-      ["Approved", String(totals.approved)],
-      ["Rejected", String(totals.rejected)],
-      ["Cancelled", String(totals.cancelled)],
-      ["Completion Rate", `${totals.completionRate}%`],
-      [],
-      ["Department", "Faculty Count", "Total", "Completed", "Pending", "Approved", "Rejected", "Cancelled", "Completion Rate"],
-      ...departments.map((d) => [
-        esc(d.name), String(d.facultyCount), String(d.total),
-        String(d.completed), String(d.pending), String(d.approved),
-        String(d.rejected), String(d.cancelled), `${d.completionRate}%`,
-      ]),
-    ]
-    const csv = csvRows.map((r) => r.join(",")).join("\n")
-    const blob = new Blob(["\uFEFF" + csv], { type: "application/vnd.ms-excel;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `Health_Report_${dateStr}.xls`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, [departments, totals, esc])
 
   if (departments.length === 0) {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Department Consultation Health Report</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Department Health</h1>
         </div>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-8 shadow-sm text-center">
           <p className="text-slate-400 text-sm">No departments found.</p>
@@ -114,160 +40,125 @@ export function DepartmentHealthReport({ departments }: DepartmentHealthReportPr
   }
 
   return (
-    <div className="space-y-8" ref={reportRef}>
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Department Consultation Health Report</h1>
-          <p className="text-sm text-slate-500 mt-1">Overview of all departments</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={exportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export CSV
-          </button>
-          <button
-            onClick={exportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export Excel
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Department Health</h1>
+        <p className="text-sm text-slate-500 mt-1">Actionable overview of consultation activity</p>
+      </div>
+
+      {/* Date Range Notice */}
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        <svg className="w-4 h-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <span>All charts and tables on this page reflect the selected date range above.</span>
       </div>
 
       {/* KPI Cards */}
-      <KpiCards {...totals} />
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <StatusDistributionChart {...totals} />
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Completion Rate by Department</h3>
-          {departments.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
-              No data available
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {[...departments]
-                .sort((a, b) => b.completionRate - a.completionRate)
-                .map((dept) => (
-                  <div key={dept.id}>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-medium text-slate-700 truncate">{dept.name}</span>
-                      <span className="font-mono text-slate-500 ml-2">{dept.completionRate}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          dept.completionRate >= 80
-                            ? "bg-emerald-400"
-                            : dept.completionRate >= 50
-                              ? "bg-amber-400"
-                              : "bg-red-400"
-                        }`}
-                        style={{ width: `${dept.completionRate}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
-                      <span>{dept.completed}/{dept.total} completed</span>
-                      <span>{dept.facultyCount} faculty</span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <ActiveCard count={totals.inactiveFaculty} total={totals.totalFaculty} />
+        <RequestCard count={totals.unresponded} />
+        <OverdueCard count={totals.overdueCompletion} />
       </div>
 
-      {/* Summary Table */}
-      <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800">Department Summary</h3>
+      {/* Per-Faculty Tabs */}
+      <DeanReportsTabs
+        stats={stats}
+        rawAppointments={rawAppointments}
+        summaries={summaries}
+      />
+    </div>
+  )
+}
+
+function KpiCard({
+  label,
+  value,
+  detail,
+  bg,
+  iconBg,
+  iconColor,
+  iconPath,
+  valueColor,
+}: {
+  label: string
+  value: string | number
+  detail?: string
+  bg: string
+  iconBg: string
+  iconColor: string
+  iconPath: string
+  valueColor?: string
+}) {
+  return (
+    <div className={`rounded-2xl border border-slate-200/70 ${bg} p-5 shadow-sm transition-all duration-200 hover:shadow-md`}>
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+          <svg className={`w-5 h-5 ${iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
+          </svg>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Department</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Faculty</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Total</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-emerald-600">Completed</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-amber-600">Pending</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-blue-600">Approved</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-red-600">Rejected</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Cancelled</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Rate</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              <tr className="bg-slate-50/30 font-medium">
-                <td className="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">All Departments</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-slate-700">{departments.reduce((s, d) => s + d.facultyCount, 0)}</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-slate-700">{totals.total}</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-emerald-600">{totals.completed}</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-amber-600">{totals.pending}</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-blue-600">{totals.approved}</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-red-600">{totals.rejected}</td>
-                <td className="px-4 py-4 text-center font-mono text-sm text-slate-500">{totals.cancelled}</td>
-                <td className="px-4 py-4 text-center">
-                  <CompletionBadge rate={totals.completionRate} />
-                </td>
-              </tr>
-              {departments.map((dept) => (
-                <tr key={dept.id} className="transition-colors duration-150 hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-800 whitespace-nowrap">{dept.name}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-slate-700">{dept.facultyCount}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-slate-700">{dept.total}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-emerald-600">{dept.completed}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-amber-600">{dept.pending}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-blue-600">{dept.approved}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-red-600">{dept.rejected}</td>
-                  <td className="px-4 py-4 text-center font-mono text-sm text-slate-500">{dept.cancelled}</td>
-                  <td className="px-4 py-4 text-center">
-                    <CompletionBadge rate={dept.completionRate} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-500 truncate">{label}</p>
+          <p className={`text-2xl font-bold ${valueColor || "text-slate-900"} font-mono mt-0.5`}>{value}</p>
+          {detail && <p className="text-[10px] text-slate-400 font-mono">{detail}</p>}
         </div>
       </div>
     </div>
   )
 }
 
-function CompletionBadge({ rate }: { rate: number }) {
-  let bg: string
-  let text: string
-  let dot: string
-
-  if (rate >= 80) {
-    bg = "bg-emerald-100"
-    text = "text-emerald-800"
-    dot = "bg-emerald-500"
-  } else if (rate >= 50) {
-    bg = "bg-amber-100"
-    text = "text-amber-800"
-    dot = "bg-amber-500"
-  } else {
-    bg = "bg-red-100"
-    text = "text-red-800"
-    dot = "bg-red-500"
-  }
-
+function ActiveCard({ count, total }: { count: number; total: number }) {
+  const level = count === 0 ? "green" : count <= 3 ? "amber" : "red"
+  const config = {
+    green: { bg: "bg-emerald-50", iconBg: "bg-emerald-100", iconColor: "text-emerald-600", valueColor: "text-emerald-700" },
+    amber: { bg: "bg-amber-50", iconBg: "bg-amber-100", iconColor: "text-amber-600", valueColor: "text-amber-700" },
+    red: { bg: "bg-red-50", iconBg: "bg-red-100", iconColor: "text-red-600", valueColor: "text-red-700" },
+  }[level]
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${bg} ${text} transition-all duration-200`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-      {rate}%
-    </span>
+    <KpiCard
+      label="Inactive Faculty"
+      value={count}
+      detail={`${total - count} of ${total} active`}
+      iconPath="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+      {...config}
+    />
+  )
+}
+
+function RequestCard({ count }: { count: number }) {
+  const level = count === 0 ? "green" : count <= 3 ? "amber" : "red"
+  const config = {
+    green: { bg: "bg-emerald-50", iconBg: "bg-emerald-100", iconColor: "text-emerald-600", valueColor: "text-emerald-700" },
+    amber: { bg: "bg-amber-50", iconBg: "bg-amber-100", iconColor: "text-amber-600", valueColor: "text-amber-700" },
+    red: { bg: "bg-red-50", iconBg: "bg-red-100", iconColor: "text-red-600", valueColor: "text-red-700" },
+  }[level]
+  return (
+    <KpiCard
+      label="Unresponded Requests"
+      value={count}
+      detail="Pending faculty action"
+      iconPath="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+      {...config}
+    />
+  )
+}
+
+function OverdueCard({ count }: { count: number }) {
+  const level = count === 0 ? "green" : count <= 3 ? "amber" : "red"
+  const config = {
+    green: { bg: "bg-emerald-50", iconBg: "bg-emerald-100", iconColor: "text-emerald-600", valueColor: "text-emerald-700" },
+    amber: { bg: "bg-amber-50", iconBg: "bg-amber-100", iconColor: "text-amber-600", valueColor: "text-amber-700" },
+    red: { bg: "bg-red-50", iconBg: "bg-red-100", iconColor: "text-red-600", valueColor: "text-red-700" },
+  }[level]
+  return (
+    <KpiCard
+      label="Overdue Completions"
+      value={count}
+      detail="Approved past scheduled date"
+      iconPath="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+      {...config}
+    />
   )
 }

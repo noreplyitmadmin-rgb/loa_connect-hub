@@ -43,7 +43,7 @@ export function WorkloadDistributionReport({
   const exportCSV = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const rows: string[][] = [
-      ["Consultation Workload Distribution Report"],
+      ["Faculty Consultation Load"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -70,7 +70,7 @@ export function WorkloadDistributionReport({
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Workload_Distribution_${dateStr}.csv`
+    a.download = `Faculty_Consultation_Load_${dateStr}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -80,7 +80,7 @@ export function WorkloadDistributionReport({
   const exportExcel = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const rows: string[][] = [
-      ["Consultation Workload Distribution Report"],
+      ["Faculty Consultation Load"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -107,7 +107,7 @@ export function WorkloadDistributionReport({
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `Workload_Distribution_${dateStr}.xls`
+    a.download = `Faculty_Consultation_Load_${dateStr}.xls`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -119,7 +119,7 @@ export function WorkloadDistributionReport({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Consultation Workload Distribution Report</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Faculty Consultation Load</h1>
           <p className="text-sm text-slate-500 mt-1">{departmentName}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -142,6 +142,14 @@ export function WorkloadDistributionReport({
             Export Excel
           </button>
         </div>
+      </div>
+
+      {/* Date Range Notice */}
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        <svg className="w-4 h-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <span>All charts and tables on this page reflect the selected date range above.</span>
       </div>
 
       {/* KPI Cards */}
@@ -202,7 +210,7 @@ export function WorkloadDistributionReport({
       {/* Distribution Table */}
       <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800">Faculty Workload Distribution</h3>
+          <h3 className="text-sm font-bold text-slate-800">Faculty Load Breakdown</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

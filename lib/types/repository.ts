@@ -369,6 +369,9 @@ export interface DepartmentSummary {
   rejected: number
   cancelled: number
   completionRate: number
+  inactiveFaculty: number
+  unresponded: number
+  overdueCompletion: number
 }
 
 export interface IReportsRepository {

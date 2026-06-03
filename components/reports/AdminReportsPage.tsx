@@ -7,10 +7,6 @@ import type {
   FacultyStatsData,
   RawAppointmentData,
   ConsultationSummaryData,
-  DepartmentFrequencyEntry,
-  FacultyFrequencyData,
-  DepartmentYearlyEntry,
-  FacultyYearlyData,
 } from "@/lib/types"
 import { DeanReportsTabs } from "@/components/reports/DeanReportsTabs"
 
@@ -21,11 +17,6 @@ interface AdminReportsPageProps {
   stats: FacultyStatsData[]
   rawAppointments: RawAppointmentData[]
   summaries: ConsultationSummaryData[]
-  departmentFrequency: DepartmentFrequencyEntry[]
-  facultyFrequency: FacultyFrequencyData[]
-  departmentYearlyFrequency: DepartmentYearlyEntry[]
-  facultyYearlyFrequency: FacultyYearlyData[]
-  deanId?: string
 }
 
 export function AdminReportsPage({
@@ -35,11 +26,6 @@ export function AdminReportsPage({
   stats,
   rawAppointments,
   summaries,
-  departmentFrequency,
-  facultyFrequency,
-  departmentYearlyFrequency,
-  facultyYearlyFrequency,
-  deanId,
 }: AdminReportsPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -59,6 +45,9 @@ export function AdminReportsPage({
       rejected: departments.reduce((s, d) => s + d.rejected, 0),
       cancelled: departments.reduce((s, d) => s + d.cancelled, 0),
       completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      inactiveFaculty: departments.reduce((s, d) => s + d.inactiveFaculty, 0),
+      unresponded: departments.reduce((s, d) => s + d.unresponded, 0),
+      overdueCompletion: departments.reduce((s, d) => s + d.overdueCompletion, 0),
     }
   }, [departments])
 
@@ -199,11 +188,6 @@ export function AdminReportsPage({
         stats={stats}
         rawAppointments={rawAppointments}
         summaries={summaries}
-        departmentFrequency={departmentFrequency}
-        facultyFrequency={facultyFrequency}
-        departmentYearlyFrequency={departmentYearlyFrequency}
-        facultyYearlyFrequency={facultyYearlyFrequency}
-        deanId={deanId}
       />
     </div>
   )
