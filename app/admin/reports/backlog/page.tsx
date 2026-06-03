@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { getBacklogReportData } from "@/lib/controllers/backlog-reports"
 import { BacklogReport } from "@/components/reports/BacklogReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
-import { resolveReportDepartment, getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { resolveReportDepartment } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 import { Suspense } from "react"
 
 export default async function BacklogPage(props: {

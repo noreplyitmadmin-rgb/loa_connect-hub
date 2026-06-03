@@ -4,7 +4,7 @@ import { getAdminReportData } from "@/lib/controllers/admin-reports"
 import { AdminReportsPage } from "@/components/reports/AdminReportsPage"
 import { Suspense } from "react"
 import { ReportFilters } from "@/components/reports/ReportFilters"
-import { getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 
 export default async function AdminReports(props: {
   searchParams?: Promise<{ startDate?: string; endDate?: string; status?: string; departmentId?: string }>

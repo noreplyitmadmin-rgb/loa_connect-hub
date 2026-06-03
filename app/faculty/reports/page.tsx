@@ -6,7 +6,7 @@ import { DeanReportsTabs } from "@/components/reports/DeanReportsTabs"
 import { CsvExport } from "@/components/reports/CsvExport"
 import { PdfExport } from "@/components/reports/PdfExport"
 import { Suspense } from "react"
-import { getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 
 export default async function DeanReportsPage(props: {
   searchParams?: Promise<{ startDate?: string; endDate?: string; status?: string }>

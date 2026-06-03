@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useCallback, useState, useTransition } from "react"
-import { getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 
 export function ReportFilters() {
   const { defaultStartDate, defaultEndDate } = getDefaultDateRange()

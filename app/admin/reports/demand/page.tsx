@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { getDemandReportData } from "@/lib/controllers/demand-reports"
 import { DemandTrendReport } from "@/components/reports/DemandTrendReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
-import { resolveReportDepartment, getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { resolveReportDepartment } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 import { Suspense } from "react"
 
 export default async function DemandReportPage(props: {

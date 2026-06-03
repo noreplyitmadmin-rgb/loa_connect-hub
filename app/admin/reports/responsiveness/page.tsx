@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { getResponsivenessReportData } from "@/lib/controllers/responsiveness-reports"
 import { ResponsivenessReport } from "@/components/reports/ResponsivenessReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
-import { resolveReportDepartment, getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { resolveReportDepartment } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 import { Suspense } from "react"
 
 export default async function ResponsivenessPage(props: {

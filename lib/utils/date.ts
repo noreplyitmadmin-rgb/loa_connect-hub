@@ -1,3 +1,11 @@
+export function getDefaultDateRange() {
+  const now = new Date()
+  const end = now.toISOString().slice(0, 10)
+  const first = new Date(now.getFullYear(), now.getMonth(), 1)
+  const start = first.toISOString().slice(0, 10)
+  return { defaultStartDate: start, defaultEndDate: end }
+}
+
 export function getWeekRange(date: Date): { start: Date; end: Date } {
   const day = date.getDay()
   const diff = date.getDate() - day + (day === 0 ? -6 : 1)

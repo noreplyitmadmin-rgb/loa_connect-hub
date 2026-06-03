@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { getAdminReportData } from "@/lib/controllers/admin-reports"
 import { DepartmentHealthReport } from "@/components/reports/DepartmentHealthReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
-import { resolveReportDepartment, getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { resolveReportDepartment } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 import { Suspense } from "react"
 
 export default async function HealthReportPage(props: {

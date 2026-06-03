@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { getWorkloadDistributionData } from "@/lib/controllers/distribution-reports"
 import { WorkloadDistributionReport } from "@/components/reports/WorkloadDistributionReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
-import { resolveReportDepartment, getDefaultDateRange } from "@/lib/utils/report-helpers"
+import { resolveReportDepartment } from "@/lib/utils/report-helpers"
+import { getDefaultDateRange } from "@/lib/utils/date"
 import { Suspense } from "react"
 
 export default async function DistributionPage(props: {
