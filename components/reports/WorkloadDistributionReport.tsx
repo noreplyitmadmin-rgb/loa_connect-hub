@@ -43,7 +43,7 @@ export function WorkloadDistributionReport({
   const exportCSV = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const rows: string[][] = [
-      ["Faculty Consultation Load"],
+      ["Faculty Consultation Distribution"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -80,7 +80,7 @@ export function WorkloadDistributionReport({
   const exportExcel = useCallback(() => {
     const dateStr = new Date().toISOString().slice(0, 10)
     const rows: string[][] = [
-      ["Faculty Consultation Load"],
+      ["Faculty Consultation Distribution"],
       [`Department: ${departmentName}`],
       [],
       ["Metric", "Value"],
@@ -119,8 +119,7 @@ export function WorkloadDistributionReport({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Faculty Consultation Load</h1>
-          <p className="text-sm text-slate-500 mt-1">{departmentName}</p>
+          <p className="text-sm text-slate-500">{departmentName}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -161,7 +160,7 @@ export function WorkloadDistributionReport({
 
       {/* Horizontal Bar Chart */}
       <div className="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
-        <h3 className="text-sm font-bold text-slate-800 mb-1">Consultation Share by Faculty</h3>
+        <h3 className="text-sm font-bold text-slate-800 mb-1">Distribution Overview</h3>
         <p className="text-xs text-slate-400 mb-5">Horizontal bars showing each faculty&apos;s consultation volume relative to the department total</p>
 
         {hasData ? (
@@ -210,7 +209,7 @@ export function WorkloadDistributionReport({
       {/* Distribution Table */}
       <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800">Faculty Load Breakdown</h3>
+          <h3 className="text-sm font-bold text-slate-800">Faculty Consultation Distribution</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

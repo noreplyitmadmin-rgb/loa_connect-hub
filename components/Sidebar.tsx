@@ -116,8 +116,8 @@ export default function Sidebar() {
   const rc = roleColors[primaryRole] || roleColors.STUDENT
 
   const reportChildren: NavItem[] = [
-    { href: "/admin/reports/health", label: "Department Health", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-    { href: "/admin/reports/distribution", label: "Faculty Consultation Load", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
+    { href: "/admin/reports/health", label: "General Report", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { href: "/admin/reports/distribution", label: "Distribution Report", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
   ]
 
   const ALL_NAV_ITEMS: (NavItem & { group?: string })[] = [

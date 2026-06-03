@@ -20,7 +20,7 @@ const LABELS: Record<string, string> = {
   distribution: "Faculty Consultation Load",
   coverage: "Consultation Reach",
   backlog: "Faculty Response Monitor",
-  health: "Department Health",
+  health: "General Report",
   demand: "Demand Trend",
 }
 

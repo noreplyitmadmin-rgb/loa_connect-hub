@@ -29,9 +29,6 @@ export function DepartmentHealthReport({
   if (departments.length === 0) {
     return (
       <div className="space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Department Health</h1>
-        </div>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-8 shadow-sm text-center">
           <p className="text-slate-400 text-sm">No departments found.</p>
         </div>
@@ -42,10 +39,9 @@ export function DepartmentHealthReport({
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Department Health</h1>
-        <p className="text-sm text-slate-500 mt-1">Actionable overview of consultation activity</p>
-      </div>
+        <div>
+          <p className="text-sm text-slate-500">Actionable overview of consultation activity</p>
+        </div>
 
       {/* Date Range Notice */}
       <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3 text-xs text-slate-500">
