@@ -80,17 +80,19 @@ export default function StudentDashboard({ studentName, course, appointments }: 
   }, [sortedAppointments])
 
   const timelineEvents: CalendarEvent[] = useMemo(
-    () => appointments.map((a) => ({
-      id: a.id,
-      title: a.title || `Consultation with ${a.faculty?.name || "Faculty"}`,
-      subtitle: a.faculty?.email,
-      date: a.date,
-      startTime: a.startTime,
-      endTime: a.endTime,
-      status: a.status,
-      type: "appointment" as const,
-      teamsLink: a.teamsLink,
-    })),
+    () => appointments
+      .filter((a) => a.status === "APPROVED")
+      .map((a) => ({
+        id: a.id,
+        title: a.title || `Consultation with ${a.faculty?.name || "Faculty"}`,
+        subtitle: a.faculty?.email,
+        date: a.date,
+        startTime: a.startTime,
+        endTime: a.endTime,
+        status: a.status,
+        type: "appointment" as const,
+        teamsLink: a.teamsLink,
+      })),
     [appointments]
   )
 

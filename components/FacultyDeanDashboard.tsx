@@ -123,7 +123,7 @@ export default function FacultyDeanDashboard({
   const timelineEvents: CalendarEvent[] = useMemo(
     () =>
       appointments
-        .filter((a) => a.status === "APPROVED" || a.status === "ACCEPTED")
+        .filter((a) => a.status === "APPROVED")
         .map((a) => ({
           id: a.id,
           title: a.title || `Meeting with ${a.student?.name || "Attendee"}`,
