@@ -11,7 +11,7 @@ export interface BacklogReportResult {
 
 export async function getBacklogReportData(
   departmentId: string | null,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string; status?: string }
 ): Promise<BacklogReportResult> {
   if (departmentId) {
     const dept = await departmentRepository.findById(departmentId)

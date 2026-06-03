@@ -6,7 +6,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
 
 export async function getConsultationCoverageData(
   departmentId: string | null,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string; status?: string }
 ): Promise<CoverageReportData> {
   if (departmentId) {
     return await reportsRepository.getConsultationCoverageData(departmentId, filters)

@@ -232,13 +232,25 @@ export const reportsRepository: IReportsRepository = {
       .select("id, facultyId, date, startTime, endTime, status, title, student:users!appointments_studentId_fkey(name)")
       .eq("meetingType", "CONSULTATION")
       .in("facultyId", facultyIds)
-      .in("status", ["PENDING", "APPROVED"])
 
     if (filters?.startDate) {
       query = query.gte("date", filters.startDate)
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
+    } else {
+      query = query.in("status", ["PENDING", "APPROVED"])
     }
 
     const { data: appointments, error: apptError } = await query.order("date", { ascending: true })
@@ -341,7 +353,20 @@ export const reportsRepository: IReportsRepository = {
       .select("facultyId, requestedAt, updatedAt")
       .eq("meetingType", "CONSULTATION")
       .in("facultyId", facultyIds)
-      .neq("status", "PENDING")
+
+    const statusMap: Record<string, string> = {
+      "completed": "COMPLETED",
+      "pending": "PENDING",
+      "approved": "APPROVED",
+      "cancelled": "CANCELLED",
+      "rejected": "REJECTED",
+    }
+    if (filters?.status) {
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
+    } else {
+      query = query.neq("status", "PENDING")
+    }
 
     if (filters?.startDate) {
       query = query.gte("date", filters.startDate)
@@ -452,6 +477,17 @@ export const reportsRepository: IReportsRepository = {
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
     }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
+    }
 
     const { data: appointments, error: apptError } = await query
     if (apptError) throw apptError
@@ -500,6 +536,17 @@ export const reportsRepository: IReportsRepository = {
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
     }
 
     const { data: appointments, error: apptError } = await query
@@ -562,6 +609,17 @@ export const reportsRepository: IReportsRepository = {
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
     }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
+    }
 
     const { data: appointments, error: apptError } = await query
     if (apptError) throw apptError
@@ -600,6 +658,17 @@ export const reportsRepository: IReportsRepository = {
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
     }
 
     const { data: appointments, error: apptError } = await query
@@ -645,6 +714,17 @@ export const reportsRepository: IReportsRepository = {
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
     }
 
     const { data: appointments, error: apptError } = await query
@@ -701,6 +781,17 @@ export const reportsRepository: IReportsRepository = {
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
     }
 
     const { data: appointments, error: apptError } = await query
@@ -759,7 +850,6 @@ export const reportsRepository: IReportsRepository = {
       .from("appointments")
       .select("studentId, date")
       .eq("meetingType", "CONSULTATION")
-      .in("status", ["COMPLETED", "APPROVED"])
       .in("studentId", studentIds)
 
     if (filters?.startDate) {
@@ -767,6 +857,19 @@ export const reportsRepository: IReportsRepository = {
     }
     if (filters?.endDate) {
       aptQuery = aptQuery.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      aptQuery = aptQuery.eq("status", dbStatus)
+    } else {
+      aptQuery = aptQuery.in("status", ["COMPLETED", "APPROVED"])
     }
 
     const { data: appointments, error: aptError } = await aptQuery
@@ -850,6 +953,17 @@ export const reportsRepository: IReportsRepository = {
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
     }
 
     const { data: appointments, error: apptError } = await query

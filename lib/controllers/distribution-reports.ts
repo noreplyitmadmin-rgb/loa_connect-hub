@@ -12,7 +12,7 @@ export interface DistributionReportResult {
 
 export async function getWorkloadDistributionData(
   departmentId: string | null,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string; status?: string }
 ): Promise<DistributionReportResult> {
   if (departmentId) {
     const data = await reportsRepository.getWorkloadDistribution(departmentId, filters)

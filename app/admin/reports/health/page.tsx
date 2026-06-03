@@ -3,11 +3,11 @@ import { redirect } from "next/navigation"
 import { getAdminReportData } from "@/lib/controllers/admin-reports"
 import { DepartmentHealthReport } from "@/components/reports/DepartmentHealthReport"
 import { ReportFiltersWithDept } from "@/components/reports/ReportFiltersWithDept"
-import { resolveReportDepartment } from "@/lib/utils/report-helpers"
+import { resolveReportDepartment, getDefaultDateRange } from "@/lib/utils/report-helpers"
 import { Suspense } from "react"
 
 export default async function HealthReportPage(props: {
-  searchParams?: Promise<{ startDate?: string; endDate?: string; departmentId?: string }>
+  searchParams?: Promise<{ startDate?: string; endDate?: string; departmentId?: string; status?: string }>
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
@@ -15,9 +15,11 @@ export default async function HealthReportPage(props: {
   const searchParams = await props.searchParams
   const { departmentId, departments, isDean } = await resolveReportDepartment(session, searchParams?.departmentId || null)
 
+  const { defaultStartDate, defaultEndDate } = getDefaultDateRange()
   const filters = {
-    startDate: searchParams?.startDate || undefined,
-    endDate: searchParams?.endDate || undefined,
+    startDate: searchParams?.startDate || defaultStartDate,
+    endDate: searchParams?.endDate || defaultEndDate,
+    status: searchParams?.status || undefined,
   }
 
   let data

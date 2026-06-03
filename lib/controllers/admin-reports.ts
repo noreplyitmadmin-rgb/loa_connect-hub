@@ -20,7 +20,7 @@ export interface AdminReportResult {
 async function getDepartmentSummary(
   deptId: string,
   deptName: string,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string; status?: string }
 ): Promise<DepartmentSummary> {
   const facultyUsers = (await userRepository.listByDepartment(deptId))
     .filter((u) => hasRole(u.role, "FACULTY") || hasRole(u.role, "DEAN"))
@@ -46,6 +46,17 @@ async function getDepartmentSummary(
     }
     if (filters?.endDate) {
       query = query.lte("date", filters.endDate)
+    }
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
     }
 
     const { data: appointments } = await query

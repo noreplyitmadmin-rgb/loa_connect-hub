@@ -389,27 +389,27 @@ export interface IReportsRepository {
 
   getDepartmentFrequency(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<DepartmentFrequencyEntry[]>
 
   getFacultyFrequency(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<FacultyFrequencyData[]>
 
   getDepartmentDailyFrequency(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<DailyFrequencyData[]>
 
   getDepartmentWeeklyFrequency(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<WeeklyFrequencyData[]>
 
   getDepartmentBacklog(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<{
     entries: BacklogEntry[]
     agingBuckets: BacklogAgingBucket[]
@@ -418,7 +418,7 @@ export interface IReportsRepository {
 
   getDepartmentResponseTimes(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<{
     stats: ResponseTimeStats
     byFaculty: FacultyResponseTime[]
@@ -427,22 +427,22 @@ export interface IReportsRepository {
 
   getDepartmentYearlyFrequency(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<DepartmentYearlyEntry[]>
 
   getFacultyYearlyFrequency(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<FacultyYearlyData[]>
 
   getConsultationCoverageData(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<CoverageReportData>
 
   getWorkloadDistribution(
     departmentId: string,
-    filters?: { startDate?: string; endDate?: string }
+    filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<WorkloadDistributionData>
 }
 

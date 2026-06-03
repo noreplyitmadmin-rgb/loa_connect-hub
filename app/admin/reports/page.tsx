@@ -4,6 +4,7 @@ import { getAdminReportData } from "@/lib/controllers/admin-reports"
 import { AdminReportsPage } from "@/components/reports/AdminReportsPage"
 import { Suspense } from "react"
 import { ReportFilters } from "@/components/reports/ReportFilters"
+import { getDefaultDateRange } from "@/lib/utils/report-helpers"
 
 export default async function AdminReports(props: {
   searchParams?: Promise<{ startDate?: string; endDate?: string; status?: string; departmentId?: string }>
@@ -13,9 +14,10 @@ export default async function AdminReports(props: {
 
   const searchParams = await props.searchParams
 
+  const { defaultStartDate, defaultEndDate } = getDefaultDateRange()
   const filters = {
-    startDate: searchParams?.startDate || undefined,
-    endDate: searchParams?.endDate || undefined,
+    startDate: searchParams?.startDate || defaultStartDate,
+    endDate: searchParams?.endDate || defaultEndDate,
     status: searchParams?.status || undefined,
   }
 

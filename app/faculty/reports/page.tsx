@@ -6,6 +6,7 @@ import { DeanReportsTabs } from "@/components/reports/DeanReportsTabs"
 import { CsvExport } from "@/components/reports/CsvExport"
 import { PdfExport } from "@/components/reports/PdfExport"
 import { Suspense } from "react"
+import { getDefaultDateRange } from "@/lib/utils/report-helpers"
 
 export default async function DeanReportsPage(props: {
   searchParams?: Promise<{ startDate?: string; endDate?: string; status?: string }>
@@ -16,9 +17,10 @@ export default async function DeanReportsPage(props: {
   const searchParams = await props.searchParams
   const deanId = (session.user as Record<string, unknown>).id as string
 
+  const { defaultStartDate, defaultEndDate } = getDefaultDateRange()
   const filters = {
-    startDate: searchParams?.startDate || undefined,
-    endDate: searchParams?.endDate || undefined,
+    startDate: searchParams?.startDate || defaultStartDate,
+    endDate: searchParams?.endDate || defaultEndDate,
     status: searchParams?.status || undefined,
   }
 

@@ -14,7 +14,7 @@ export interface DemandReportResult {
 
 export async function getDemandReportData(
   departmentId: string | null,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string; status?: string }
 ): Promise<DemandReportResult> {
   const { departmentRepository } = await import("@/lib/repositories/factory")
 

@@ -2,6 +2,14 @@ import { departmentRepository } from "@/lib/repositories/factory"
 import { hasRole } from "./roles"
 import type { Session } from "next-auth"
 
+export function getDefaultDateRange() {
+  const now = new Date()
+  const end = now.toISOString().slice(0, 10)
+  const first = new Date(now.getFullYear(), now.getMonth(), 1)
+  const start = first.toISOString().slice(0, 10)
+  return { defaultStartDate: start, defaultEndDate: end }
+}
+
 export interface DepartmentOption {
   id: string
   name: string

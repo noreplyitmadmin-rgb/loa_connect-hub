@@ -1,42 +1,61 @@
 "use client"
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { useCallback, useState } from "react"
+import { useCallback, useState, useTransition } from "react"
+import { getDefaultDateRange } from "@/lib/utils/report-helpers"
 
 export function ReportFilters() {
+  const { defaultStartDate, defaultEndDate } = getDefaultDateRange()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
-  const [startDate, setStartDate] = useState(searchParams.get("startDate") || "")
-  const [endDate, setEndDate] = useState(searchParams.get("endDate") || "")
+  const [startDate, setStartDate] = useState(searchParams.get("startDate") || defaultStartDate)
+  const [endDate, setEndDate] = useState(searchParams.get("endDate") || defaultEndDate)
   const [status, setStatus] = useState(searchParams.get("status") || "")
+  const [isPending, startTransition] = useTransition()
 
   const applyFilters = useCallback(
     (overrides?: { startDate?: string; endDate?: string }) => {
       const params = new URLSearchParams()
       const sd = overrides?.startDate ?? startDate
       const ed = overrides?.endDate ?? endDate
-      if (sd) params.set("startDate", sd)
-      if (ed) params.set("endDate", ed)
+      params.set("startDate", sd)
+      params.set("endDate", ed)
       if (status) params.set("status", status)
-      const qs = params.toString()
-      router.push(qs ? `${pathname}?${qs}` : pathname)
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`)
+      })
     },
     [startDate, endDate, status, router, pathname]
   )
 
   const clearFilters = useCallback(() => {
-    setStartDate("")
-    setEndDate("")
+    setStartDate(defaultStartDate)
+    setEndDate(defaultEndDate)
     setStatus("")
-    router.push(pathname)
-  }, [router, pathname])
+    const params = new URLSearchParams()
+    params.set("startDate", defaultStartDate)
+    params.set("endDate", defaultEndDate)
+    router.push(`${pathname}?${params.toString()}`)
+  }, [defaultStartDate, defaultEndDate, router, pathname])
 
-  const hasFilters = startDate || endDate || status
+  const hasFilters = startDate !== defaultStartDate || endDate !== defaultEndDate || status
 
   return (
-    <div className="space-y-4">
+    <div className="relative">
+      {isPending && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 rounded-2xl">
+          <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md border border-slate-200">
+            <svg className="animate-spin h-4 w-4 text-gold-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-sm font-medium text-slate-600">Loading...</span>
+          </div>
+        </div>
+      )}
+      <div className="space-y-4">
       {/* ── Semester Presets ── */}
       {/* <div className="flex flex-wrap items-center gap-2 p-4 bg-white rounded-2xl border border-slate-200/70 shadow-sm">
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 mr-1">
@@ -101,9 +120,11 @@ export function ReportFilters() {
             className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-gold-500/40 focus:border-gold-500 transition-all"
           >
             <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
             <option value="completed">Completed</option>
-            <option value="pending">Pending / Approved</option>
             <option value="cancelled">Cancelled</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
 
@@ -126,5 +147,6 @@ export function ReportFilters() {
         </div>
       </div>
     </div>
+  </div>
   )
 }

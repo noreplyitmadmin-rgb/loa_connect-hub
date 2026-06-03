@@ -10,7 +10,7 @@ export interface ResponsivenessReportResult {
 
 export async function getResponsivenessReportData(
   departmentId: string | null,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string; status?: string }
 ): Promise<ResponsivenessReportResult> {
   if (departmentId) {
     const dept = await departmentRepository.findById(departmentId)
