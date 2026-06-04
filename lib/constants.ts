@@ -17,5 +17,7 @@ export const GUEST_ROLE = "GUEST"
 
 export const ETL_UPLOAD_TYPE_STUDENT = "student"
 export const ETL_UPLOAD_TYPE_FACULTY = "faculty"
+export const ETL_UPLOAD_TYPE_EVAL_FACULTY = "evaluation-faculty"
+export const ETL_UPLOAD_TYPE_EVAL_STUDENT = "evaluation-student"
 
-export type EtlUploadType = "student" | "faculty"
+export type EtlUploadType = "student" | "faculty" | "evaluation-faculty" | "evaluation-student"
