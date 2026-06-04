@@ -119,6 +119,10 @@
 | `faculty/evaluation-results` | ✅ Done |
 | `import/evaluation-faculty` | ✅ Done |
 | `import/evaluation-student` | ✅ Done |
+| `import/preview` | ✅ Done — parses CSV + checks emails against users table |
+| `import/users` | ✅ Updated — accepts `multipart/form-data` (CSV) or `application/json` (preview confirm) |
+| `import/students` | ✅ Updated — same dual-accept |
+| `admin/reset-data` | ✅ Done — deletes all non-seed data (localhost only) |
 | ETL handler for eval types in `admin/etl-upload/validate` + `confirm` | ✅ N/A — eval tabs use direct import endpoints; `/admin/etl-upload` page deprecated in favor of `/admin/users` bulk import section |
 
 ### Shared Components
@@ -308,20 +312,18 @@ ALTER TABLE users ADD COLUMN "evaluationEligible" BOOLEAN NOT NULL DEFAULT FALSE
 
 ### ETL Strategy (Unified at `/admin/etl-upload`)
 
-The existing ETL page gets **two new tabs** alongside the existing Student and Faculty/Dean uploads:
+The bulk import in `/admin/users` supports two import types:
 
-| Tab | CSV Columns | What It Does | Depends On |
-|-----|-------------|-------------|------------|
-| Student Upload | `name, email, course` | Creates student users (unchanged) | — |
-| Faculty/Dean Upload | `name, email, department, dean` | Creates faculty/dean users (unchanged) | — |
-| **Evaluation Faculty** (new) | `name, email, department, subject` | Creates/updates faculty users + subjects + faculty_subjects | A period must exist |
-| **Evaluation Students** (new) | `name, email, subject` | Creates/updates students + subjects + student_enrollments + sets evaluationEligible=true | Evaluation Faculty uploaded first |
+| Type | CSV Columns | What It Does | Depends On |
+|------|-------------|-------------|------------|
+| Faculty / Staff | `name, microsoft email, section, code, title` | Creates/upserts faculty users + subjects (by code) + faculty_subjects | — |
+| Students | `name, microsoft email, course` | Creates student users | — |
 
-**Order matters**: Evaluation Faculty must be uploaded before Evaluation Students (students reference subjects that faculty define).
+**Skip behavior**: If an email already exists, the user is not duplicated — their info is read for subject linking.
 
-**Skip behavior**: If a student CSV references a subject with no faculty assignment, that row is flagged as an error.
+**Subjects**: Upserted by `code` column. `section` and `title` are parsed but not stored in the system (subject resolution is by code only).
 
-**Re-upload**: Re-uploading replaces existing data for the period (subjects + faculty_subjects + student_enrollments are cleared and rebuilt).
+**Department**: Users are NOT auto-assigned a department. The admin assigns it later via user management UI.
 
 ### Permission Model
 
@@ -396,8 +398,8 @@ Student:
 ```
  1. ADMIN creates Evaluation Period (semester-based)
  2. ADMIN sets up Rubric (8 categories, up to 34 items) for the period
- 3. ADMIN uploads Evaluation Faculty CSV → creates/updates users + subjects + faculty_subjects
- 4. ADMIN uploads Evaluation Students CSV → creates/updates students + enrollments
+  3. ADMIN uploads Faculty CSV via `/admin/users` bulk import → subjects upserted by code, users created or linked if email exists
+  4. ADMIN uploads Students CSV → creates student users
  5. STUDENT (with evaluationEligible=true) sees pending evaluations
  6. STUDENT submits evaluation → DRAFT → SUBMITTED
  7. SYSTEM computes results (category averages, general rating, remarks)
@@ -1568,8 +1570,8 @@ Grouped by period, showing faculty name, rating, remarks, submission date.
 
 | Page | Status | Action |
 |------|--------|--------|
-| `/admin/users` | Existing | Add collapsible bulk import section with eval faculty tab |
-| `/admin/etl-upload` | Existing | **Remove** — replaced by `/admin/users` bulk import |
+| `/admin/users` | ✅ Done | Collapsible bulk import section with card selector, CSV preview with inline editing, confirm flow; localhost-only Reset Data button |
+| `/admin/etl-upload` | ❌ Deprecated | Replaced by `/admin/users` bulk import |
 | `/admin/evaluations` | ✅ Done | Add rubric + reports cards |
 | `/admin/evaluations/rubrics` | ❌ Missing | Build standalone rubric editor with period selector |
 | `/admin/evaluations/upload` | ❌ Missing | Build upload status dashboard |
@@ -1644,57 +1646,29 @@ Grouped by period, showing faculty name, rating, remarks, submission date.
 - **Props**: `rubric: RubricCategory[]`, `facultyName`, `periodName`, `onSubmit`
 - **Used by**: Student evaluation page
 
-### Existing ETL Enhancement (`/admin/etl-upload`)
+### Bulk Import in `/admin/users`
 
-Two new tabs are added alongside the existing Student and Faculty/Dean uploads:
+The `/admin/users` page has a collapsible **Bulk Import** section above the user table. The flow:
 
-```
-┌─────────────────────────────────────────────────────┐
-│ [Student] [Faculty/Dean] [Eval Faculty] [Eval Student] │ ← tab bar
-└─────────────────────────────────────────────────────┘
-```
+1. **Select type**: Faculty/Staff (3-column CSV) or Students
+2. **Preview**: Upload CSV → `/api/import/preview` parses it and checks each email against the `users` table
+3. **Edit**: Preview table shows all rows with inline-editable fields (name, email, section, code, title). Existing users are flagged with an orange **EXISTS** badge; new rows show **NEW**
+4. **Confirm**: Sends the edited rows as JSON to the import endpoint
 
-#### Evaluation Faculty Tab
-
-```
-CSV columns: name, email, department, subject
-
-Example:
-name,email,department,subject
-Dr. Juan Santos,juan.santos@lyceumalabang.edu.ph,CCS,BSIT-3A-CC104-Data Structures
-Dr. Juan Santos,juan.santos@lyceumalabang.edu.ph,CCS,BSIT-3B-IT105-Networking
-Dr. Maria Cruz,maria.cruz@lyceumalabang.edu.ph,COE,BSEE-2A-EE201-Circuits
-
-Preview table:
-#  Name            Email                          Dept  Subject                        Status
-1  Dr. Juan Santos juan.santos@...               CCS   BSIT-3A-CC104-Data Structures  ✓ Valid
-2  Dr. Juan Santos juan.santos@...               CCS   BSIT-3B-IT105-Networking       ✓ Valid
-3  Dr. Maria Cruz  maria.cruz@...                 COE   BSEE-2A-EE201-Circuits         ✓ Valid
-
-Confirm: [Upload 3 Faculty Subjects]
-Effect: Creates/updates users + subjects + faculty_subjects
-```
-
-#### Evaluation Student Tab
+#### Faculty CSV Format
 
 ```
-CSV columns: name, email, subject
-
-Example:
-name,email,subject
-Juan Dela Cruz,juan.delacruz@student.edu.ph,BSIT-3A-CC104-Data Structures
-Maria Reyes,maria.reyes@student.edu.ph,BSIT-3B-IT105-Networking
-
-Preview table:
-#  Name            Email                          Subject                        Faculty           Status
-1  Juan Dela Cruz  juan.delacruz@...              BSIT-3A-CC104-Data Structures  Dr. Juan Santos   ✓ Valid
-2  Maria Reyes     maria.reyes@...                BSIT-3B-IT105-Networking       Dr. Juan Santos   ✓ Valid
-
-Confirm: [Upload 2 Student Enrollments]
-Effect: Creates/updates students (evaluationEligible=true) + subjects + enrollments
+name, microsoft email, section, code, title
+Jane Faculty, jane.faculty@lyceumalabang.edu.ph, BSIT-32A1, ELEC-323, Elective 3 - Fullstack Development
+Mike Dean, mike.dean@lyceumalabang.edu.ph, BSCS-41B2, CCS-412, Capstone Project 2
 ```
 
-The faculty column in the preview is **inferred** from the subject → faculty_subjects mapping. Rows where the subject has no faculty assignment show an error.
+#### Student CSV Format (unchanged)
+
+```
+name, microsoft email, course
+Alice Student, alice.student@lyceumalabang.edu.ph, BSIT
+```
 
 ### STUDENT PAGES
 
@@ -1848,12 +1822,23 @@ Mobile views share the same data layer, using iOS-native patterns: full-width gr
 | # | Prompt | What It Touches | Existing Risk |
 |---|--------|----------------|---------------|
 | 14 | Edit `lib/constants.ts` — add `evaluation-faculty` and `evaluation-student` to `EtlUploadType` | 1 existing file | Low — adds enum values |
-| 15 | Edit `app/admin/users/page.tsx` — add collapsible Bulk Import section with card selector + eval faculty tab | 1 existing file | **Moderate** — must preserve existing CRUD functionality; bulk import is additive above the table |
-| 16 | Edit `app/api/admin/etl-upload/validate/route.ts` + `confirm/route.ts` — handle 2 new types OR keep using direct `app/api/import/evaluation-faculty` endpoint | 2 existing files (or none if using direct endpoint) | Low — the eval import endpoints already exist as separate routes |
+| 15 | Edit `app/admin/users/page.tsx` — add collapsible Bulk Import section with card selector, CSV preview with inline editing, confirm flow, localhost-only Reset Data button | 1 existing file | **Moderate** — must preserve existing CRUD functionality; bulk import is additive above the table |
+| 16 | Edit `app/api/import/users/route.ts` + `students/route.ts` — add JSON body support for preview confirm flow | 2 existing files | Low — additive branching on content-type |
 
 **Decision**: Use existing `app/api/import/evaluation-faculty` and `app/api/import/evaluation-student` endpoints directly (they're already built). No changes needed to the old `etl-upload/validate` and `etl-upload/confirm` routes. The `/admin/etl-upload` page can be deprecated.
 
 **Blast radius**: The `/admin/users` page must preserve its existing user CRUD table, modals, search, filter, and pagination. The bulk import section is a collapsible area added above the table — visible only when expanded.
+
+### Additional: CSV Format Change + Seed Cleanup
+
+| # | Prompt | What It Touches | Existing Risk |
+|---|--------|----------------|---------------|
+| — | Update `csvParser.ts`: full template headers `name, microsoft email, section, code, title` (was `name, microsoft email, subject`); add `section`, `code`, `title` to `CsvRow` interface | 1 existing file | Low — clean interface change |
+| — | Update `userImport.ts`: remove `parseSubject()`, use `row.code` directly | 1 existing file | Low — simpler logic |
+| — | Reduce seed users in `supabase-schema.sql` to Admin, Regie Ellana, Nin Alamo only; delete `prisma/seed-supabase.ts` | 1 existing file + 1 deleted | Low — seed data only |
+| — | Create `POST /api/import/preview` — CSV parsing + email existence check | 1 new file | None |
+| — | Create `POST /api/admin/reset-data` — clears non-seed data via supabase client | 1 new file | Low — requires ADMIN role |
+| — | Create `scripts/reset-data.sql` — SQL reference for the reset | 1 new file | None |
 
 ### Phase 6: Student Pages (2 prompts — risk: none)
 

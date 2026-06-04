@@ -66,6 +66,24 @@ export default function AdminUsersPage() {
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
+  const [previewRows, setPreviewRows] = useState<PreviewRow[] | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState("")
+  const [isLocalhost] = useState(() =>
+    typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  )
+
+  interface PreviewRow {
+    row: number
+    name: string
+    email: string
+    section: string
+    code: string
+    title: string
+    course: string
+    emailExists: boolean
+    existingName: string | null
+  }
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false)
@@ -285,25 +303,50 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Bulk Import Toggle */}
-      <button
-        onClick={() => { setShowBulkImport(!showBulkImport); setImportResult(null); setImportError("") }}
-        className="flex items-center gap-2 text-sm font-semibold text-secondary hover:text-primary transition-colors"
-      >
-        <svg
-          className={`w-4 h-4 transition-transform ${showBulkImport ? "rotate-90" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => { setShowBulkImport(!showBulkImport); setImportResult(null); setImportError("") }}
+          className="flex items-center gap-2 text-sm font-semibold text-secondary hover:text-primary transition-colors"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-        Bulk Import
-      </button>
+          <svg
+            className={`w-4 h-4 transition-transform ${showBulkImport ? "rotate-90" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          Bulk Import
+        </button>
+
+        {isLocalhost && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm("Reset all non-seeded data? This cannot be undone.")) return
+              try {
+                const res = await fetch("/api/admin/reset-data", { method: "POST" })
+                const data = await res.json()
+                if (res.ok) {
+                  window.location.reload()
+                } else {
+                  alert("Reset failed: " + (data.error || "Unknown error"))
+                }
+              } catch {
+                alert("Network error")
+              }
+            }}
+            className="text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors"
+          >
+            Reset Data
+          </button>
+        )}
+      </div>
 
       {showBulkImport && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
           {/* Import Type Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
-              onClick={() => { setImportType("users"); setImportResult(null); setImportError("") }}
+              onClick={() => { setImportType("users"); setImportResult(null); setImportError(""); setPreviewRows(null) }}
               className={`p-4 rounded-xl border-2 text-left space-y-2 transition-colors ${
                 importType === "users"
                   ? "border-blue-300 bg-blue-50/30"
@@ -334,7 +377,7 @@ export default function AdminUsersPage() {
             </button>
 
             <button
-              onClick={() => { setImportType("students"); setImportResult(null); setImportError("") }}
+              onClick={() => { setImportType("students"); setImportResult(null); setImportError(""); setPreviewRows(null) }}
               className={`p-4 rounded-xl border-2 text-left space-y-2 transition-colors ${
                 importType === "students"
                   ? "border-blue-300 bg-blue-50/30"
@@ -366,68 +409,240 @@ export default function AdminUsersPage() {
 
           </div>
 
-          {/* Upload Form */}
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (importLoading) return
-              setImportError("")
-              setImportResult(null)
-
-              const file = fileRef.current?.files?.[0]
-              if (!file) { setImportError("Please select a CSV file"); return }
-
-              const formData = new FormData()
-              formData.append("file", file)
-
-              // ── IMPORTANT: Faculty CSV behaviour ──────────────────
-              // - If email exists, user is NOT duplicated — their info is read for subject linking
-              // - Subjects are upserted by code (section + title are parsed but not stored)
-              // - Users are NOT auto-assigned a department
-              // ─────────────────────────────────────────────────────
-              const endpoint =
-                importType === "users" ? "/api/import/users" : "/api/import/students"
-
-              setImportLoading(true)
-              try {
-                const res = await fetch(endpoint, { method: "POST", body: formData })
-                const data = await res.json()
-                if (!res.ok) { setImportError(data.error || "Upload failed"); return }
-                setImportResult(data)
-              } catch {
-                setImportError("Network error")
-              } finally {
-                setImportLoading(false)
-              }
-            }}
-            className="space-y-3"
-          >
-            <div>
-              <label className="block text-xs font-semibold text-tertiary mb-1.5">
-                CSV File — Importing as: <span className="text-blue-600">
-                  {importType === "users" ? "Faculty / Staff" : "Students"}
-                </span>
-              </label>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv"
-                className="block w-full text-sm text-tertiary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
+          {/* Step 1: CSV Upload */}
+          {!previewRows && !importResult && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-tertiary mb-1.5">
+                  CSV File — Importing as: <span className="text-blue-600">
+                    {importType === "users" ? "Faculty / Staff" : "Students"}
+                  </span>
+                </label>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv"
+                  className="block w-full text-sm text-tertiary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </div>
+              {importError && <p className="text-xs font-medium text-red-600">{importError}</p>}
+              <button
+                type="button"
+                disabled={previewLoading}
+                onClick={async () => {
+                  setPreviewError("")
+                  setImportError("")
+                  const file = fileRef.current?.files?.[0]
+                  if (!file) { setImportError("Please select a CSV file"); return }
+                  const formData = new FormData()
+                  formData.append("file", file)
+                  formData.append("type", importType === "users" ? "full" : "students")
+                  setPreviewLoading(true)
+                  try {
+                    const res = await fetch("/api/import/preview", { method: "POST", body: formData })
+                    const data = await res.json()
+                    if (!res.ok) { setPreviewError(data.error || "Preview failed"); return }
+                    setPreviewRows(data.rows.map((r: PreviewRow, i: number) => ({ ...r, row: i + 2 })))
+                  } catch {
+                    setPreviewError("Network error")
+                  } finally {
+                    setPreviewLoading(false)
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {previewLoading ? "Parsing..." : "Preview"}
+              </button>
             </div>
-            {importError && <p className="text-xs font-medium text-red-600">{importError}</p>}
-            <button
-              type="submit"
-              disabled={importLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {importLoading ? "Uploading..." : "Upload & Import"}
-            </button>
-          </form>
+          )}
 
-          {/* Import Results */}
+          {/* Step 2: Preview Table */}
+          {previewRows && !importResult && (
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-secondary uppercase tracking-wider">
+                  Preview — {previewRows.length} row{previewRows.length !== 1 ? "s" : ""}
+                </h4>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setPreviewRows(null); setPreviewError("") }}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    disabled={importLoading}
+                    onClick={async () => {
+                      setImportLoading(true)
+                      setImportError("")
+                      try {
+                        const res = await fetch(
+                          importType === "users" ? "/api/import/users" : "/api/import/students",
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              rows: previewRows.map((r) => ({
+                                name: r.name,
+                                email: r.email,
+                                department: null,
+                                course: importType === "students" ? r.course : null,
+                                employeeNo: null,
+                                subject: importType === "users" ? r.code : null,
+                                section: importType === "users" ? r.section : null,
+                                code: importType === "users" ? r.code : null,
+                                title: importType === "users" ? r.title : null,
+                              })),
+                            }),
+                          }
+                        )
+                        const data = await res.json()
+                        if (!res.ok) { setImportError(data.error || "Import failed"); return }
+                        setImportResult(data)
+                        setPreviewRows(null)
+                      } catch {
+                        setImportError("Network error")
+                      } finally {
+                        setImportLoading(false)
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {importLoading ? "Importing..." : `Confirm Import (${previewRows.length})`}
+                  </button>
+                </div>
+              </div>
+
+              {previewError && <p className="text-xs font-medium text-red-600">{previewError}</p>}
+
+              <div className="overflow-x-auto max-h-80 overflow-y-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-slate-50 text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-slate-200 sticky top-0">
+                      <th className="p-2 w-8">#</th>
+                      <th className="p-2">Name</th>
+                      <th className="p-2">Email</th>
+                      {importType === "users" && <th className="p-2">Section</th>}
+                      {importType === "users" && <th className="p-2">Code</th>}
+                      {importType === "users" && <th className="p-2">Title</th>}
+                      {importType === "students" && <th className="p-2">Course</th>}
+                      <th className="p-2 w-24 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((r, i) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="p-2 text-tertiary">{r.row}</td>
+                        <td className="p-2">
+                          <input
+                            value={r.name}
+                            onChange={(e) => {
+                              const next = [...previewRows]
+                              next[i] = { ...next[i], name: e.target.value }
+                              setPreviewRows(next)
+                            }}
+                            className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 outline-none"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            value={r.email}
+                            onChange={(e) => {
+                              const next = [...previewRows]
+                              next[i] = { ...next[i], email: e.target.value }
+                              setPreviewRows(next)
+                            }}
+                            className={`w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 outline-none ${
+                              r.emailExists ? "text-amber-700" : ""
+                            }`}
+                          />
+                        </td>
+                        {importType === "users" && (
+                          <td className="p-2">
+                            <input
+                              value={r.section}
+                              onChange={(e) => {
+                                const next = [...previewRows]
+                                next[i] = { ...next[i], section: e.target.value }
+                                setPreviewRows(next)
+                              }}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 outline-none"
+                            />
+                          </td>
+                        )}
+                        {importType === "users" && (
+                          <td className="p-2">
+                            <input
+                              value={r.code}
+                              onChange={(e) => {
+                                const next = [...previewRows]
+                                next[i] = { ...next[i], code: e.target.value }
+                                setPreviewRows(next)
+                              }}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 outline-none"
+                            />
+                          </td>
+                        )}
+                        {importType === "users" && (
+                          <td className="p-2">
+                            <input
+                              value={r.title}
+                              onChange={(e) => {
+                                const next = [...previewRows]
+                                next[i] = { ...next[i], title: e.target.value }
+                                setPreviewRows(next)
+                              }}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 outline-none"
+                            />
+                          </td>
+                        )}
+                        {importType === "students" && (
+                          <td className="p-2">
+                            <input
+                              value={r.course}
+                              onChange={(e) => {
+                                const next = [...previewRows]
+                                next[i] = { ...next[i], course: e.target.value }
+                                setPreviewRows(next)
+                              }}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 outline-none"
+                            />
+                          </td>
+                        )}
+                        <td className="p-2 text-center">
+                          {r.emailExists ? (
+                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded" title={`Existing user: ${r.existingName || ""}`}>
+                              EXISTS
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                              NEW
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Import Results */}
           {importResult && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-secondary uppercase tracking-wider">Results</h4>
+                <button
+                  type="button"
+                  onClick={() => { setImportResult(null); setPreviewRows(null) }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  Import Again
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
                   <p className="text-xl font-bold text-emerald-600">
