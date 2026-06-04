@@ -8,6 +8,8 @@ export interface UserData {
   role: string
   departmentId: string | null
   course: string | null
+  employeeNo: string | null
+  evaluationEligible: boolean
   isDisabled: boolean
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null
