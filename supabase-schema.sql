@@ -7,6 +7,17 @@
 -- 1. DROP ALL TABLES (reverse dependency order)
 -- =========================================================
 
+DROP TABLE IF EXISTS evaluation_ratings CASCADE;
+DROP TABLE IF EXISTS evaluation_comments CASCADE;
+DROP TABLE IF EXISTS evaluation_results CASCADE;
+DROP TABLE IF EXISTS evaluations CASCADE;
+DROP TABLE IF EXISTS student_enrollments CASCADE;
+DROP TABLE IF EXISTS faculty_subjects CASCADE;
+DROP TABLE IF EXISTS subjects CASCADE;
+DROP TABLE IF EXISTS rubric_items CASCADE;
+DROP TABLE IF EXISTS rubric_categories CASCADE;
+DROP TABLE IF EXISTS rating_scales CASCADE;
+DROP TABLE IF EXISTS evaluation_periods CASCADE;
 DROP TABLE IF EXISTS userrole CASCADE;
 DROP TABLE IF EXISTS appointment_time_slots CASCADE;
 DROP TABLE IF EXISTS appointment_attendees CASCADE;
@@ -696,3 +707,155 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ;
 -- =========================================================
 
 ALTER TABLE departments ADD COLUMN IF NOT EXISTS "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- =========================================================
+-- Migration 13: Faculty Evaluation — new tables
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS evaluation_periods (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  semester TEXT NOT NULL,
+  "schoolYear" TEXT NOT NULL,
+  "startDate" DATE NOT NULL,
+  "endDate" DATE NOT NULL,
+  "isActive" BOOLEAN NOT NULL DEFAULT FALSE,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_periods_active ON evaluation_periods("isActive");
+CREATE INDEX IF NOT EXISTS idx_eval_periods_school_year ON evaluation_periods("schoolYear");
+
+CREATE TABLE IF NOT EXISTS rating_scales (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  value INTEGER NOT NULL CHECK (value >= 1),
+  "displayOrder" INTEGER NOT NULL,
+  UNIQUE("periodId", value)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_scales_period ON rating_scales("periodId");
+
+CREATE TABLE IF NOT EXISTS rubric_categories (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  "displayOrder" INTEGER NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rubric_categories_period ON rubric_categories("periodId");
+
+CREATE TABLE IF NOT EXISTS rubric_items (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "categoryId" TEXT NOT NULL REFERENCES rubric_categories(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  "displayOrder" INTEGER NOT NULL,
+  "weight" DECIMAL(5,2) NOT NULL DEFAULT 1.00
+);
+
+CREATE INDEX IF NOT EXISTS idx_rubric_items_category ON rubric_items("categoryId");
+
+CREATE TABLE IF NOT EXISTS subjects (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  UNIQUE("periodId", name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_subjects_period ON subjects("periodId");
+
+CREATE TABLE IF NOT EXISTS faculty_subjects (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  UNIQUE("subjectId", "periodId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_period ON faculty_subjects("periodId");
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_faculty ON faculty_subjects("facultyId");
+
+CREATE TABLE IF NOT EXISTS student_enrollments (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  UNIQUE("studentId", "subjectId", "periodId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_period ON student_enrollments("periodId");
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_student ON student_enrollments("studentId");
+
+CREATE TABLE IF NOT EXISTS evaluations (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'SUBMITTED')),
+  "submittedAt" TIMESTAMPTZ,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE("periodId", "studentId", "facultyId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_evaluations_period ON evaluations("periodId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_student ON evaluations("studentId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_faculty ON evaluations("facultyId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_status ON evaluations(status);
+CREATE INDEX IF NOT EXISTS idx_evaluations_period_student ON evaluations("periodId", "studentId");
+
+CREATE TABLE IF NOT EXISTS evaluation_ratings (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "evaluationId" TEXT NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+  "itemId" TEXT NOT NULL REFERENCES rubric_items(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  UNIQUE("evaluationId", "itemId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_ratings_evaluation ON evaluation_ratings("evaluationId");
+
+CREATE TABLE IF NOT EXISTS evaluation_comments (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "evaluationId" TEXT NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+  comment TEXT NOT NULL,
+  "sentimentScore" DECIMAL(5,4),
+  "sentimentLabel" TEXT,
+  "sentimentAnalyzedAt" TIMESTAMPTZ,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_comments_evaluation ON evaluation_comments("evaluationId");
+CREATE INDEX IF NOT EXISTS idx_eval_comments_sentiment ON evaluation_comments("sentimentLabel");
+
+CREATE TABLE IF NOT EXISTS evaluation_results (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "departmentId" TEXT REFERENCES departments(id) ON DELETE SET NULL,
+  "totalRespondents" INTEGER NOT NULL DEFAULT 0,
+  "professionalManner" DECIMAL(5,2),
+  "communicationWithStudent" DECIMAL(5,2),
+  "studentEngagement" DECIMAL(5,2),
+  "learningMaterials" DECIMAL(5,2),
+  "timeManagement" DECIMAL(5,2),
+  "experientialLearning" DECIMAL(5,2),
+  "respectUniqueness" DECIMAL(5,2),
+  "assessmentAndFeedback" DECIMAL(5,2),
+  "generalRating" DECIMAL(5,2),
+  remarks TEXT,
+  "computedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE("periodId", "facultyId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_results_period ON evaluation_results("periodId");
+CREATE INDEX IF NOT EXISTS idx_eval_results_faculty ON evaluation_results("facultyId");
+CREATE INDEX IF NOT EXISTS idx_eval_results_department ON evaluation_results("departmentId");
+
+-- =========================================================
+-- Migration 14: Faculty Evaluation — ALTER users
+-- =========================================================
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "employeeNo" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "evaluationEligible" BOOLEAN NOT NULL DEFAULT FALSE;
