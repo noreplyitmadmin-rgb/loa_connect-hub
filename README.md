@@ -81,24 +81,6 @@ Supabase PostgreSQL
 
 Server Components fetch data directly via controllers and pass props to Client Components.
 
-### Mobile Companion Pages
-
-Mobile user-agents are auto-redirected from desktop routes to their `/m/` counterparts via `proxy.ts`. The proxy rewrites mobile paths back to desktop equivalents (`toDesktopPath()`) for role-based access checks, so the auth config stays simple.
-
-| Desktop Route | Mobile Route | Purpose |
-|---|---|---|
-| `/student/book` | `/student/m/book` | Step-by-step booking wizard (same-department faculty filter) |
-| `/student/meetings` | `/student/m/meetings` | Student consultation list |
-| `/student/meetings/[id]` | `/student/m/meetings/[id]` | Student consultation detail |
-| `/faculty/meetings` | `/faculty/m/meetings` | Faculty meeting list |
-| `/faculty/meetings/new` | `/faculty/m/meetings/new` | Faculty create meeting (wraps StudentBooking) |
-| `/faculty/meetings/[id]` | `/faculty/m/meetings/[id]` | Faculty meeting detail |
-| `/dean` | `/dean/m` | Desktop-only notice (dashboard excluded from mobile) |
-| `/dean/departments` | `/dean/m/departments` | Department courses management |
-| `/dean/upload` | `/dean/m/upload` | Bulk CSV import |
-
-Desktop opt-out via `?desktop=1` query param.
-
 ### Current Patterns
 
 | Pattern | Implementation |
@@ -117,7 +99,6 @@ Desktop opt-out via `?desktop=1` query param.
 | **Feature flags** | Environment variables (`EMAIL_FEATURE_FLAG`, `SSO_FEATURE_FLAG`, etc.) |
 | **Loading states** | Dedicated skeleton components + `loading.tsx` per route segment |
 | **Dark mode** | Class-based (`.dark` on `<html>`), persisted in localStorage, Tailwind v4 `@custom-variant dark` |
-| **Mobile detection** | UA regex in `proxy.ts`, desktop opt-out via `?desktop=1` |
 
 ### File Count
 
@@ -259,3 +240,153 @@ Non-activated accounts must use the activation flow at `/activate`.
 | 16. Staggered & Multi-Faculty Booking | ✅ Done |
 | 17. Mobile Companion Pages | ✅ Done |
 | 18. Dark Mode | ✅ Done |
+
+## Faculty Evaluation Module
+
+**Implementation branch:** `eval`
+**Working plan:** `FACULTY-EVALUATION.md`
+
+### Pages
+
+| Route | Status |
+|-------|--------|
+| `/admin/evaluations` (hub) | ✅ Done |
+| `/admin/evaluations/periods` | ✅ Done |
+| `/admin/evaluations/periods/new` | ✅ Done |
+| `/admin/evaluations/periods/[id]` | ✅ Done |
+| `/admin/evaluations/periods/[id]/rubric` | ✅ Done |
+| `/admin/evaluations/results` | ✅ Done |
+| `/admin/evaluations/rubrics` (standalone editor) | ❌ Missing |
+| `/admin/evaluations/upload` (ETL status) | ✅ N/A — use `/admin/etl-upload` |
+| `/admin/evaluations/reports` (landing + sentiment) | ❌ Missing |
+| `/dean/evaluations` (dashboard) | ❌ Missing |
+| `/dean/evaluations/results` | ✅ Done |
+| `/dean/evaluations/reports` | ❌ Missing |
+| `/faculty/evaluations` (dashboard) | ❌ Missing |
+| `/faculty/evaluations/results` | ✅ Done |
+| `/faculty/evaluations/[periodId]` | ❌ Missing |
+| `/student/evaluations` (pending list) | ✅ Done |
+| `/student/evaluations/[id]` (evaluation form) | ✅ Done |
+| `/student/evaluations/history` | ❌ Missing |
+
+### Database
+
+| Item | Status |
+|------|--------|
+| Migration 13: 11 new eval tables | ✅ Done (`supabase-schema.sql`) |
+| Migration 14: ALTER users (`employeeNo`, `evaluationEligible`) | ✅ Done |
+| Migration 15: `group_access` eval paths | ✅ Done |
+
+### Types
+
+| File | Status |
+|------|--------|
+| `lib/types/evaluation.ts` (all entity/DTO types) | ✅ Done |
+
+### Repositories
+
+| Repository | Status |
+|------------|--------|
+| `evaluation-period` | ✅ Done |
+| `subject` | ✅ Done |
+| `faculty-subject` | ✅ Done |
+| `student-enrollment` | ✅ Done |
+| `rubric` | ✅ Done |
+| `evaluation` | ✅ Done |
+| `evaluation-result` | ✅ Done |
+| `evaluation-rating` | ❌ Missing |
+| `evaluation-comment` | ❌ Missing |
+
+### Controllers
+
+| Controller | Status |
+|------------|--------|
+| `evaluation-periods.ts` | ✅ Done |
+| `rubrics.ts` | ✅ Done |
+| `evaluations.ts` | ✅ Done |
+| `evaluation-results.ts` | ✅ Done |
+| `sentiment-analysis.ts` | ✅ Done |
+| `etl-evaluation.ts` | ✅ N/A — routes call service directly |
+
+### API Routes
+
+| Route | Status |
+|-------|--------|
+| `GET/POST /api/evaluation-periods` | ✅ Done |
+| `GET/PATCH/DELETE /api/evaluation-periods/[id]` | ✅ Done |
+| `POST /api/evaluation-periods/[id]/activate` | ✅ Done |
+| `GET/POST /api/evaluation-periods/[id]/rubric` | ✅ Done |
+| `POST /api/evaluation-periods/[id]/rubric/copy` | ✅ Done |
+| `PATCH/DELETE /api/evaluation-periods/[id]/rubrics/categories/[categoryId]` | ✅ Done |
+| `POST /api/evaluation-periods/[id]/rubrics/items` | ✅ Done |
+| `PATCH/DELETE /api/evaluation-periods/[id]/rubrics/items/[itemId]` | ✅ Done |
+| `GET /api/evaluation-periods/[id]/subjects` | ✅ Done |
+| `GET /api/evaluation-periods/[id]/faculty-subjects` | ✅ Done |
+| `GET /api/evaluation-periods/[id]/enrollments` | ✅ Done |
+| `GET /api/evaluation-periods/[id]/enrollment-stats` | ✅ Done |
+| `GET /api/evaluations/submitted` | ✅ Done |
+| `GET /api/evaluations/[id]` | ✅ Done |
+| `PATCH /api/evaluations/[id]/ratings` | ✅ Done |
+| `POST /api/evaluations/[id]/submit` | ✅ Done |
+| `POST /api/evaluations/[id]/comments` | ✅ Done |
+| `GET /api/evaluation-results` | ✅ Done |
+| `GET /api/evaluation-results/[id]` | ✅ Done |
+| `POST /api/evaluation-results/compute` | ✅ Done |
+| `GET /api/evaluation-results/export` | ✅ Done |
+| `GET /api/evaluation-comments` | ✅ Done |
+| `POST /api/sentiment-analysis/analyze` | ✅ Placeholder |
+| `POST /api/sentiment-analysis/batch` | ✅ Placeholder |
+| `GET /api/sentiment-analysis/summary` | ✅ Placeholder |
+| `GET /api/evaluation-reports/department` | ❌ Missing |
+| `GET /api/evaluation-reports/institutional` | ❌ Missing |
+| `GET /api/evaluation-reports/faculty/[facultyId]` | ❌ Missing |
+| `admin/evaluation-periods` (CRUD) | ✅ Done |
+| `admin/evaluation-results` | ✅ Done |
+| `admin/evaluation-results/compute` | ✅ Done |
+| `dean/evaluation-results` | ✅ Done |
+| `faculty/evaluation-results` | ✅ Done |
+| `import/evaluation-faculty` | ✅ Done |
+| `import/evaluation-student` | ✅ Done |
+| ETL handler for eval types in `admin/etl-upload/validate` + `confirm` | ✅ N/A — eval tabs use direct import endpoints |
+
+### Shared Components
+
+| Component | Status |
+|-----------|--------|
+| `RatingScale` | ✅ Done |
+| `CategoryProgressBar` | ✅ Done |
+| `FacultyResultCard` | ✅ Done |
+| `SentimentBadge` | ✅ Done |
+| `EvaluationFilters` | ✅ Done |
+| `EvaluationForm` | ✅ Done |
+
+### Services
+
+| Service | Status |
+|---------|--------|
+| `etlEvaluation.ts` (CSV parse + import) | ✅ Done |
+| `sentiment.ts` (AI sentiment analysis) | ✅ Placeholder |
+
+### Wiring
+
+| Item | Status |
+|------|--------|
+| `EtlUploadType` constants | ✅ Done |
+| `lib/access.ts` DEFAULT_CONFIG | ✅ Done |
+| `components/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
+| `lib/types/index.ts` evaluation export | ❌ Missing |
+
+### Summary
+
+| Category | Done | Missing |
+|----------|------|---------|
+| Pages | 10 | 7 |
+| Database | 3 | 0 |
+| Types | 1 | 0 |
+| Repositories | 7 | 2 |
+| Controllers | 6 | 0 |
+| API Routes | 27 | 8 |
+| Components | 6 | 0 |
+| Services | 2 | 0 |
+| Wiring | 3 | 1 |
+| **Total** | **65** | **18** |

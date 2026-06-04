@@ -7,6 +7,17 @@
 -- 1. DROP ALL TABLES (reverse dependency order)
 -- =========================================================
 
+DROP TABLE IF EXISTS evaluation_ratings CASCADE;
+DROP TABLE IF EXISTS evaluation_comments CASCADE;
+DROP TABLE IF EXISTS evaluation_results CASCADE;
+DROP TABLE IF EXISTS evaluations CASCADE;
+DROP TABLE IF EXISTS student_enrollments CASCADE;
+DROP TABLE IF EXISTS faculty_subjects CASCADE;
+DROP TABLE IF EXISTS subjects CASCADE;
+DROP TABLE IF EXISTS rubric_items CASCADE;
+DROP TABLE IF EXISTS rubric_categories CASCADE;
+DROP TABLE IF EXISTS rating_scales CASCADE;
+DROP TABLE IF EXISTS evaluation_periods CASCADE;
 DROP TABLE IF EXISTS userrole CASCADE;
 DROP TABLE IF EXISTS appointment_time_slots CASCADE;
 DROP TABLE IF EXISTS appointment_attendees CASCADE;
@@ -380,8 +391,7 @@ AND NOT EXISTS (SELECT 1 FROM department_courses WHERE "departmentId" = d.id AND
 
 -- =========================================================
 -- 8. SEED DATA
---    Uses fixed UUIDs for idempotent re-runs and to align
---    with prisma/seed-supabase.ts expectations.
+--    Uses fixed UUIDs for idempotent re-runs.
 -- =========================================================
 
 DO $$
@@ -390,13 +400,6 @@ DECLARE
   _dept_id TEXT    := 'b0000000-0000-0000-0000-000000000001';
   _dean_id TEXT    := 'c0000000-0000-0000-0000-000000000001';
   _faculty1_id TEXT := 'd0000000-0000-0000-0000-000000000001';
-  _faculty2_id TEXT := 'd0000000-0000-0000-0000-000000000002';
-  _faculty3_id TEXT := 'd0000000-0000-0000-0000-000000000003';
-  _student1_id TEXT := 'e0000000-0000-0000-0000-000000000001';
-  _student2_id TEXT := 'e0000000-0000-0000-0000-000000000002';
-  _student3_id TEXT := 'e0000000-0000-0000-0000-000000000003';
-  _student4_id TEXT := 'e0000000-0000-0000-0000-000000000004';
-  _student5_id TEXT := 'e0000000-0000-0000-0000-000000000005';
   _course_bsit_id TEXT := 'f0000000-0000-0000-0000-000000000001';
   _course_bscs_id TEXT := 'f0000000-0000-0000-0000-000000000002';
 
@@ -433,58 +436,13 @@ BEGIN
     (_course_bscs_id, _dept_id, 'Bachelor of Science in Computer Science', 'BSCS')
   ON CONFLICT ("departmentId", code) DO NOTHING;
 
-  -- ── FACULTY (3) ─────────────────────────────────────────
-  INSERT INTO users (id, name, email, "passwordHash", "departmentId") VALUES
-    (_faculty1_id, 'Nin Alamo',           'n.alamo@lyceumalabang.edu.ph
-', _hash, _dept_id),
-    (_faculty2_id, 'Maria Santos',        'maria.santos@lyceumalabang.edu.ph
-',           _hash, _dept_id),
-    (_faculty3_id, 'Juan Dela Cruz',      'juan.delacruz@lyceumalabang.edu.ph
-',         _hash, _dept_id)
+  -- ── FACULTY (1) ─────────────────────────────────────────
+  INSERT INTO users (id, name, email, "passwordHash", "departmentId")
+  VALUES (_faculty1_id, 'Nin Alamo', 'n.alamo@lyceumalabang.edu.ph', _hash, _dept_id)
   ON CONFLICT (id) DO NOTHING;
 
-  INSERT INTO userrole ("userId", "roleName") VALUES
-    (_faculty1_id, 'FACULTY'),
-    (_faculty2_id, 'FACULTY'),
-    (_faculty3_id, 'FACULTY')
+  INSERT INTO userrole ("userId", "roleName") VALUES (_faculty1_id, 'FACULTY')
   ON CONFLICT DO NOTHING;
-
-  -- ── STUDENTS (5) ────────────────────────────────────────
-  INSERT INTO users (id, name, email, "passwordHash", "departmentId", course) VALUES
-    (_student1_id, 'Alice Reyes',       'alice.reyes@itmlyceumalabang.onmicrosoft.com
-',     _hash, _dept_id, 'BSIT'),
-    (_student2_id, 'Bob Martinez',      'bob.martinez@itmlyceumalabang.onmicrosoft.com
-',    _hash, _dept_id, 'BSIT'),
-    (_student3_id, 'Charlie Gomez',     'charlie.gomez@itmlyceumalabang.onmicrosoft.com
-',   _hash, _dept_id, 'BSCS'),
-    (_student4_id, 'Diana Lopez',       'diana.lopez@itmlyceumalabang.onmicrosoft.com
-',     _hash, _dept_id, 'BSCS'),
-    (_student5_id, 'Ethan Fernandez',   'ethan.fernandez@itmlyceumalabang.onmicrosoft.com
-', _hash, _dept_id, 'BSIT')
-  ON CONFLICT (id) DO NOTHING;
-
-  INSERT INTO userrole ("userId", "roleName") VALUES
-    (_student1_id, 'STUDENT'),
-    (_student2_id, 'STUDENT'),
-    (_student3_id, 'STUDENT'),
-    (_student4_id, 'STUDENT'),
-    (_student5_id, 'STUDENT')
-  ON CONFLICT DO NOTHING;
-
-  -- ── FACULTY AVAILABILITY ─────────────────────────────────
-  -- FOR i IN 0..6 LOOP
-  --   INSERT INTO faculty_availability_rules ("facultyId", "dayOfWeek", "isBlocked", "startTime", "endTime", "startDate")
-  --   VALUES (_faculty1_id, i, CASE WHEN i >= 5 THEN true ELSE false END, CASE WHEN i >= 5 THEN NULL ELSE '08:00' END, CASE WHEN i >= 5 THEN NULL ELSE '18:00' END, '2026-01-01')
-  --   ON CONFLICT ("facultyId", "dayOfWeek", "startDate") DO NOTHING;
-
-  --   INSERT INTO faculty_availability_rules ("facultyId", "dayOfWeek", "isBlocked", "startTime", "endTime", "startDate")
-  --   VALUES (_faculty2_id, i, CASE WHEN i >= 5 THEN true ELSE false END, CASE WHEN i >= 5 THEN NULL ELSE '08:00' END, CASE WHEN i >= 5 THEN NULL ELSE '18:00' END, '2026-01-01')
-  --   ON CONFLICT ("facultyId", "dayOfWeek", "startDate") DO NOTHING;
-
-  --   INSERT INTO faculty_availability_rules ("facultyId", "dayOfWeek", "isBlocked", "startTime", "endTime", "startDate")
-  --   VALUES (_faculty3_id, i, CASE WHEN i >= 5 THEN true ELSE false END, CASE WHEN i >= 5 THEN NULL ELSE '08:00' END, CASE WHEN i >= 5 THEN NULL ELSE '18:00' END, '2026-01-01')
-  --   ON CONFLICT ("facultyId", "dayOfWeek", "startDate") DO NOTHING;
-  -- END LOOP;
 
 END $$;
 
@@ -696,3 +654,201 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ;
 -- =========================================================
 
 ALTER TABLE departments ADD COLUMN IF NOT EXISTS "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- =========================================================
+-- Migration 13: Faculty Evaluation — new tables
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS evaluation_periods (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  semester TEXT NOT NULL,
+  "schoolYear" TEXT NOT NULL,
+  "startDate" DATE NOT NULL,
+  "endDate" DATE NOT NULL,
+  "isActive" BOOLEAN NOT NULL DEFAULT FALSE,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_periods_active ON evaluation_periods("isActive");
+CREATE INDEX IF NOT EXISTS idx_eval_periods_school_year ON evaluation_periods("schoolYear");
+
+CREATE TABLE IF NOT EXISTS rating_scales (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  value INTEGER NOT NULL CHECK (value >= 1),
+  "displayOrder" INTEGER NOT NULL,
+  UNIQUE("periodId", value)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rating_scales_period ON rating_scales("periodId");
+
+CREATE TABLE IF NOT EXISTS rubric_categories (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  "displayOrder" INTEGER NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rubric_categories_period ON rubric_categories("periodId");
+
+CREATE TABLE IF NOT EXISTS rubric_items (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "categoryId" TEXT NOT NULL REFERENCES rubric_categories(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  "displayOrder" INTEGER NOT NULL,
+  "weight" DECIMAL(5,2) NOT NULL DEFAULT 1.00
+);
+
+CREATE INDEX IF NOT EXISTS idx_rubric_items_category ON rubric_items("categoryId");
+
+CREATE TABLE IF NOT EXISTS subjects (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  UNIQUE("periodId", name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_subjects_period ON subjects("periodId");
+
+CREATE TABLE IF NOT EXISTS faculty_subjects (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  UNIQUE("subjectId", "periodId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_period ON faculty_subjects("periodId");
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_faculty ON faculty_subjects("facultyId");
+
+CREATE TABLE IF NOT EXISTS student_enrollments (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  UNIQUE("studentId", "subjectId", "periodId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_period ON student_enrollments("periodId");
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_student ON student_enrollments("studentId");
+
+CREATE TABLE IF NOT EXISTS evaluations (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "evaluatorId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "evaluateeId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'SUBMITTED')),
+  "submittedAt" TIMESTAMPTZ,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE("periodId", "evaluatorId", "evaluateeId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_evaluations_period ON evaluations("periodId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_evaluator ON evaluations("evaluatorId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_evaluatee ON evaluations("evaluateeId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_status ON evaluations(status);
+CREATE INDEX IF NOT EXISTS idx_evaluations_period_evaluator ON evaluations("periodId", "evaluatorId");
+
+CREATE TABLE IF NOT EXISTS evaluation_ratings (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "evaluationId" TEXT NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+  "itemId" TEXT NOT NULL REFERENCES rubric_items(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  UNIQUE("evaluationId", "itemId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_ratings_evaluation ON evaluation_ratings("evaluationId");
+
+CREATE TABLE IF NOT EXISTS evaluation_comments (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "evaluationId" TEXT NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+  comment TEXT NOT NULL,
+  "sentimentScore" DECIMAL(5,4),
+  "sentimentLabel" TEXT,
+  "sentimentAnalyzedAt" TIMESTAMPTZ,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_comments_evaluation ON evaluation_comments("evaluationId");
+CREATE INDEX IF NOT EXISTS idx_eval_comments_sentiment ON evaluation_comments("sentimentLabel");
+
+CREATE TABLE IF NOT EXISTS evaluation_results (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "departmentId" TEXT REFERENCES departments(id) ON DELETE SET NULL,
+  "totalRespondents" INTEGER NOT NULL DEFAULT 0,
+  "professionalManner" DECIMAL(5,2),
+  "communicationWithStudent" DECIMAL(5,2),
+  "studentEngagement" DECIMAL(5,2),
+  "learningMaterials" DECIMAL(5,2),
+  "timeManagement" DECIMAL(5,2),
+  "experientialLearning" DECIMAL(5,2),
+  "respectUniqueness" DECIMAL(5,2),
+  "assessmentAndFeedback" DECIMAL(5,2),
+  "generalRating" DECIMAL(5,2),
+  remarks TEXT,
+  "computedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE("periodId", "facultyId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_results_period ON evaluation_results("periodId");
+CREATE INDEX IF NOT EXISTS idx_eval_results_faculty ON evaluation_results("facultyId");
+CREATE INDEX IF NOT EXISTS idx_eval_results_department ON evaluation_results("departmentId");
+
+-- =========================================================
+-- Migration 14: Faculty Evaluation — ALTER users
+-- =========================================================
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "employeeNo" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "evaluationPeriodId" TEXT REFERENCES evaluation_periods(id) ON DELETE SET NULL;
+
+-- =========================================================
+-- Migration 15: Add evaluation page paths to group_access
+-- =========================================================
+
+UPDATE group_access SET pages = pages || '["/admin/evaluations","/admin/evaluations/periods","/admin/evaluations/periods/new","/admin/evaluations/results"]'::JSONB WHERE "groupName" = 'ADMIN';
+UPDATE group_access SET pages = pages || '["/dean/evaluations/results"]'::JSONB WHERE "groupName" = 'DEAN';
+UPDATE group_access SET pages = pages || '["/faculty/evaluations/results"]'::JSONB WHERE "groupName" = 'FACULTY';
+UPDATE group_access SET pages = pages || '["/student/evaluations"]'::JSONB WHERE "groupName" = 'STUDENT';
+
+-- =========================================================
+-- Migration 16: Make evaluation periodId a plain text field
+-- =========================================================
+
+ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_periodid_fkey;
+ALTER TABLE subjects ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_periodId_name_key;
+DROP INDEX IF EXISTS idx_subjects_period;
+
+ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_periodid_fkey;
+ALTER TABLE faculty_subjects ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_subjectId_periodId_key;
+DROP INDEX IF EXISTS idx_faculty_subjects_period;
+
+ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_periodid_fkey;
+ALTER TABLE student_enrollments ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_studentId_subjectId_periodId_key;
+DROP INDEX IF EXISTS idx_student_enrollments_period;
+
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_periodid_fkey;
+ALTER TABLE evaluations ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_periodId_studentId_facultyId_key;
+DROP INDEX IF EXISTS idx_evaluations_period;
+DROP INDEX IF EXISTS idx_evaluations_period_student;
+DROP INDEX IF EXISTS idx_evaluations_student;
+DROP INDEX IF EXISTS idx_evaluations_faculty;
+
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_periodid_fkey;
+ALTER TABLE evaluation_results ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_periodId_facultyId_key;
+
+ALTER TABLE rating_scales DROP CONSTRAINT IF EXISTS rating_scales_periodid_fkey;
+ALTER TABLE rating_scales ALTER COLUMN "periodId" DROP NOT NULL;
+
+ALTER TABLE rubric_categories DROP CONSTRAINT IF EXISTS rubric_categories_periodid_fkey;
+ALTER TABLE rubric_categories ALTER COLUMN "periodId" DROP NOT NULL;

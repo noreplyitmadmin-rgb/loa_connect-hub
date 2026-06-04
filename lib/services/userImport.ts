@@ -1,4 +1,4 @@
-import { userRepository, departmentRepository, availabilityRuleRepository } from "@/lib/repositories/factory"
+import { userRepository, departmentRepository, availabilityRuleRepository, subjectRepository, facultySubjectRepository } from "@/lib/repositories/factory"
 import type { CsvRow } from "./csvParser"
 import { hasRole } from "@/lib/utils/roles"
 
@@ -80,24 +80,11 @@ export async function importUsers(
         }
       }
 
-      // Determine role
-      let role: string
-
-      if (uploaderRole === "DEAN") {
-        if (row.department && row.isDean) {
-          role = "DEAN"
-        } else if (row.department) {
-          role = "FACULTY"
-        } else {
-          role = "STUDENT"
-        }
-      } else {
-        role = "STUDENT"
-      }
+      const role = uploaderRole === "DEAN" ? "FACULTY" : "STUDENT"
 
       // Faculty uploading students — ensure no department override
       if (hasRole(uploaderRole, "FACULTY") && !hasRole(role, "STUDENT")) {
-        result.errors.push({ row: rowNum, email: row.email, message: "Faculty can only upload students (no department column or isDean must be false)" })
+        result.errors.push({ row: rowNum, email: row.email, message: "Faculty can only upload students" })
         continue
       }
 
@@ -110,10 +97,20 @@ export async function importUsers(
         role,
         departmentId: deptForCreate,
         course: row.course,
+        employeeNo: row.employeeNo,
       })
 
       if (hasRole(role, "FACULTY") || hasRole(role, "DEAN")) {
         await createDefaultAvailabilityRules(user.id)
+      }
+
+      // Create subject mapping for faculty
+      if (hasRole(role, "FACULTY") && row.code) {
+        const subjectMap = await subjectRepository.upsertMany(null, [row.code])
+        const subject = subjectMap.get(row.code)
+        if (subject) {
+          await facultySubjectRepository.replaceAll(null, [{ facultyId: user.id, subjectId: subject.id }])
+        }
       }
 
       result.created.push({
