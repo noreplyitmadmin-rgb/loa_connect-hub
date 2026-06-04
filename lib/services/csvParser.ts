@@ -20,7 +20,7 @@ export type CsvTemplateType = "full" | "students"
 
 const HEADERS: Record<CsvTemplateType, string[]> = {
   full: ["name", "microsoft email", "section", "code", "title"],
-  students: ["name", "microsoft email", "course"],
+  students: ["name", "microsoft email", "section", "code"],
 }
 
 const ALLOWED_DOMAIN = "@itmlyceumalabang.onmicrosoft.com"
@@ -34,8 +34,8 @@ export function getCsvTemplate(type: CsvTemplateType): string {
       "Mike Dean,mike.dean@lyceumalabang.edu.ph,BSCS-41B2,CCS-412,Capstone Project 2",
     ],
     students: [
-      "Alice Student,alice.student@lyceumalabang.edu.ph,BSIT",
-      "Bob Martinez,bob.martinez@lyceumalabang.edu.ph,BSCS",
+      "Alice Student,alice.student@itmlyceumalabang.onmicrosoft.com,BSIT-32A1,ELEC-323",
+      "Bob Martinez,bob.martinez@itmlyceumalabang.onmicrosoft.com,BSCS-41B2,CCS-412",
     ],
   }
   return headers + "\n" + samples[type].join("\n") + "\n"
@@ -97,7 +97,7 @@ export function parseCsv(text: string, templateType: CsvTemplateType): CsvParseR
     }
 
     const department = null
-    const course = templateType === "students" ? (cols[2]?.trim() || null) : null
+    const course = null
     const employeeNo = null
     let section: string | null = null
     let code: string | null = null
@@ -108,6 +108,10 @@ export function parseCsv(text: string, templateType: CsvTemplateType): CsvParseR
       section = cols[2]?.trim() || null
       code = cols[3]?.trim() || null
       title = cols.slice(4).join(", ").trim() || null
+      subject = code
+    } else if (templateType === "students") {
+      section = cols[2]?.trim() || null
+      code = cols[3]?.trim() || null
       subject = code
     }
 
