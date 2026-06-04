@@ -5,7 +5,7 @@ import Link from "next/link"
 
 interface ExistingEvaluation {
   id: string
-  facultyId: string
+  evaluateeId: string
   status: string
   submittedAt: string | null
 }
@@ -40,14 +40,14 @@ export default function StudentEvaluationsPage() {
       {pending.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-primary">Pending Evaluations</h2>
-          {pending.map((facultyId) => (
+          {pending.map((evaluateeId) => (
             <Link
-              key={facultyId}
-              href={`/student/evaluations/${facultyId}`}
+              key={evaluateeId}
+              href={`/student/evaluations/${evaluateeId}`}
               className="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-200 transition-colors"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-primary">{facultyId}</span>
+                <span className="text-sm font-semibold text-primary">{evaluateeId}</span>
                 <span className="text-xs text-blue-600 font-medium">Start Evaluation →</span>
               </div>
             </Link>
@@ -62,14 +62,14 @@ export default function StudentEvaluationsPage() {
             <div key={ev.id} className="bg-white rounded-xl border border-slate-200 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-sm font-semibold text-primary">{ev.facultyId}</span>
+                  <span className="text-sm font-semibold text-primary">{ev.evaluateeId}</span>
                   <p className="text-xs text-tertiary mt-0.5">
                     {ev.status === "SUBMITTED" ? "Submitted" : "Draft"} {ev.submittedAt ? `· ${new Date(ev.submittedAt).toLocaleDateString()}` : ""}
                   </p>
                 </div>
                 {ev.status === "DRAFT" && (
                   <Link
-                    href={`/student/evaluations/${ev.facultyId}`}
+                    href={`/student/evaluations/${ev.evaluateeId}`}
                     className="text-xs text-blue-600 font-medium"
                   >
                     Continue →

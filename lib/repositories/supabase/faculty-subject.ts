@@ -3,7 +3,12 @@ import type { FacultySubjectData, IFacultySubjectRepository } from "@/lib/types"
 
 export const facultySubjectRepository: IFacultySubjectRepository = {
   async list(periodId, facultyId) {
-    let q = supabase.from("faculty_subjects").select("*").eq("periodId", periodId)
+    let q = supabase.from("faculty_subjects").select("*")
+    if (periodId) {
+      q = q.eq("periodId", periodId)
+    } else {
+      q = q.is("periodId", null)
+    }
     if (facultyId) q = q.eq("facultyId", facultyId)
     const { data, error } = await q
     if (error) throw error
@@ -11,7 +16,13 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
   },
 
   async replaceAll(periodId, items) {
-    const { error: delErr } = await supabase.from("faculty_subjects").delete().eq("periodId", periodId)
+    let delQ = supabase.from("faculty_subjects").delete()
+    if (periodId) {
+      delQ = delQ.eq("periodId", periodId)
+    } else {
+      delQ = delQ.is("periodId", null)
+    }
+    const { error: delErr } = await delQ
     if (delErr) throw delErr
     if (items.length === 0) return
     const rows = items.map((i) => ({ ...i, periodId }))
@@ -20,12 +31,16 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
   },
 
   async findBySubject(periodId, subjectId) {
-    const { data, error } = await supabase
-      .from("faculty_subjects")
-      .select("*")
-      .eq("periodId", periodId)
-      .eq("subjectId", subjectId)
-      .single()
+    const q = supabase.from("faculty_subjects").select("*")
+    if (periodId) {
+      const { data, error } = await q.eq("periodId", periodId).eq("subjectId", subjectId).single()
+      if (error) {
+        if (error.code === "PGRST116") return null
+        throw error
+      }
+      return data as FacultySubjectData
+    }
+    const { data, error } = await q.is("periodId", null).eq("subjectId", subjectId).single()
     if (error) {
       if (error.code === "PGRST116") return null
       throw error

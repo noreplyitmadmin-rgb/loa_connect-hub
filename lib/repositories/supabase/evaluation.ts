@@ -2,11 +2,11 @@ import { supabase } from "@/lib/supabase"
 import type { EvaluationData, EvaluationComment, IEvaluationRepository } from "@/lib/types"
 
 export const evaluationRepository: IEvaluationRepository = {
-  async findPending(studentId, periodId) {
+  async findPending(evaluatorId, periodId) {
     const { data: enrollments, error: enrollErr } = await supabase
       .from("student_enrollments")
       .select("subjectId")
-      .eq("studentId", studentId)
+      .eq("studentId", evaluatorId)
       .eq("periodId", periodId)
     if (enrollErr) throw enrollErr
     if (enrollments.length === 0) return []
@@ -22,17 +22,17 @@ export const evaluationRepository: IEvaluationRepository = {
 
     const { data: existing, error: evErr } = await supabase
       .from("evaluations")
-      .select("facultyId")
-      .eq("studentId", studentId)
+      .select("evaluateeId")
+      .eq("evaluatorId", evaluatorId)
       .eq("periodId", periodId)
     if (evErr) throw evErr
-    const submittedIds = new Set(existing.map((r) => r.facultyId))
+    const submittedIds = new Set(existing.map((r) => r.evaluateeId))
 
-    return allFacultyIds.filter((id) => !submittedIds.has(id)).map((facultyId) => ({ facultyId }))
+    return allFacultyIds.filter((id) => !submittedIds.has(id)).map((evaluateeId) => ({ evaluateeId }))
   },
 
-  async findByStudent(studentId) {
-    const { data, error } = await supabase.from("evaluations").select("*").eq("studentId", studentId)
+  async findByEvaluator(evaluatorId) {
+    const { data, error } = await supabase.from("evaluations").select("*").eq("evaluatorId", evaluatorId)
     if (error) throw error
     return data as EvaluationData[]
   },
@@ -46,13 +46,13 @@ export const evaluationRepository: IEvaluationRepository = {
     return data as EvaluationData
   },
 
-  async findByComposite(periodId, studentId, facultyId) {
+  async findByComposite(periodId, evaluatorId, evaluateeId) {
     const { data, error } = await supabase
       .from("evaluations")
       .select("*")
       .eq("periodId", periodId)
-      .eq("studentId", studentId)
-      .eq("facultyId", facultyId)
+      .eq("evaluatorId", evaluatorId)
+      .eq("evaluateeId", evaluateeId)
       .single()
     if (error) {
       if (error.code === "PGRST116") return null
@@ -61,10 +61,10 @@ export const evaluationRepository: IEvaluationRepository = {
     return data as EvaluationData
   },
 
-  async create(periodId, studentId, facultyId) {
+  async create(periodId, evaluatorId, evaluateeId) {
     const { data, error } = await supabase
       .from("evaluations")
-      .insert({ periodId, studentId, facultyId })
+      .insert({ periodId, evaluatorId, evaluateeId })
       .select("*")
       .single()
     if (error) throw error

@@ -244,7 +244,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 ## Faculty Evaluation Module
 
 **Implementation branch:** `eval`
-**Plan docs:** `FACULTY-EVALUATION-{OVERVIEW,DATABASE,API,UI,EFFORT}.md`
+**Working plan:** `FACULTY-EVALUATION.md`
 
 ### Pages
 
@@ -257,7 +257,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `/admin/evaluations/periods/[id]/rubric` | ✅ Done |
 | `/admin/evaluations/results` | ✅ Done |
 | `/admin/evaluations/rubrics` (standalone editor) | ❌ Missing |
-| `/admin/evaluations/upload` (ETL status) | ❌ Missing |
+| `/admin/evaluations/upload` (ETL status) | ✅ N/A — use `/admin/etl-upload` |
 | `/admin/evaluations/reports` (landing + sentiment) | ❌ Missing |
 | `/dean/evaluations` (dashboard) | ❌ Missing |
 | `/dean/evaluations/results` | ✅ Done |
@@ -306,7 +306,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `evaluations.ts` | ✅ Done |
 | `evaluation-results.ts` | ✅ Done |
 | `sentiment-analysis.ts` | ✅ Done |
-| `etl-evaluation.ts` | ❌ Missing |
+| `etl-evaluation.ts` | ✅ N/A — routes call service directly |
 
 ### API Routes
 
@@ -347,7 +347,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `faculty/evaluation-results` | ✅ Done |
 | `import/evaluation-faculty` | ✅ Done |
 | `import/evaluation-student` | ✅ Done |
-| ETL handler for eval types in `admin/etl-upload/validate` + `confirm` | ❌ Missing |
+| ETL handler for eval types in `admin/etl-upload/validate` + `confirm` | ✅ N/A — eval tabs use direct import endpoints |
 
 ### Shared Components
 
@@ -380,13 +380,13 @@ Non-activated accounts must use the activation flow at `/activate`.
 
 | Category | Done | Missing |
 |----------|------|---------|
-| Pages | 10 | 8 |
+| Pages | 10 | 7 |
 | Database | 3 | 0 |
 | Types | 1 | 0 |
 | Repositories | 7 | 2 |
-| Controllers | 5 | 1 |
-| API Routes | 26 | 9 |
+| Controllers | 6 | 0 |
+| API Routes | 27 | 8 |
 | Components | 6 | 0 |
 | Services | 2 | 0 |
 | Wiring | 3 | 1 |
-| **Total** | **62** | **21** |
+| **Total** | **65** | **18** |

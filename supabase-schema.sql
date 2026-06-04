@@ -791,20 +791,20 @@ CREATE INDEX IF NOT EXISTS idx_student_enrollments_student ON student_enrollment
 CREATE TABLE IF NOT EXISTS evaluations (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
-  "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "evaluatorId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "evaluateeId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'SUBMITTED')),
   "submittedAt" TIMESTAMPTZ,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE("periodId", "studentId", "facultyId")
+  UNIQUE("periodId", "evaluatorId", "evaluateeId")
 );
 
 CREATE INDEX IF NOT EXISTS idx_evaluations_period ON evaluations("periodId");
-CREATE INDEX IF NOT EXISTS idx_evaluations_student ON evaluations("studentId");
-CREATE INDEX IF NOT EXISTS idx_evaluations_faculty ON evaluations("facultyId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_evaluator ON evaluations("evaluatorId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_evaluatee ON evaluations("evaluateeId");
 CREATE INDEX IF NOT EXISTS idx_evaluations_status ON evaluations(status);
-CREATE INDEX IF NOT EXISTS idx_evaluations_period_student ON evaluations("periodId", "studentId");
+CREATE INDEX IF NOT EXISTS idx_evaluations_period_evaluator ON evaluations("periodId", "evaluatorId");
 
 CREATE TABLE IF NOT EXISTS evaluation_ratings (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
@@ -858,7 +858,7 @@ CREATE INDEX IF NOT EXISTS idx_eval_results_department ON evaluation_results("de
 -- =========================================================
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "employeeNo" TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS "evaluationEligible" BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "evaluationPeriodId" TEXT REFERENCES evaluation_periods(id) ON DELETE SET NULL;
 
 -- =========================================================
 -- Migration 15: Add evaluation page paths to group_access
@@ -868,3 +868,40 @@ UPDATE group_access SET pages = pages || '["/admin/evaluations","/admin/evaluati
 UPDATE group_access SET pages = pages || '["/dean/evaluations/results"]'::JSONB WHERE "groupName" = 'DEAN';
 UPDATE group_access SET pages = pages || '["/faculty/evaluations/results"]'::JSONB WHERE "groupName" = 'FACULTY';
 UPDATE group_access SET pages = pages || '["/student/evaluations"]'::JSONB WHERE "groupName" = 'STUDENT';
+
+-- =========================================================
+-- Migration 16: Make evaluation periodId a plain text field
+-- =========================================================
+
+ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_periodid_fkey;
+ALTER TABLE subjects ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_periodId_name_key;
+DROP INDEX IF EXISTS idx_subjects_period;
+
+ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_periodid_fkey;
+ALTER TABLE faculty_subjects ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_subjectId_periodId_key;
+DROP INDEX IF EXISTS idx_faculty_subjects_period;
+
+ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_periodid_fkey;
+ALTER TABLE student_enrollments ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_studentId_subjectId_periodId_key;
+DROP INDEX IF EXISTS idx_student_enrollments_period;
+
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_periodid_fkey;
+ALTER TABLE evaluations ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_periodId_studentId_facultyId_key;
+DROP INDEX IF EXISTS idx_evaluations_period;
+DROP INDEX IF EXISTS idx_evaluations_period_student;
+DROP INDEX IF EXISTS idx_evaluations_student;
+DROP INDEX IF EXISTS idx_evaluations_faculty;
+
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_periodid_fkey;
+ALTER TABLE evaluation_results ALTER COLUMN "periodId" DROP NOT NULL;
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_periodId_facultyId_key;
+
+ALTER TABLE rating_scales DROP CONSTRAINT IF EXISTS rating_scales_periodid_fkey;
+ALTER TABLE rating_scales ALTER COLUMN "periodId" DROP NOT NULL;
+
+ALTER TABLE rubric_categories DROP CONSTRAINT IF EXISTS rubric_categories_periodid_fkey;
+ALTER TABLE rubric_categories ALTER COLUMN "periodId" DROP NOT NULL;

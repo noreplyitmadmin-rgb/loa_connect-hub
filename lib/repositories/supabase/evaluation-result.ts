@@ -26,19 +26,20 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
   },
 
   async compute(periodId, facultyId) {
-    const filterFaculty = facultyId ? { facultyId } : {}
+    const filterFaculty = facultyId ? { evaluateeId: facultyId } : {}
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
-      .select("id, facultyId")
+      .select("id, evaluateeId")
       .eq("periodId", periodId)
       .eq("status", "SUBMITTED")
       .match(filterFaculty)
     if (evErr) throw evErr
+    if (!evals || evals.length === 0) return
 
     const grouped = new Map<string, string[]>()
     for (const ev of evals) {
-      if (!grouped.has(ev.facultyId)) grouped.set(ev.facultyId, [])
-      grouped.get(ev.facultyId)!.push(ev.id)
+      if (!grouped.has(ev.evaluateeId)) grouped.set(ev.evaluateeId, [])
+      grouped.get(ev.evaluateeId)!.push(ev.id)
     }
 
     for (const [facId, evaluationIds] of grouped) {

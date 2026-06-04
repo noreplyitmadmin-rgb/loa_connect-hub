@@ -9,7 +9,7 @@ export interface UserData {
   departmentId: string | null
   course: string | null
   employeeNo: string | null
-  evaluationEligible: boolean
+  evaluationPeriodId: string | null
   isDisabled: boolean
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null
@@ -26,6 +26,7 @@ export interface CreateUserInput {
   role: string
   departmentId?: string | null
   course?: string | null
+  employeeNo?: string | null
 }
 
 export interface ListUsersOptions {

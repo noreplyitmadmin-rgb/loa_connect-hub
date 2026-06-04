@@ -109,7 +109,7 @@ export default function DeanUploadPage() {
             {importType === "users" && <span className="text-[9px] font-bold text-gold-600 bg-gold-100 px-2 py-0.5 rounded-full">SELECTED</span>}
           </div>
           <div className="bg-surface rounded-lg p-3 text-[10px] font-mono text-secondary leading-relaxed">
-            name, microsoft email, department, dean
+            name, microsoft email, section, code, title
           </div>
           <a
             href="/api/import/users"

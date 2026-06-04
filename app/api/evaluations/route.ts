@@ -35,12 +35,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { periodId, facultyId } = await request.json()
+    const { periodId, evaluateeId } = await request.json()
     const activePeriod = periodId || (await evaluationPeriodRepository.findActive())?.id
     if (!activePeriod) {
       return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
-    const evaluation = await evaluationRepository.create(activePeriod, userId, facultyId)
+    const evaluation = await evaluationRepository.create(activePeriod, userId, evaluateeId)
     return NextResponse.json({ evaluation }, { status: 201 })
   } catch {
     return NextResponse.json({ error: "Failed to create evaluation" }, { status: 500 })

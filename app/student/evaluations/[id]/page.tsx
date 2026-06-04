@@ -47,7 +47,7 @@ export default function FillEvaluationPage() {
         const evalRes = await fetch("/api/evaluations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ facultyId: params.id }),
+          body: JSON.stringify({ evaluateeId: params.id }),
         })
         const evalData = await evalRes.json()
         const evId = evalData.evaluation?.id

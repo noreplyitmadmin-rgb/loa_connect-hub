@@ -110,10 +110,6 @@ export async function importEvaluationStudents(
 
       enrollmentItems.push({ studentId: user.id, subjectId })
       result.matched++
-
-      if (!user.evaluationEligible) {
-        await userRepository.update(user.id, { evaluationEligible: true })
-      }
     } catch (err) {
       result.errors.push({ row: rowNum, email: row.email, message: `Error: ${(err as Error).message}` })
     }

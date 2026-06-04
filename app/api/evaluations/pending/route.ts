@@ -16,7 +16,7 @@ export async function GET() {
 
   try {
     const pending = await getPendingEvaluations(userId)
-    const facultyIds = pending.map((p) => p.facultyId)
+    const facultyIds = pending.map((p) => p.evaluateeId)
     return NextResponse.json({ pending: facultyIds })
   } catch {
     return NextResponse.json({ error: "Failed to fetch pending evaluations" }, { status: 500 })

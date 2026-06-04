@@ -2,8 +2,12 @@ export interface CsvRow {
   name: string
   email: string
   department: string | null
-  isDean: boolean
   course: string | null
+  employeeNo: string | null
+  subject: string | null
+  section: string | null
+  code: string | null
+  title: string | null
 }
 
 export interface CsvParseResult {
@@ -15,7 +19,7 @@ export interface CsvParseResult {
 export type CsvTemplateType = "full" | "students"
 
 const HEADERS: Record<CsvTemplateType, string[]> = {
-  full: ["name", "microsoft email", "department", "dean"],
+  full: ["name", "microsoft email", "section", "code", "title"],
   students: ["name", "microsoft email", "course"],
 }
 
@@ -26,8 +30,8 @@ export function getCsvTemplate(type: CsvTemplateType): string {
   const headers = HEADERS[type].join(",")
   const samples: Record<CsvTemplateType, string[]> = {
     full: [
-      "Jane Faculty,jane.faculty@itmlyceumalabang.onmicrosoft.com,CCS,false",
-      "Mike Dean,mike.dean@itmlyceumalabang.onmicrosoft.com,CCS,true",
+      "Jane Faculty,jane.faculty@itmlyceumalabang.onmicrosoft.com,A,CCS101,Intro to Programming",
+      "Mike Dean,mike.dean@lyceumalabang.edu.ph,B,CCS102,Data Structures",
     ],
     students: [
       "Alice Student,alice.student@lyceumalabang.edu.ph,BSIT",
@@ -87,18 +91,27 @@ export function parseCsv(text: string, templateType: CsvTemplateType): CsvParseR
       continue
     }
 
-
-
     if (name.length === 0) {
       errors.push({ row: i + 1, message: "Name is required" })
       continue
     }
 
-    const department = templateType === "full" ? (cols[2]?.trim() || null) : null
-    const isDean = templateType === "full" ? (cols[3]?.trim().toLowerCase() === "true") : false
+    const department = null
     const course = templateType === "students" ? (cols[2]?.trim() || null) : null
+    const employeeNo = null
+    let section: string | null = null
+    let code: string | null = null
+    let title: string | null = null
+    let subject: string | null = null
 
-    rows.push({ name, email, department, isDean, course })
+    if (templateType === "full") {
+      section = cols[2]?.trim() || null
+      code = cols[3]?.trim() || null
+      title = cols.slice(4).join(", ").trim() || null
+      subject = code
+    }
+
+    rows.push({ name, email, department, course, employeeNo, subject, section, code, title })
   }
 
   return { rows, errors }

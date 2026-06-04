@@ -59,6 +59,14 @@ export default function AdminUsersPage() {
   const [editRoles, setEditRoles] = useState<string[]>([])
   const [editSaving, setEditSaving] = useState(false)
 
+  // Bulk import state
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [importType, setImportType] = useState<"users" | "students">("users")
+  const [importResult, setImportResult] = useState<Record<string, unknown> | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError] = useState("")
+  const fileRef = useRef<HTMLInputElement>(null)
+
   // Create modal state
   const [showCreate, setShowCreate] = useState(false)
   const [createName, setCreateName] = useState("")
@@ -275,6 +283,216 @@ export default function AdminUsersPage() {
           </SubmitButton>
         </div>
       </div>
+
+      {/* Bulk Import Toggle */}
+      <button
+        onClick={() => { setShowBulkImport(!showBulkImport); setImportResult(null); setImportError("") }}
+        className="flex items-center gap-2 text-sm font-semibold text-secondary hover:text-primary transition-colors"
+      >
+        <svg
+          className={`w-4 h-4 transition-transform ${showBulkImport ? "rotate-90" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        Bulk Import
+      </button>
+
+      {showBulkImport && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          {/* Import Type Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              onClick={() => { setImportType("users"); setImportResult(null); setImportError("") }}
+              className={`p-4 rounded-xl border-2 text-left space-y-2 transition-colors ${
+                importType === "users"
+                  ? "border-blue-300 bg-blue-50/30"
+                  : "border-transparent hover:border-slate-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-primary">Faculty / Staff</h3>
+                {importType === "users" && (
+                  <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">SELECTED</span>
+                )}
+              </div>
+              <div className="bg-slate-50 rounded-lg p-2.5 space-y-1">
+                <p className="text-[10px] font-mono text-slate-500">name, microsoft email, section, code, title</p>
+                <p className="text-[10px] font-mono text-slate-700">Jane Faculty, jane.faculty@lyceumalabang.edu.ph, A, CCS101, Intro to Programming</p>
+              </div>
+              <a
+                href="/api/import/users"
+                download="import_users_template.csv"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Template
+              </a>
+            </button>
+
+            <button
+              onClick={() => { setImportType("students"); setImportResult(null); setImportError("") }}
+              className={`p-4 rounded-xl border-2 text-left space-y-2 transition-colors ${
+                importType === "students"
+                  ? "border-blue-300 bg-blue-50/30"
+                  : "border-transparent hover:border-slate-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-primary">Students</h3>
+                {importType === "students" && (
+                  <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">SELECTED</span>
+                )}
+              </div>
+              <div className="bg-slate-50 rounded-lg p-2.5 space-y-1">
+                <p className="text-[10px] font-mono text-slate-500">name, microsoft email, course</p>
+                <p className="text-[10px] font-mono text-slate-700">Alice Student, alice.student@lyceumalabang.edu.ph, BSIT</p>
+              </div>
+              <a
+                href="/api/import/students"
+                download="import_students_template.csv"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Template
+              </a>
+            </button>
+
+          </div>
+
+          {/* Upload Form */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (importLoading) return
+              setImportError("")
+              setImportResult(null)
+
+              const file = fileRef.current?.files?.[0]
+              if (!file) { setImportError("Please select a CSV file"); return }
+
+              const formData = new FormData()
+              formData.append("file", file)
+
+              const endpoint =
+                importType === "users" ? "/api/import/users" : "/api/import/students"
+
+              setImportLoading(true)
+              try {
+                const res = await fetch(endpoint, { method: "POST", body: formData })
+                const data = await res.json()
+                if (!res.ok) { setImportError(data.error || "Upload failed"); return }
+                setImportResult(data)
+              } catch {
+                setImportError("Network error")
+              } finally {
+                setImportLoading(false)
+              }
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="block text-xs font-semibold text-tertiary mb-1.5">
+                CSV File — Importing as: <span className="text-blue-600">
+                  {importType === "users" ? "Faculty / Staff" : "Students"}
+                </span>
+              </label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv"
+                className="block w-full text-sm text-tertiary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </div>
+            {importError && <p className="text-xs font-medium text-red-600">{importError}</p>}
+            <button
+              type="submit"
+              disabled={importLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {importLoading ? "Uploading..." : "Upload & Import"}
+            </button>
+          </form>
+
+          {/* Import Results */}
+          {importResult && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
+                  <p className="text-xl font-bold text-emerald-600">
+                    {(importResult as Record<string, unknown[]>).created?.length ??
+                     (importResult as Record<string, number>).matched ?? 0}
+                  </p>
+                  <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">
+                    {(importResult as Record<string, unknown[]>).created ? "Created" : "Matched"}
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
+                  <p className="text-xl font-bold text-amber-600">
+                    {(importResult as Record<string, unknown[]>).skipped?.length ?? 0}
+                  </p>
+                  <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Skipped</p>
+                </div>
+                <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
+                  <p className="text-xl font-bold text-red-600">
+                    {((importResult as Record<string, unknown[]>).errors?.length ?? 0) +
+                     ((importResult as Record<string, unknown[]>).parseErrors?.length ?? 0) +
+                     ((importResult as Record<string, unknown[]>).subjectErrors?.length ?? 0)}
+                  </p>
+                  <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Errors</p>
+                </div>
+              </div>
+
+              {(importResult as Record<string, unknown[]>).created?.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-secondary">Created Users</p>
+                  <div className="text-xs text-tertiary space-y-0.5 max-h-32 overflow-y-auto">
+                    {(importResult as Record<string, { name: string; email: string }[]>).created.map((u: { name: string; email: string }) => (
+                      <p key={u.email}>{u.name} — {u.email}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(importResult as Record<string, unknown[]>).skipped?.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-secondary">Skipped</p>
+                  <div className="text-xs text-tertiary space-y-0.5 max-h-24 overflow-y-auto">
+                    {(importResult as Record<string, { row: number; email: string; reason: string }[]>).skipped.map((s: { row: number; email: string; reason: string }) => (
+                      <p key={`skip-${s.row}`}>Row {s.row}: {s.email} — {s.reason}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {((importResult as Record<string, unknown[]>).errors?.length > 0 ||
+                (importResult as Record<string, unknown[]>).parseErrors?.length > 0 ||
+                (importResult as Record<string, unknown[]>).subjectErrors?.length > 0) && (
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-red-600">Errors</p>
+                  <div className="text-xs text-red-600 space-y-0.5 max-h-24 overflow-y-auto">
+                    {(importResult as Record<string, { row: number; message: string }[]>).parseErrors?.map((e: { row: number; message: string }) => (
+                      <p key={`parse-${e.row}`}>Row {e.row}: {e.message}</p>
+                    ))}
+                    {(importResult as Record<string, { row: number; email?: string; message: string }[]>).errors?.map((e: { row: number; email?: string; message: string }, idx: number) => (
+                      <p key={`err-${idx}`}>Row {e.row}: {e.email ? `${e.email} — ` : ""}{e.message}</p>
+                    ))}
+                    {(importResult as Record<string, { row: number; subject: string; message: string }[]>).subjectErrors?.map((e: { row: number; subject: string; message: string }) => (
+                      <p key={`subj-${e.row}`}>Row {e.row}: {e.subject} — {e.message}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3">

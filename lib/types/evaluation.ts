@@ -50,8 +50,8 @@ export interface RubricItem {
 export interface Evaluation {
   id: string
   periodId: string
-  studentId: string
-  facultyId: string
+  evaluatorId: string
+  evaluateeId: string
   status: "DRAFT" | "SUBMITTED"
   submittedAt: Date | null
   createdAt: Date
@@ -118,21 +118,21 @@ export interface CreateEvaluationPeriodInput {
 export interface SubjectData {
   id: string
   name: string
-  periodId: string
+  periodId: string | null
 }
 
 export interface FacultySubjectData {
   id: string
   facultyId: string
   subjectId: string
-  periodId: string
+  periodId: string | null
 }
 
 export interface StudentEnrollmentData {
   id: string
   studentId: string
   subjectId: string
-  periodId: string
+  periodId: string | null
 }
 
 export interface RubricCategoryData {
@@ -153,8 +153,8 @@ export interface RubricItemData {
 export interface EvaluationData {
   id: string
   periodId: string
-  studentId: string
-  facultyId: string
+  evaluatorId: string
+  evaluateeId: string
   status: "DRAFT" | "SUBMITTED"
   submittedAt: Date | null
   createdAt: Date
@@ -228,20 +228,20 @@ export interface IEvaluationPeriodRepository {
 }
 
 export interface ISubjectRepository {
-  list(periodId: string): Promise<SubjectData[]>
-  upsertMany(periodId: string, names: string[]): Promise<Map<string, SubjectData>>
-  deleteByPeriod(periodId: string): Promise<void>
+  list(periodId: string | null): Promise<SubjectData[]>
+  upsertMany(periodId: string | null, names: string[]): Promise<Map<string, SubjectData>>
+  deleteByPeriod(periodId: string | null): Promise<void>
 }
 
 export interface IFacultySubjectRepository {
-  list(periodId: string, facultyId?: string): Promise<FacultySubjectData[]>
-  replaceAll(periodId: string, items: { facultyId: string; subjectId: string }[]): Promise<void>
-  findBySubject(periodId: string, subjectId: string): Promise<FacultySubjectData | null>
+  list(periodId: string | null, facultyId?: string): Promise<FacultySubjectData[]>
+  replaceAll(periodId: string | null, items: { facultyId: string; subjectId: string }[]): Promise<void>
+  findBySubject(periodId: string | null, subjectId: string): Promise<FacultySubjectData | null>
 }
 
 export interface IStudentEnrollmentRepository {
-  list(periodId: string, studentId?: string): Promise<StudentEnrollmentData[]>
-  replaceAll(periodId: string, items: { studentId: string; subjectId: string }[]): Promise<void>
+  list(periodId: string | null, studentId?: string): Promise<StudentEnrollmentData[]>
+  replaceAll(periodId: string | null, items: { studentId: string; subjectId: string }[]): Promise<void>
   getDistinctFaculty(studentId: string, periodId: string): Promise<string[]>
 }
 
@@ -254,11 +254,11 @@ export interface IRubricRepository {
 }
 
 export interface IEvaluationRepository {
-  findPending(studentId: string, periodId: string): Promise<{ facultyId: string }[]>
-  findByStudent(studentId: string): Promise<EvaluationData[]>
+  findPending(evaluatorId: string, periodId: string): Promise<{ evaluateeId: string }[]>
+  findByEvaluator(evaluatorId: string): Promise<EvaluationData[]>
   findById(id: string): Promise<EvaluationData | null>
-  findByComposite(periodId: string, studentId: string, facultyId: string): Promise<EvaluationData | null>
-  create(periodId: string, studentId: string, facultyId: string): Promise<EvaluationData>
+  findByComposite(periodId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData | null>
+  create(periodId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData>
   setRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]): Promise<void>
   submit(evaluationId: string): Promise<EvaluationData>
   getRatings(evaluationId: string): Promise<{ itemId: string; rating: number }[]>
