@@ -1,7 +1,20 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import SubmitButton from "@/components/SubmitButton"
+
+interface MappedFaculty {
+  id: string
+  faculty: { id: string; name: string; email: string }
+  subject: { id: string; code: string; name: string }
+  section: { id: string; name: string; program: string }
+}
+
+interface MappedStudent {
+  id: string
+  student: { id: string; name: string; email: string }
+  section: { id: string; name: string; program: string }
+}
 
 type ImportType = "faculty-subject" | "student-enrollment"
 
@@ -393,6 +406,175 @@ function UploadCard({ importType }: { importType: ImportType }) {
   )
 }
 
+function ViewMappings() {
+  const [tab, setTab] = useState<"faculty" | "student">("faculty")
+  const [facultyData, setFacultyData] = useState<MappedFaculty[] | null>(null)
+  const [studentData, setStudentData] = useState<MappedStudent[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [facultySearch, setFacultySearch] = useState("")
+  const [studentSearch, setStudentSearch] = useState("")
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const [facultyRes, studentRes] = await Promise.all([
+        fetch("/api/data/evaluation-mappings?type=faculty"),
+        fetch("/api/data/evaluation-mappings?type=student"),
+      ])
+      if (!facultyRes.ok) throw new Error("Failed to load faculty mappings")
+      if (!studentRes.ok) throw new Error("Failed to load student enrollments")
+      const [facultyJson, studentJson] = await Promise.all([facultyRes.json(), studentRes.json()])
+      setFacultyData(facultyJson.data)
+      setStudentData(studentJson.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const filteredFaculty = facultyData?.filter((m) => {
+    if (!facultySearch) return true
+    const q = facultySearch.toLowerCase()
+    return (
+      m.faculty.email.toLowerCase().includes(q) ||
+      m.faculty.name.toLowerCase().includes(q) ||
+      m.subject.code.toLowerCase().includes(q) ||
+      `${m.section.program}-${m.section.name}`.toLowerCase().includes(q)
+    )
+  })
+
+  const filteredStudents = studentData?.filter((m) => {
+    if (!studentSearch) return true
+    const q = studentSearch.toLowerCase()
+    return (
+      m.student.email.toLowerCase().includes(q) ||
+      m.student.name.toLowerCase().includes(q) ||
+      `${m.section.program}-${m.section.name}`.toLowerCase().includes(q)
+    )
+  })
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-primary">Current Mappings</h3>
+        <button
+          type="button"
+          onClick={fetchData}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Refresh"}
+        </button>
+      </div>
+
+      {error && <p className="text-xs font-medium text-red-600 mb-3">{error}</p>}
+
+      <div className="flex gap-1 mb-4 border-b border-default">
+        <button
+          type="button"
+          onClick={() => setTab("faculty")}
+          className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
+            tab === "faculty" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
+          }`}
+        >
+          Faculty-Subject ({facultyData?.length ?? "..."})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("student")}
+          className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
+            tab === "student" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
+          }`}
+        >
+          Student Enrollments ({studentData?.length ?? "..."})
+        </button>
+      </div>
+
+      {tab === "faculty" && (
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={facultySearch}
+            onChange={(e) => setFacultySearch(e.target.value)}
+            placeholder="Search by faculty name, email, subject code, or section..."
+            className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+          />
+          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
+                  <th className="p-2">Faculty</th>
+                  <th className="p-2">Email</th>
+                  <th className="p-2">Subject</th>
+                  <th className="p-2">Section</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFaculty?.length === 0 ? (
+                  <tr><td colSpan={4} className="p-4 text-center text-xs text-tertiary">No mappings found.</td></tr>
+                ) : (
+                  filteredFaculty?.map((m) => (
+                    <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
+                      <td className="p-2 font-medium text-secondary">{m.faculty.name}</td>
+                      <td className="p-2 text-tertiary">{m.faculty.email}</td>
+                      <td className="p-2">
+                        <span className="font-medium text-secondary">{m.subject.code}</span>
+                        <span className="text-tertiary ml-1">{m.subject.name}</span>
+                      </td>
+                      <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === "student" && (
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={studentSearch}
+            onChange={(e) => setStudentSearch(e.target.value)}
+            placeholder="Search by student name, email, or section..."
+            className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+          />
+          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
+                  <th className="p-2">Student</th>
+                  <th className="p-2">Email</th>
+                  <th className="p-2">Section</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents?.length === 0 ? (
+                  <tr><td colSpan={3} className="p-4 text-center text-xs text-tertiary">No enrollments found.</td></tr>
+                ) : (
+                  filteredStudents?.map((m) => (
+                    <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
+                      <td className="p-2 font-medium text-secondary">{m.student.name}</td>
+                      <td className="p-2 text-tertiary">{m.student.email}</td>
+                      <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EtlHubPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -405,6 +587,7 @@ export default function EtlHubPage() {
 
       <UploadCard importType="faculty-subject" />
       <UploadCard importType="student-enrollment" />
+      <ViewMappings />
     </div>
   )
 }
