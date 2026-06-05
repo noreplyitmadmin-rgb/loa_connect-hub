@@ -145,55 +145,6 @@ function UploadCard({ importType }: { importType: ImportType }) {
     }
   }
 
-  const columnHeaders = importType === "faculty-subject" ? ["Email", "Subject Code", "Section"] : ["Email", "Section"]
-
-  if (result) {
-    return (
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-primary">{info.title}</h3>
-        <div className="mt-4 p-3 bg-slate-50 rounded-lg text-sm space-y-2">
-          <p className="font-medium text-primary">Import Result</p>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
-              <p className="text-xl font-bold text-emerald-600">{result.matched}</p>
-              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Matched</p>
-            </div>
-            {result.createdSubjects !== undefined && (
-              <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
-                <p className="text-xl font-bold text-blue-600">{result.createdSubjects}</p>
-                <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Subjects</p>
-              </div>
-            )}
-            {result.createdSections !== undefined && (
-              <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
-                <p className="text-xl font-bold text-blue-600">{result.createdSections}</p>
-                <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Sections</p>
-              </div>
-            )}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 text-center">
-              <p className="text-xl font-bold text-red-600">{result.errors.length + (result.parseErrors?.length ?? 0)}</p>
-              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Errors</p>
-            </div>
-          </div>
-          {(result.errors.length > 0 || (result.parseErrors?.length ?? 0) > 0) && (
-            <div className="text-xs text-red-600 space-y-0.5 max-h-32 overflow-y-auto">
-              {[...result.parseErrors, ...result.errors].map((e, i) => (
-                <p key={i}>Row {e.row}: {e.message}</p>
-              ))}
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setResult(null)}
-          className="mt-3 text-xs font-semibold text-gold-600 hover:text-gold-800"
-        >
-          Import Another File
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6">
       <h3 className="text-lg font-semibold text-primary">{info.title}</h3>
