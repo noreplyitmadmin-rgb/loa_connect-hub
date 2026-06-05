@@ -12,6 +12,14 @@ interface CsvRow {
   section: string
 }
 
+interface ImportResult {
+  matched: number
+  errors: { row: number; email?: string; message: string }[]
+  createdSubjects?: number
+  createdSections: number
+  parseErrors?: { row: number; message: string }[]
+}
+
 const ENDPOINTS: Record<ImportType, string> = {
   "faculty-subject": "/api/import/evaluation-faculty",
   "student-enrollment": "/api/import/evaluation-student",
@@ -76,6 +84,63 @@ function parseClientCsv(text: string, importType: ImportType): { rows: CsvRow[];
 
 const PREVIEW_PAGE_SIZE = 50
 
+function ImportResultCard({ result, importType, onReset }: { result: ImportResult; importType: ImportType; onReset: () => void }) {
+  const totalErrors = (result.errors?.length || 0) + (result.parseErrors?.length || 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="card p-3 text-center">
+          <p className="text-xl font-bold text-emerald-600">{result.matched}</p>
+          <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Matched</p>
+        </div>
+        {importType === "faculty-subject" && (
+          <div className="card p-3 text-center">
+            <p className="text-xl font-bold text-gold-600">{result.createdSubjects ?? 0}</p>
+            <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">New Subjects</p>
+          </div>
+        )}
+        <div className="card p-3 text-center">
+          <p className="text-xl font-bold text-gold-600">{result.createdSections}</p>
+          <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">New Sections</p>
+        </div>
+        <div className="card p-3 text-center">
+          <p className={`text-xl font-bold ${totalErrors > 0 ? "text-red-600" : "text-tertiary"}`}>{totalErrors}</p>
+          <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Errors</p>
+        </div>
+      </div>
+
+      {result.parseErrors && result.parseErrors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-1.5">
+          <p className="text-xs font-bold text-red-700 uppercase tracking-wider">Parse Errors ({result.parseErrors.length})</p>
+          {result.parseErrors.map((e, i) => (
+            <p key={`pe-${i}`} className="text-xs text-red-600">Row {e.row}: {e.message}</p>
+          ))}
+        </div>
+      )}
+
+      {result.errors && result.errors.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1.5">
+          <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Import Errors ({result.errors.length})</p>
+          {result.errors.map((e, i) => (
+            <p key={`e-${i}`} className="text-xs text-amber-700">Row {e.row}: {e.email ? `${e.email} — ` : ""}{e.message}</p>
+          ))}
+        </div>
+      )}
+
+      {totalErrors === 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+          <p className="text-xs font-semibold text-emerald-700">All {result.matched} row{result.matched !== 1 ? "s" : ""} imported successfully.</p>
+        </div>
+      )}
+
+      <button type="button" onClick={onReset} className="text-xs font-semibold text-gold-600 hover:text-gold-800 underline">
+        Import Another File
+      </button>
+    </div>
+  )
+}
+
 function UploadCard({ importType }: { importType: ImportType }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [previewRows, setPreviewRows] = useState<CsvRow[] | null>(null)
@@ -83,6 +148,7 @@ function UploadCard({ importType }: { importType: ImportType }) {
   const [previewError, setPreviewError] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
 
   const info =
     importType === "faculty-subject"
@@ -114,21 +180,44 @@ function UploadCard({ importType }: { importType: ImportType }) {
     setPreviewPage(0)
   }
 
+  const handleRemoveRow = (index: number) => {
+    if (!previewRows) return
+    const next = previewRows.filter((_, i) => i !== index)
+    setPreviewRows(next)
+    if (next.length > 0 && Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= previewPage) {
+      setPreviewPage(Math.max(0, previewPage - 1))
+    }
+  }
+
+  const handleFieldChange = (index: number, field: "subjectCode" | "section", value: string) => {
+    if (!previewRows) return
+    const next = [...previewRows]
+    next[index] = { ...next[index], [field]: value }
+    setPreviewRows(next)
+  }
+
   const handleConfirm = async () => {
     if (!previewRows || loading) return
     setError("")
 
-    const file = fileRef.current?.files?.[0]
-    if (!file) { setPreviewError("Please select a CSV file"); return }
-
-    const formData = new FormData()
-    formData.append("file", file)
+    const body = {
+      rows: previewRows.map((r) => ({
+        email: r.email,
+        subjectCode: r.subjectCode,
+        section: r.section,
+      })),
+    }
 
     setLoading(true)
     try {
-      const res = await fetch(ENDPOINTS[importType], { method: "POST", body: formData })
+      const res = await fetch(ENDPOINTS[importType], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Import failed"); return }
+      setImportResult(data as ImportResult)
       setPreviewRows(null)
     } catch {
       setError("Network error")
@@ -137,22 +226,32 @@ function UploadCard({ importType }: { importType: ImportType }) {
     }
   }
 
+  const handleReset = () => {
+    setImportResult(null)
+    setPreviewRows(null)
+    setPreviewPage(0)
+    setPreviewError("")
+    setError("")
+    if (fileRef.current) fileRef.current.value = ""
+  }
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <div className="card p-6">
       <h3 className="text-lg font-semibold text-primary">{info.title}</h3>
       <p className="text-sm text-tertiary mt-1">{info.description}</p>
 
-      {!previewRows && (
+      {/* Step 1: File selection */}
+      {!previewRows && !importResult && (
         <>
           <div className="mt-4">
-            <p className="text-xs text-slate-500 mb-1">Expected CSV headers:</p>
-            <code className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-700">{info.headers}</code>
+            <p className="text-xs text-tertiary mb-1">Expected CSV headers:</p>
+            <code className="text-xs bg-surface-dim px-2 py-1 rounded text-secondary">{info.headers}</code>
           </div>
 
           <button
             type="button"
             onClick={() => downloadTemplate(importType)}
-            className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-800 flex items-center gap-1"
+            className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-700 flex items-center gap-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -165,7 +264,7 @@ function UploadCard({ importType }: { importType: ImportType }) {
               ref={fileRef}
               type="file"
               accept=".csv"
-              className="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold-50 file:text-gold-700 hover:file:bg-gold-100"
+              className="block w-full text-sm text-tertiary file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold-50 file:text-gold-700 hover:file:bg-gold-100"
             />
             {previewError && <p className="text-sm text-red-600">{previewError}</p>}
             <SubmitButton onClick={handlePreview} loading={false}>
@@ -175,6 +274,7 @@ function UploadCard({ importType }: { importType: ImportType }) {
         </>
       )}
 
+      {/* Step 2: Preview */}
       {previewRows && (
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -184,8 +284,8 @@ function UploadCard({ importType }: { importType: ImportType }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { setPreviewRows(null); setPreviewPage(0); setPreviewError("") }}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+                onClick={handleReset}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover"
               >
                 Back
               </button>
@@ -193,7 +293,7 @@ function UploadCard({ importType }: { importType: ImportType }) {
                 type="button"
                 disabled={loading || previewRows.length === 0}
                 onClick={handleConfirm}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gold-600 text-white hover:bg-gold-700 disabled:opacity-50"
               >
                 {loading ? "Importing..." : `Confirm Import (${previewRows.length})`}
               </button>
@@ -202,25 +302,55 @@ function UploadCard({ importType }: { importType: ImportType }) {
 
           {error && <p className="text-xs font-medium text-red-600">{error}</p>}
 
-          <div className="overflow-x-auto max-h-80 overflow-y-auto border border-slate-200 rounded-lg">
+          <div className="overflow-x-auto max-h-80 overflow-y-auto border border-default rounded-lg">
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="bg-slate-50 text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-slate-200 sticky top-0">
+                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
                   <th className="p-2 w-8">#</th>
                   {columnHeaders.map((h) => (
                     <th key={h} className="p-2">{h}</th>
                   ))}
+                  <th className="p-2 w-10"></th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((r, i) => (
-                  <tr key={`${previewPage}-${i}`} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="p-2 text-tertiary">{r.row}</td>
-                    <td className="p-2">{r.email}</td>
-                    {importType === "faculty-subject" && <td className="p-2">{r.subjectCode}</td>}
-                    <td className="p-2">{r.section}</td>
-                  </tr>
-                ))}
+                {paginatedRows.map((r, i) => {
+                  const absoluteIndex = previewPage * PREVIEW_PAGE_SIZE + i
+                  return (
+                    <tr key={`${previewPage}-${i}`} className="border-b border-default hover:bg-surface-hover">
+                      <td className="p-2 text-tertiary">{r.row}</td>
+                      <td className="p-2 text-secondary text-[11px]">{r.email}</td>
+                      {importType === "faculty-subject" && (
+                        <td className="p-2">
+                          <input
+                            value={r.subjectCode}
+                            onChange={(e) => handleFieldChange(absoluteIndex, "subjectCode", e.target.value)}
+                            className="w-full bg-transparent border border-transparent hover:border-default focus:border-gold-500 rounded px-1 py-0.5 outline-none text-[11px]"
+                          />
+                        </td>
+                      )}
+                      <td className="p-2">
+                        <input
+                          value={r.section}
+                          onChange={(e) => handleFieldChange(absoluteIndex, "section", e.target.value)}
+                          className="w-full bg-transparent border border-transparent hover:border-default focus:border-gold-500 rounded px-1 py-0.5 outline-none text-[11px]"
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRow(absoluteIndex)}
+                          className="text-red-400 hover:text-red-600 transition-colors"
+                          title="Remove row"
+                        >
+                          <svg className="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -235,7 +365,7 @@ function UploadCard({ importType }: { importType: ImportType }) {
                   type="button"
                   disabled={previewPage === 0}
                   onClick={() => setPreviewPage((p) => p - 1)}
-                  className="px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                  className="px-2.5 py-1.5 bg-surface-hover text-secondary rounded-lg text-xs font-semibold hover:bg-surface-dim disabled:opacity-50 transition-colors"
                 >
                   Prev
                 </button>
@@ -243,13 +373,20 @@ function UploadCard({ importType }: { importType: ImportType }) {
                   type="button"
                   disabled={previewPage >= totalPreviewPages - 1}
                   onClick={() => setPreviewPage((p) => p + 1)}
-                  className="px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                  className="px-2.5 py-1.5 bg-surface-hover text-secondary rounded-lg text-xs font-semibold hover:bg-surface-dim disabled:opacity-50 transition-colors"
                 >
                   Next
                 </button>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Step 3: Results */}
+      {importResult && (
+        <div className="mt-4">
+          <ImportResultCard result={importResult} importType={importType} onReset={handleReset} />
         </div>
       )}
     </div>
