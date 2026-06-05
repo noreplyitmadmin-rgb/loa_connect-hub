@@ -3,7 +3,6 @@
 import { useRef, useState, useMemo, useEffect } from "react"
 import Skeleton from "@/components/Skeleton"
 import SubmitButton from "@/components/SubmitButton"
-import BulkImportUsers from "./BulkImportUsers"
 import { useApiGet } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
 
@@ -61,12 +60,6 @@ export default function AdminUsersPage() {
   const [editRoles, setEditRoles] = useState<string[]>([])
   const [editSaving, setEditSaving] = useState(false)
 
-  // Bulk import state
-  const [showBulkImport, setShowBulkImport] = useState(false)
-  const [isLocalhost] = useState(() =>
-    typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-  )
-
   // Create modal state
   const [showCreate, setShowCreate] = useState(false)
   const [createName, setCreateName] = useState("")
@@ -76,7 +69,7 @@ export default function AdminUsersPage() {
   const [createError, setCreateError] = useState("")
   const [createSaving, setCreateSaving] = useState(false)
 
-  const { data: adminData, isLoading, mutate } = useApiGet<{ users: User[]; departments: Department[] }>("/api/admin/users")
+  const { data: adminData, isLoading } = useApiGet<{ users: User[]; departments: Department[] }>("/api/admin/users")
 
   useEffect(() => {
     if (adminData?.users && !users.length) setUsers(adminData.users) // eslint-disable-line react-hooks/set-state-in-effect
@@ -92,8 +85,6 @@ export default function AdminUsersPage() {
   }, [search])
 
   const pendingRef = useRef(false)
-  const [isResetting, setIsResetting] = useState(false)
-  const resetDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleToggle = async (userId: string, currentStatus: boolean) => {
     if (pendingRef.current) return
@@ -293,63 +284,6 @@ export default function AdminUsersPage() {
           </SubmitButton>
         </div>
       </div>
-
-      {/* Bulk Import Toggle */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setShowBulkImport(!showBulkImport)}
-          className="flex items-center gap-2 text-sm font-semibold text-secondary hover:text-primary transition-colors"
-        >
-          <svg
-            className={`w-4 h-4 transition-transform ${showBulkImport ? "rotate-90" : ""}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-          Bulk Import
-        </button>
-
-        {isLocalhost && (
-          // Resetting data is only allowed in development environments.{" "}
-          <button
-            type="button"
-            disabled={isResetting}
-            onClick={async () => {
-              if (isResetting || resetDebounceRef.current) return
-              if (!confirm("Reset all non-seeded data? This cannot be undone.")) return
-
-              setIsResetting(true)
-              try {
-                const res = await fetch("/api/admin/reset-data", { method: "POST" })
-                const data = await res.json()
-                if (res.ok) {
-                  const updated = await mutate()
-                  if (updated) {
-                    setUsers(updated.users)
-                    setDepartments(updated.departments)
-                  }
-                } else {
-                  alert("Reset failed: " + (data.error || "Unknown error"))
-                }
-              } catch {
-                alert("Network error")
-              } finally {
-                setIsResetting(false)
-                resetDebounceRef.current = setTimeout(() => {
-                  resetDebounceRef.current = null
-                }, 500)
-              }
-            }}
-            className="text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isResetting ? "Resetting..." : "Reset Data"}
-          </button>
-        )}
-      </div>
-
-      {showBulkImport && (
-        <BulkImportUsers departments={departments} />
-      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3">
