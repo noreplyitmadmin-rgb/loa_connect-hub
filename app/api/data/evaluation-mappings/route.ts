@@ -22,8 +22,6 @@ export async function GET(request: NextRequest) {
         subject:subjectId (id, code, name),
         section:sectionId (id, name, program)
       `)
-      .order("section(program)", { ascending: true })
-      .order("section(name)", { ascending: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   }
@@ -36,8 +34,6 @@ export async function GET(request: NextRequest) {
         student:studentId (id, name, email),
         section:sectionId (id, name, program)
       `)
-      .order("section(program)", { ascending: true })
-      .order("section(name)", { ascending: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   }
