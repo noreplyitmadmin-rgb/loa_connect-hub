@@ -6,6 +6,7 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
     let q = supabase.from("faculty_subjects").select("*")
     if (filters?.faculty_id) q = q.eq("faculty_id", filters.faculty_id)
     if (filters?.section_id) q = q.eq("section_id", filters.section_id)
+    if (filters?.semesterId) q = q.eq("semesterId", filters.semesterId)
     const { data, error } = await q
     if (error) throw error
     return data as FacultySubjectData[]
@@ -15,7 +16,7 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
     const { error: delErr } = await supabase.from("faculty_subjects").delete().eq("section_id", section_id)
     if (delErr) throw delErr
     if (items.length === 0) return
-    const rows = items.map((i) => ({ ...i, section_id }))
+    const rows = items.map((i) => ({ faculty_id: i.faculty_id, subject_id: i.subject_id, section_id, semesterId: i.semesterId ?? null }))
     const { error: insErr } = await supabase.from("faculty_subjects").insert(rows)
     if (insErr) throw insErr
   },

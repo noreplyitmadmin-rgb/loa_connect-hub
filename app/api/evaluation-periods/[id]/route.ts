@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { getEvaluationPeriod, updateEvaluationPeriod, deleteEvaluationPeriod } from "@/lib/controllers/evaluation-periods"
+import { getSemester, updateSemester, deleteSemester } from "@/lib/controllers/semesters"
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params
   try {
-    const period = await getEvaluationPeriod(id)
+    const period = await getSemester(id)
     if (!period) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json({ period })
   } catch {
@@ -26,7 +26,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   try {
     const body = await request.json()
-    const period = await updateEvaluationPeriod(id, body)
+    const period = await updateSemester(id, body)
     return NextResponse.json({ period })
   } catch {
     return NextResponse.json({ error: "Failed to update evaluation period" }, { status: 500 })
@@ -41,7 +41,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params
   try {
-    await deleteEvaluationPeriod(id)
+    await deleteSemester(id)
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: "Failed to delete evaluation period" }, { status: 500 })

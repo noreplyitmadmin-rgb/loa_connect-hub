@@ -15,7 +15,7 @@ export async function GET() {
   }
 
   try {
-    const pending = await getPendingEvaluations(userId)
+    const pending = await getPendingEvaluations(userId, "semester_id")
     const facultyIds = pending.map((p) => p.evaluateeId)
     return NextResponse.json({ pending: facultyIds })
   } catch {

@@ -6,7 +6,7 @@ import type {
   IPasswordResetTokenRepository,
   IAuditLogRepository,
   IReportsRepository,
-  IEvaluationPeriodRepository,
+  ISemesterRepository,
   ISubjectRepository,
   ISectionRepository,
   IFacultySubjectRepository,
@@ -23,7 +23,7 @@ import { availabilityRuleRepository as supabaseAvailRepo } from "./supabase/avai
 import { passwordResetTokenRepository as supabaseTokenRepo } from "./supabase/password-reset-token"
 import { auditLogRepository as supabaseAuditLogRepo } from "./supabase/audit-log"
 import { reportsRepository as supabaseReportsRepo } from "./supabase/reports"
-import { evaluationPeriodRepository as supabaseEvalPeriodRepo } from "./supabase/evaluation-period"
+import { semesterRepository as supabaseSemesterRepo } from "./supabase/semester"
 import { subjectRepository as supabaseSubjectRepo } from "./supabase/subject"
 import { sectionRepository as supabaseSectionRepo } from "./supabase/section"
 import { facultySubjectRepository as supabaseFacultySubjectRepo } from "./supabase/faculty-subject"
@@ -39,7 +39,7 @@ export const availabilityRuleRepository: IAvailabilityRuleRepository = supabaseA
 export const passwordResetTokenRepository: IPasswordResetTokenRepository = supabaseTokenRepo
 export const auditLogRepository: IAuditLogRepository = supabaseAuditLogRepo
 export const reportsRepository: IReportsRepository = supabaseReportsRepo
-export const evaluationPeriodRepository: IEvaluationPeriodRepository = supabaseEvalPeriodRepo
+export const semesterRepository: ISemesterRepository = supabaseSemesterRepo
 export const subjectRepository: ISubjectRepository = supabaseSubjectRepo
 export const sectionRepository: ISectionRepository = supabaseSectionRepo
 export const facultySubjectRepository: IFacultySubjectRepository = supabaseFacultySubjectRepo

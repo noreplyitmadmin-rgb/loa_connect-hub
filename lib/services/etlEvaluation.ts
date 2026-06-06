@@ -118,6 +118,7 @@ export function parseFacultySubjectCsv(text: string): {
 
 export async function importFacultySubjects(
   rows: FacultySubjectCsvRow[],
+  departmentId?: string | null,
 ): Promise<FacultySubjectImportResult> {
   const result: FacultySubjectImportResult = {
     matched: 0,
@@ -158,6 +159,7 @@ export async function importFacultySubjects(
         email,
         name: nameByEmail.get(email) || email.split("@")[0] || email,
         role: "FACULTY",
+        departmentId: departmentId ?? undefined,
       })),
     )
     for (const [email, user] of createdUsers) {

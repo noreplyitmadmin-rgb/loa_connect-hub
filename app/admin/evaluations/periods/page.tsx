@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { hasRole } from "@/lib/utils/roles"
-import { getEvaluationPeriods } from "@/lib/controllers/evaluation-periods"
+import { getSemesters } from "@/lib/controllers/semesters"
 import Link from "next/link"
 
 export default async function AdminEvaluationPeriodsPage() {
@@ -9,7 +9,7 @@ export default async function AdminEvaluationPeriodsPage() {
   if (!session?.user || !hasRole((session.user as Record<string, unknown>).role as string, "ADMIN"))
     redirect("/login")
 
-  const periods = await getEvaluationPeriods()
+  const periods = await getSemesters()
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -38,14 +38,12 @@ export default async function AdminEvaluationPeriodsPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-primary">{p.name}</h3>
-                  <p className="text-xs text-tertiary mt-0.5">
-                    {p.semester} &middot; {p.schoolYear}
-                  </p>
+                  <h3 className="text-sm font-bold text-primary">{p.title}</h3>
+                 
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-tertiary">
-                    {p.startDate} – {p.endDate}
+                    {p.evalStartDate} – {p.evalEndDate}
                   </span>
                   {p.isActive && (
                     <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">

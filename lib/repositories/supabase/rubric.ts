@@ -2,21 +2,21 @@ import { supabase } from "@/lib/supabase"
 import type { RubricCategoryData, IRubricRepository } from "@/lib/types"
 
 export const rubricRepository: IRubricRepository = {
-  async getCategoriesWithItems(periodId) {
+  async getCategoriesWithItems(semesterId) {
     const { data, error } = await supabase
       .from("rubric_categories")
       .select("*, items:rubric_items(*)")
-      .eq("periodId", periodId)
+      .eq("semesterId", semesterId)
       .order("displayOrder", { ascending: true })
     if (error) throw error
     return data as unknown as RubricCategoryData[]
   },
 
-  async replaceRubric(periodId, categories) {
+  async replaceRubric(semesterId, categories) {
     const { data: existingCats, error: fetchErr } = await supabase
       .from("rubric_categories")
       .select("id, name")
-      .eq("periodId", periodId)
+      .eq("semesterId", semesterId)
     if (fetchErr) throw fetchErr
 
     const oldCatIds = existingCats.map((c) => c.id)
@@ -31,7 +31,7 @@ export const rubricRepository: IRubricRepository = {
     for (const cat of categories) {
       const { data: newCat, error: catErr } = await supabase
         .from("rubric_categories")
-        .insert({ periodId, name: cat.name, displayOrder: cat.displayOrder })
+        .insert({ semesterId, name: cat.name, displayOrder: cat.displayOrder })
         .select("*")
         .single()
       if (catErr) throw catErr
@@ -51,11 +51,11 @@ export const rubricRepository: IRubricRepository = {
     return createdCats
   },
 
-  async copyFromSource(periodId, sourcePeriodId) {
+  async copyFromSource(semesterId, sourceSemesterId) {
     const { data: srcCats, error: fetchCatsErr } = await supabase
       .from("rubric_categories")
       .select("*")
-      .eq("periodId", sourcePeriodId)
+      .eq("semesterId", sourceSemesterId)
       .order("displayOrder", { ascending: true })
     if (fetchCatsErr) throw fetchCatsErr
 
@@ -74,7 +74,7 @@ export const rubricRepository: IRubricRepository = {
     for (const cat of srcCats) {
       const { data: newCat, error: catErr } = await supabase
         .from("rubric_categories")
-        .insert({ periodId, name: cat.name, displayOrder: cat.displayOrder })
+        .insert({ semesterId, name: cat.name, displayOrder: cat.displayOrder })
         .select("*")
         .single()
       if (catErr) throw catErr

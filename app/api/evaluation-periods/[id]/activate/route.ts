@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { activateEvaluationPeriod } from "@/lib/controllers/evaluation-periods"
+import { activateSemester } from "@/lib/controllers/semesters"
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -11,7 +11,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params
   try {
-    const period = await activateEvaluationPeriod(id)
+    const period = await activateSemester(id)
     return NextResponse.json({ period })
   } catch {
     return NextResponse.json({ error: "Failed to activate evaluation period" }, { status: 500 })

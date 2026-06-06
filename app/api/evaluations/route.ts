@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { getMyEvaluations } from "@/lib/controllers/evaluations"
-import { evaluationPeriodRepository, evaluationRepository } from "@/lib/repositories/factory"
+import { getActiveSemester, createSemester } from "@/lib/controllers/semesters"
+// import { evaluationPeriodRepository, evaluationRepository } from "@/lib/repositories/factory"
 
 export async function GET() {
   const session = await auth()
@@ -36,11 +37,17 @@ export async function POST(request: Request) {
 
   try {
     const { periodId, evaluateeId } = await request.json()
-    const activePeriod = periodId || (await evaluationPeriodRepository.findActive())?.id
+    //TODO: replace with semester
+    const activePeriod = periodId || (await getActiveSemester())?.id
     if (!activePeriod) {
       return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
-    const evaluation = await evaluationRepository.create(activePeriod, userId, evaluateeId)
+    const evaluation = await createSemester({
+      title: `Evaluation for ${evaluateeId} by ${userId}`,
+      evalStartDate: new Date().toISOString(),
+      evalEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week from now
+    })
+    
     return NextResponse.json({ evaluation }, { status: 201 })
   } catch {
     return NextResponse.json({ error: "Failed to create evaluation" }, { status: 500 })
