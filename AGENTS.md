@@ -70,7 +70,7 @@ proxy.ts (NextAuth middleware) — JWT validation + role-based page access
 ## Testing
 
 - Vitest with jsdom environment (config: `vitest.config.ts`)
-- All tests in `lib/__tests__/` (8 test files)
+- All tests in `lib/__tests__/` (9 test files)
 - Repositories mocked via `lib/repositories/factory.ts` module mock
 - CI runs `npx vitest run` on push/PR to `main`
 

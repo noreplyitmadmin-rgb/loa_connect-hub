@@ -111,7 +111,7 @@ Server Components fetch data directly via controllers and pass props to Client C
 
 ### Known Issues & Risks
 
-1. **Minimal test coverage** — Only 6 test files exist for ~17,619 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
+1. **Minimal test coverage** — Only 9 test files exist for ~23,000 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
 2. **HTML email templates via template literals** — Fragile string concatenation. No type safety or template engine.
 
 ## Environment Variables
