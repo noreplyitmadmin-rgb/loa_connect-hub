@@ -410,14 +410,16 @@ function ViewMappings() {
   const [tab, setTab] = useState<"faculty" | "student">("faculty")
   const [facultyData, setFacultyData] = useState<MappedFaculty[] | null>(null)
   const [studentData, setStudentData] = useState<MappedStudent[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [facultySearch, setFacultySearch] = useState("")
   const [studentSearch, setStudentSearch] = useState("")
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError("")
+  const fetchData = useCallback(async (isRefresh?: boolean) => {
+    if (isRefresh) {
+      setLoading(true)
+      setError("")
+    }
     try {
       const [facultyRes, studentRes] = await Promise.all([
         fetch("/api/data/evaluation-mappings?type=faculty"),
@@ -435,7 +437,7 @@ function ViewMappings() {
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
   const filteredFaculty = facultyData?.filter((m) => {
     if (!facultySearch) return true
@@ -464,7 +466,7 @@ function ViewMappings() {
         <h3 className="text-lg font-semibold text-primary">Current Mappings</h3>
         <button
           type="button"
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
           disabled={loading}
         >

@@ -11,13 +11,15 @@ interface Mapping {
 
 export default function FacultyMappingsPage() {
   const [data, setData] = useState<Mapping[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [search, setSearch] = useState("")
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError("")
+  const fetchData = useCallback(async (isRefresh?: boolean) => {
+    if (isRefresh) {
+      setLoading(true)
+      setError("")
+    }
     try {
       const res = await fetch("/api/data/evaluation-mappings?type=faculty")
       if (!res.ok) throw new Error("Failed to load faculty-subject mappings")
@@ -30,7 +32,7 @@ export default function FacultyMappingsPage() {
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
   const filtered = data?.filter((m) => {
     if (!search) return true
@@ -53,7 +55,7 @@ export default function FacultyMappingsPage() {
         </div>
         <button
           type="button"
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           disabled={loading}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
         >

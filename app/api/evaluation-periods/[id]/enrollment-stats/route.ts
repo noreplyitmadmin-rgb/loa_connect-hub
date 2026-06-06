@@ -22,9 +22,9 @@ export async function GET() {
       data: {
         subjectCount: subjects.length,
         sectionCount: sections.length,
-        facultyCount: new Set(facultySubjects.map((f) => f.facultyId)).size,
+        facultyCount: new Set(facultySubjects.map((f) => f.faculty_id)).size,
         enrollmentCount: enrollments.length,
-        studentCount: new Set(enrollments.map((e) => e.studentId)).size,
+        studentCount: new Set(enrollments.map((e) => e.student_id)).size,
       },
     })
   } catch {

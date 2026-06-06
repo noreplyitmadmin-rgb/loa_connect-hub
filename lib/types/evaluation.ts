@@ -134,15 +134,15 @@ export interface SectionData {
 
 export interface FacultySubjectData {
   id: string
-  facultyId: string
-  subjectId: string
-  sectionId: string
+  faculty_id: string
+  subject_id: string
+  section_id: string
 }
 
 export interface StudentEnrollmentData {
   id: string
-  studentId: string
-  sectionId: string
+  student_id: string
+  section_id: string
 }
 
 export interface RubricCategoryData {
@@ -250,15 +250,15 @@ export interface ISectionRepository {
 }
 
 export interface IFacultySubjectRepository {
-  list(filters?: { facultyId?: string; sectionId?: string }): Promise<FacultySubjectData[]>
-  replaceBySection(sectionId: string, items: { facultyId: string; subjectId: string }[]): Promise<void>
-  findBySubjectAndSection(subjectId: string, sectionId: string): Promise<FacultySubjectData | null>
+  list(filters?: { faculty_id?: string; section_id?: string }): Promise<FacultySubjectData[]>
+  replaceBySection(section_id: string, items: { faculty_id: string; subject_id: string }[]): Promise<void>
+  findBySubjectAndSection(subject_id: string, section_id: string): Promise<FacultySubjectData | null>
 }
 
 export interface IStudentEnrollmentRepository {
-  list(filters?: { studentId?: string; sectionId?: string }): Promise<StudentEnrollmentData[]>
-  replaceBySection(sectionId: string, items: { studentId: string }[]): Promise<void>
-  getDistinctFaculty(studentId: string): Promise<string[]>
+  list(filters?: { student_id?: string; section_id?: string }): Promise<StudentEnrollmentData[]>
+  replaceBySection(section_id: string, items: { student_id: string }[]): Promise<void>
+  getDistinctFaculty(student_id: string): Promise<string[]>
 }
 
 export interface IRubricRepository {

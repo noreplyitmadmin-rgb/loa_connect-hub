@@ -140,7 +140,7 @@ export async function importFacultySubjects(
   }
 
   // ── Build mappings ──
-  const fsItems: { facultyId: string; subjectId: string; sectionId: string }[] = []
+  const fsItems: { faculty_id: string; subject_id: string; section_id: string }[] = []
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
     const rowNum = i + 1
@@ -164,19 +164,19 @@ export async function importFacultySubjects(
       continue
     }
 
-    fsItems.push({ facultyId: user.id, subjectId: subject.id, sectionId: section.id })
+    fsItems.push({ faculty_id: user.id, subject_id: subject.id, section_id: section.id })
     result.matched++
   }
 
   // ── Group by section and replace ──
-  const bySection = new Map<string, { facultyId: string; subjectId: string }[]>()
+  const bySection = new Map<string, { faculty_id: string; subject_id: string }[]>()
   for (const item of fsItems) {
-    if (!bySection.has(item.sectionId)) bySection.set(item.sectionId, [])
-    bySection.get(item.sectionId)!.push({ facultyId: item.facultyId, subjectId: item.subjectId })
+    if (!bySection.has(item.section_id)) bySection.set(item.section_id, [])
+    bySection.get(item.section_id)!.push({ faculty_id: item.faculty_id, subject_id: item.subject_id })
   }
 
-  for (const [sectionId, items] of bySection) {
-    await facultySubjectRepository.replaceBySection(sectionId, items)
+  for (const [section_id, items] of bySection) {
+    await facultySubjectRepository.replaceBySection(section_id, items)
   }
 
   return result
@@ -296,7 +296,7 @@ export async function importStudentEnrollments(
   }
 
   // ── Build enrollment items ──
-  const enrollmentItems: { studentId: string; sectionId: string }[] = []
+  const enrollmentItems: { student_id: string; section_id: string }[] = []
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
     const rowNum = i + 1
@@ -314,19 +314,19 @@ export async function importStudentEnrollments(
       continue
     }
 
-    enrollmentItems.push({ studentId: user.id, sectionId: section.id })
+    enrollmentItems.push({ student_id: user.id, section_id: section.id })
     result.matched++
   }
 
   // ── Group by section and replace ──
-  const bySection = new Map<string, { studentId: string }[]>()
+  const bySection = new Map<string, { student_id: string }[]>()
   for (const item of enrollmentItems) {
-    if (!bySection.has(item.sectionId)) bySection.set(item.sectionId, [])
-    bySection.get(item.sectionId)!.push({ studentId: item.studentId })
+    if (!bySection.has(item.section_id)) bySection.set(item.section_id, [])
+    bySection.get(item.section_id)!.push({ student_id: item.student_id })
   }
 
-  for (const [sectionId, items] of bySection) {
-    await studentEnrollmentRepository.replaceBySection(sectionId, items)
+  for (const [section_id, items] of bySection) {
+    await studentEnrollmentRepository.replaceBySection(section_id, items)
   }
 
   return result

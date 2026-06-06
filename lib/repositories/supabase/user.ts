@@ -93,7 +93,7 @@ export const userRepository: IUserRepository = {
 
   async createMany(inputs) {
     if (inputs.length === 0) return new Map()
-    const userFields = inputs.map(({ role, ...fields }) => ({
+    const userFields = inputs.map(({ role: _role, ...fields }) => ({
       ...fields,
       email: fields.email.toLowerCase().trim(),
     }))

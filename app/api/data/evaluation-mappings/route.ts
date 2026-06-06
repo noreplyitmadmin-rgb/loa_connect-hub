@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
       .from("faculty_subjects")
       .select(`
         id,
-        faculty:facultyId (id, name, email),
-        subject:subjectId (id, code, name),
-        section:sectionId (id, name, program)
+        faculty:faculty_id (id, name, email),
+        subject:subject_id (id, code, name),
+        section:section_id (id, name, program)
       `)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
       .from("student_enrollments")
       .select(`
         id,
-        student:studentId (id, name, email),
-        section:sectionId (id, name, program)
+        student:student_id (id, name, email),
+        section:section_id (id, name, program)
       `)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })

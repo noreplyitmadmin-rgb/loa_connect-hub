@@ -720,25 +720,25 @@ CREATE TABLE IF NOT EXISTS sections (
 
 CREATE TABLE IF NOT EXISTS faculty_subjects (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
-  "sectionId" TEXT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
-  UNIQUE("subjectId", "sectionId")
+  faculty_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  subject_id TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  section_id TEXT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+  UNIQUE(subject_id, section_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_faculty_subjects_section ON faculty_subjects("sectionId");
-CREATE INDEX IF NOT EXISTS idx_faculty_subjects_faculty ON faculty_subjects("facultyId");
-CREATE INDEX IF NOT EXISTS idx_faculty_subjects_subject ON faculty_subjects("subjectId");
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_section ON faculty_subjects(section_id);
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_faculty ON faculty_subjects(faculty_id);
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_subject ON faculty_subjects(subject_id);
 
 CREATE TABLE IF NOT EXISTS student_enrollments (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  "sectionId" TEXT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
-  UNIQUE("studentId", "sectionId")
+  student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  section_id TEXT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+  UNIQUE(student_id, section_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_student_enrollments_section ON student_enrollments("sectionId");
-CREATE INDEX IF NOT EXISTS idx_student_enrollments_student ON student_enrollments("studentId");
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_section ON student_enrollments(section_id);
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_student ON student_enrollments(student_id);
 
 CREATE TABLE IF NOT EXISTS evaluations (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
@@ -871,6 +871,43 @@ ALTER TABLE rubric_categories DROP CONSTRAINT IF EXISTS rubric_categories_period
 ALTER TABLE rubric_categories ALTER COLUMN "periodId" DROP NOT NULL;
 
 -- =========================================================
+-- Migration 18: Unquote column names in faculty_subjects
+--               and student_enrollments for PostgREST FK
+--               detection (PGRST201).
+-- Run this BEFORE Migration 17 when upgrading an existing DB.
+-- =========================================================
+
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='faculty_subjects' AND column_name='facultyId') THEN
+    ALTER TABLE faculty_subjects RENAME COLUMN "facultyId" TO faculty_id;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='faculty_subjects' AND column_name='subjectId') THEN
+    ALTER TABLE faculty_subjects RENAME COLUMN "subjectId" TO subject_id;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='faculty_subjects' AND column_name='sectionId') THEN
+    ALTER TABLE faculty_subjects RENAME COLUMN "sectionId" TO section_id;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='student_enrollments' AND column_name='studentId') THEN
+    ALTER TABLE student_enrollments RENAME COLUMN "studentId" TO student_id;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='student_enrollments' AND column_name='sectionId') THEN
+    ALTER TABLE student_enrollments RENAME COLUMN "sectionId" TO section_id;
+  END IF;
+END $$;
+
+-- =========================================================
 -- Migration 17: Section-based faculty-subject & enrollment model
 -- =========================================================
 
@@ -902,27 +939,31 @@ DROP INDEX IF EXISTS idx_subjects_period;
 ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_subjectId_periodId_key;
 ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_periodid_fkey;
 
-ALTER TABLE faculty_subjects ADD COLUMN IF NOT EXISTS "sectionId" TEXT REFERENCES sections(id) ON DELETE CASCADE;
-ALTER TABLE faculty_subjects ALTER COLUMN "facultyId" SET NOT NULL;
-ALTER TABLE faculty_subjects ALTER COLUMN "subjectId" SET NOT NULL;
-ALTER TABLE faculty_subjects ADD CONSTRAINT faculty_subjects_subjectId_fkey FOREIGN KEY ("subjectId") REFERENCES subjects(id) ON DELETE CASCADE;
+ALTER TABLE faculty_subjects ADD COLUMN IF NOT EXISTS section_id TEXT REFERENCES sections(id) ON DELETE CASCADE;
+ALTER TABLE faculty_subjects ALTER COLUMN faculty_id SET NOT NULL;
+ALTER TABLE faculty_subjects ALTER COLUMN subject_id SET NOT NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'faculty_subjects_subject_id_fkey') THEN
+    ALTER TABLE faculty_subjects ADD CONSTRAINT faculty_subjects_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 ALTER TABLE faculty_subjects DROP COLUMN IF EXISTS "periodId";
 DROP INDEX IF EXISTS idx_faculty_subjects_period;
 
-CREATE INDEX IF NOT EXISTS idx_faculty_subjects_section ON faculty_subjects("sectionId");
-CREATE INDEX IF NOT EXISTS idx_faculty_subjects_subject ON faculty_subjects("subjectId");
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_section ON faculty_subjects(section_id);
+CREATE INDEX IF NOT EXISTS idx_faculty_subjects_subject ON faculty_subjects(subject_id);
 
 -- Migrate student_enrollments
 ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_studentId_subjectId_periodId_key;
 ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_subjectid_fkey;
 ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_periodid_fkey;
 
-ALTER TABLE student_enrollments ADD COLUMN IF NOT EXISTS "sectionId" TEXT REFERENCES sections(id) ON DELETE CASCADE;
-ALTER TABLE student_enrollments ALTER COLUMN "studentId" SET NOT NULL;
+ALTER TABLE student_enrollments ADD COLUMN IF NOT EXISTS section_id TEXT REFERENCES sections(id) ON DELETE CASCADE;
+ALTER TABLE student_enrollments ALTER COLUMN student_id SET NOT NULL;
 
 ALTER TABLE student_enrollments DROP COLUMN IF EXISTS "subjectId";
 ALTER TABLE student_enrollments DROP COLUMN IF EXISTS "periodId";
 DROP INDEX IF EXISTS idx_student_enrollments_period;
 
-CREATE INDEX IF NOT EXISTS idx_student_enrollments_section ON student_enrollments("sectionId");
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_section ON student_enrollments(section_id);

@@ -10,13 +10,15 @@ interface Enrollment {
 
 export default function StudentEnrollmentsPage() {
   const [data, setData] = useState<Enrollment[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [search, setSearch] = useState("")
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError("")
+  const fetchData = useCallback(async (isRefresh?: boolean) => {
+    if (isRefresh) {
+      setLoading(true)
+      setError("")
+    }
     try {
       const res = await fetch("/api/data/evaluation-mappings?type=student")
       if (!res.ok) throw new Error("Failed to load student enrollments")
@@ -29,7 +31,7 @@ export default function StudentEnrollmentsPage() {
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
   const filtered = data?.filter((m) => {
     if (!search) return true
@@ -50,7 +52,7 @@ export default function StudentEnrollmentsPage() {
         </div>
         <button
           type="button"
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           disabled={loading}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
         >
