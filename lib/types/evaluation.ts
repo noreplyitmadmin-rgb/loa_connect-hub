@@ -1,12 +1,10 @@
 // ── Entity Types ──────────────────────────────────────────
 
-export interface EvaluationPeriod {
+export interface Semester {
   id: string
-  name: string
-  semester: string
-  schoolYear: string
-  startDate: string
-  endDate: string
+  title: string
+  evalStartDate: string
+  evalEndDate: string | null
   isActive: boolean
   createdAt: Date
 }
@@ -28,17 +26,19 @@ export interface FacultySubject {
   facultyId: string
   subjectId: string
   sectionId: string
+  semesterId: string | null
 }
 
 export interface StudentEnrollment {
   id: string
   studentId: string
   sectionId: string
+  semesterId: string | null
 }
 
 export interface RubricCategory {
   id: string
-  periodId: string
+  semesterId: string
   name: string
   displayOrder: number
   items?: RubricItem[]
@@ -54,7 +54,7 @@ export interface RubricItem {
 
 export interface Evaluation {
   id: string
-  periodId: string
+  semesterId: string
   evaluatorId: string
   evaluateeId: string
   status: "DRAFT" | "SUBMITTED"
@@ -82,7 +82,7 @@ export interface EvaluationComment {
 
 export interface EvaluationResult {
   id: string
-  periodId: string
+  semesterId: string
   facultyId: string
   departmentId: string | null
   totalRespondents: number
@@ -101,23 +101,19 @@ export interface EvaluationResult {
 
 // ── Data Types (for repositories) ─────────────────────────
 
-export interface EvaluationPeriodData {
+export interface SemesterData {
   id: string
-  name: string
-  semester: string
-  schoolYear: string
-  startDate: string
-  endDate: string
+  title: string
+  evalStartDate: string
+  evalEndDate: string | null
   isActive: boolean
   createdAt: Date
 }
 
-export interface CreateEvaluationPeriodInput {
-  name: string
-  semester: string
-  schoolYear: string
-  startDate: string
-  endDate: string
+export interface CreateSemesterInput {
+  title: string
+  evalStartDate: string
+  evalEndDate?: string | null
 }
 
 export interface SubjectData {
@@ -137,17 +133,19 @@ export interface FacultySubjectData {
   faculty_id: string
   subject_id: string
   section_id: string
+  semesterId: string | null
 }
 
 export interface StudentEnrollmentData {
   id: string
   student_id: string
   section_id: string
+  semesterId: string | null
 }
 
 export interface RubricCategoryData {
   id: string
-  periodId: string
+  semesterId: string
   name: string
   displayOrder: number
 }
@@ -162,7 +160,7 @@ export interface RubricItemData {
 
 export interface EvaluationData {
   id: string
-  periodId: string
+  semesterId: string
   evaluatorId: string
   evaluateeId: string
   status: "DRAFT" | "SUBMITTED"
@@ -173,7 +171,7 @@ export interface EvaluationData {
 
 export interface EvaluationResultData {
   id: string
-  periodId: string
+  semesterId: string
   facultyId: string
   departmentId: string | null
   totalRespondents: number
@@ -227,14 +225,14 @@ export interface EnrollmentStats {
 
 // ── Repository Interfaces ─────────────────────────────────
 
-export interface IEvaluationPeriodRepository {
-  list(filter?: { isActive?: boolean; schoolYear?: string }): Promise<EvaluationPeriodData[]>
-  findById(id: string): Promise<EvaluationPeriodData | null>
-  findActive(): Promise<EvaluationPeriodData | null>
-  create(input: CreateEvaluationPeriodInput): Promise<EvaluationPeriodData>
-  update(id: string, data: Partial<EvaluationPeriodData>): Promise<EvaluationPeriodData>
+export interface ISemesterRepository {
+  list(filter?: { isActive?: boolean }): Promise<SemesterData[]>
+  findById(id: string): Promise<SemesterData | null>
+  findActive(): Promise<SemesterData | null>
+  create(input: CreateSemesterInput): Promise<SemesterData>
+  update(id: string, data: Partial<SemesterData>): Promise<SemesterData>
   delete(id: string): Promise<void>
-  setActive(id: string): Promise<EvaluationPeriodData>
+  setActive(id: string): Promise<SemesterData>
 }
 
 export interface ISubjectRepository {
@@ -250,32 +248,32 @@ export interface ISectionRepository {
 }
 
 export interface IFacultySubjectRepository {
-  list(filters?: { faculty_id?: string; section_id?: string }): Promise<FacultySubjectData[]>
-  replaceBySection(section_id: string, items: { faculty_id: string; subject_id: string }[]): Promise<void>
+  list(filters?: { faculty_id?: string; section_id?: string; semesterId?: string }): Promise<FacultySubjectData[]>
+  replaceBySection(section_id: string, items: { faculty_id: string; subject_id: string; semesterId?: string | null }[]): Promise<void>
   findBySubjectAndSection(subject_id: string, section_id: string): Promise<FacultySubjectData | null>
 }
 
 export interface IStudentEnrollmentRepository {
-  list(filters?: { student_id?: string; section_id?: string }): Promise<StudentEnrollmentData[]>
-  replaceBySection(section_id: string, items: { student_id: string }[]): Promise<void>
-  addEnrollments(items: { student_id: string; section_id: string }[]): Promise<void>
-  getDistinctFaculty(student_id: string): Promise<string[]>
+  list(filters?: { student_id?: string; section_id?: string; semesterId?: string }): Promise<StudentEnrollmentData[]>
+  replaceBySection(section_id: string, items: { student_id: string; semesterId?: string | null }[]): Promise<void>
+  addEnrollments(items: { student_id: string; section_id: string; semesterId?: string | null }[]): Promise<void>
+  getDistinctFaculty(student_id: string, semesterId?: string): Promise<string[]>
 }
 
 export interface IRubricRepository {
-  getCategoriesWithItems(periodId: string): Promise<RubricCategoryData[]>
-  replaceRubric(periodId: string, categories: { name: string; displayOrder: number; items: { text: string; displayOrder: number; weight?: number }[] }[]): Promise<RubricCategoryData[]>
-  copyFromSource(periodId: string, sourcePeriodId: string): Promise<RubricCategoryData[]>
+  getCategoriesWithItems(semesterId: string): Promise<RubricCategoryData[]>
+  replaceRubric(semesterId: string, categories: { name: string; displayOrder: number; items: { text: string; displayOrder: number; weight?: number }[] }[]): Promise<RubricCategoryData[]>
+  copyFromSource(semesterId: string, sourceSemesterId: string): Promise<RubricCategoryData[]>
   deleteCategory(id: string): Promise<void>
   deleteItem(id: string): Promise<void>
 }
 
 export interface IEvaluationRepository {
-  findPending(evaluatorId: string, periodId: string): Promise<{ evaluateeId: string }[]>
+  findPending(evaluatorId: string, semesterId: string): Promise<{ evaluateeId: string }[]>
   findByEvaluator(evaluatorId: string): Promise<EvaluationData[]>
   findById(id: string): Promise<EvaluationData | null>
-  findByComposite(periodId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData | null>
-  create(periodId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData>
+  findByComposite(semesterId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData | null>
+  create(semesterId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData>
   setRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]): Promise<void>
   submit(evaluationId: string): Promise<EvaluationData>
   getRatings(evaluationId: string): Promise<{ itemId: string; rating: number }[]>
@@ -283,8 +281,8 @@ export interface IEvaluationRepository {
 }
 
 export interface IEvaluationResultRepository {
-  list(periodId: string, filters?: { departmentId?: string; facultyId?: string }): Promise<EvaluationResultData[]>
-  findByFaculty(periodId: string, facultyId: string): Promise<EvaluationResultData | null>
-  compute(periodId: string, facultyId?: string): Promise<void>
-  computeAll(periodId: string): Promise<void>
+  list(semesterId: string, filters?: { departmentId?: string; facultyId?: string }): Promise<EvaluationResultData[]>
+  findByFaculty(semesterId: string, facultyId: string): Promise<EvaluationResultData | null>
+  compute(semesterId: string, facultyId?: string): Promise<void>
+  computeAll(semesterId: string): Promise<void>
 }

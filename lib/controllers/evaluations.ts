@@ -1,9 +1,7 @@
-import { evaluationRepository, evaluationPeriodRepository } from "@/lib/repositories/factory"
+import { evaluationRepository } from "@/lib/repositories/factory"
 
-export async function getPendingEvaluations(evaluatorId: string) {
-  const active = await evaluationPeriodRepository.findActive()
-  if (!active) return []
-  return evaluationRepository.findPending(evaluatorId, active.id)
+export async function getPendingEvaluations(evaluatorId: string, semesterId: string) {
+  return evaluationRepository.findPending(evaluatorId, semesterId)
 }
 
 export async function getMyEvaluations(evaluatorId: string) {
@@ -14,10 +12,10 @@ export async function getEvaluation(id: string) {
   return evaluationRepository.findById(id)
 }
 
-export async function getOrCreateEvaluation(periodId: string, evaluatorId: string, evaluateeId: string) {
-  const existing = await evaluationRepository.findByComposite(periodId, evaluatorId, evaluateeId)
+export async function getOrCreateEvaluation(semesterId: string, evaluatorId: string, evaluateeId: string) {
+  const existing = await evaluationRepository.findByComposite(semesterId, evaluatorId, evaluateeId)
   if (existing) return existing
-  return evaluationRepository.create(periodId, evaluatorId, evaluateeId)
+  return evaluationRepository.create(semesterId, evaluatorId, evaluateeId)
 }
 
 export async function saveRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]) {

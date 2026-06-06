@@ -11,6 +11,7 @@ export interface User {
   email: string
   role: Role
   departmentId: string | null
+  semesterId: string | null
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null
   createdAt: Date

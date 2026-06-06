@@ -19,11 +19,13 @@ export async function POST(request: NextRequest) {
 
   let importRows: { email: string; name: string; subjectCode: string; sectionName: string; sectionProgram: string }[]
   let parseErrors: { row: number; message: string }[] = []
+  let departmentId: string | null = null
 
   const contentType = request.headers.get("content-type") || ""
 
   if (contentType.includes("application/json")) {
     const body = await request.json()
+    departmentId = body.departmentId || null
     const rawRows = body.rows as { email: string; name?: string; subjectCode: string; section: string }[] | undefined
     if (!rawRows || !Array.isArray(rawRows) || rawRows.length === 0) {
       return NextResponse.json({ error: "Rows array is required" }, { status: 400 })
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
   } else {
     const formData = await request.formData()
     const file = formData.get("file") as File | null
+    departmentId = (formData.get("departmentId") as string) || null
     if (!file) {
       return NextResponse.json({ error: "CSV file is required" }, { status: 400 })
     }
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
     parseErrors = parsed.errors
   }
 
-  const result = await importFacultySubjects(importRows)
+  const result = await importFacultySubjects(importRows, departmentId)
 
   await logAuditEvent({
     userId: (session!.user as Record<string, unknown>).id as string,

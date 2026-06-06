@@ -2,11 +2,12 @@ import { supabase } from "@/lib/supabase"
 import type { EvaluationData, EvaluationComment, IEvaluationRepository } from "@/lib/types"
 
 export const evaluationRepository: IEvaluationRepository = {
-  async findPending(evaluatorId, periodId) {
+  async findPending(evaluatorId, semesterId) {
     const { data: enrollments, error: enrollErr } = await supabase
       .from("student_enrollments")
       .select("section_id")
       .eq("student_id", evaluatorId)
+      .eq("semesterId", semesterId)
     if (enrollErr) throw enrollErr
     if (enrollments.length === 0) return []
 
@@ -15,6 +16,7 @@ export const evaluationRepository: IEvaluationRepository = {
       .from("faculty_subjects")
       .select("faculty_id")
       .in("section_id", sectionIds)
+      .eq("semesterId", semesterId)
     if (fsErr) throw fsErr
     const allFacultyIds = [...new Set(facultySubjects.map((r) => r.faculty_id))]
 
@@ -22,7 +24,7 @@ export const evaluationRepository: IEvaluationRepository = {
       .from("evaluations")
       .select("evaluateeId")
       .eq("evaluatorId", evaluatorId)
-      .eq("periodId", periodId)
+      .eq("semesterId", semesterId)
     if (evErr) throw evErr
     const submittedIds = new Set(existing.map((r) => r.evaluateeId))
 
@@ -44,11 +46,11 @@ export const evaluationRepository: IEvaluationRepository = {
     return data as EvaluationData
   },
 
-  async findByComposite(periodId, evaluatorId, evaluateeId) {
+  async findByComposite(semesterId, evaluatorId, evaluateeId) {
     const { data, error } = await supabase
       .from("evaluations")
       .select("*")
-      .eq("periodId", periodId)
+      .eq("semesterId", semesterId)
       .eq("evaluatorId", evaluatorId)
       .eq("evaluateeId", evaluateeId)
       .single()
@@ -59,10 +61,10 @@ export const evaluationRepository: IEvaluationRepository = {
     return data as EvaluationData
   },
 
-  async create(periodId, evaluatorId, evaluateeId) {
+  async create(semesterId, evaluatorId, evaluateeId) {
     const { data, error } = await supabase
       .from("evaluations")
-      .insert({ periodId, evaluatorId, evaluateeId })
+      .insert({ semesterId, evaluatorId, evaluateeId })
       .select("*")
       .single()
     if (error) throw error

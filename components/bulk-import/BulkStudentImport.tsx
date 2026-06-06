@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useRef } from "react"
-import SubmitButton from "@/components/SubmitButton"
 
 interface StudentCsvRow {
   row: number
@@ -168,201 +167,218 @@ export default function BulkStudentImport({ departmentId }: { departmentId?: str
       )}
 
       {!previewRows && !importResult && (
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs text-tertiary mb-1">Expected CSV headers:</p>
-            <code className="text-xs bg-surface-dim px-2 py-1 rounded text-secondary">{TEMPLATE_HEADERS}</code>
+        <div className="space-y-5">
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl bg-surface-dim/30 hover:bg-surface-dim/60 cursor-pointer transition-colors"
+          >
+            <div className="w-12 h-12 rounded-full bg-gold-100 dark:bg-gold-900/40 flex items-center justify-center">
+              <svg className="w-6 h-6 text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-secondary">Tap to choose a CSV file</p>
+            <p className="text-xs text-tertiary">Headers: <code className="bg-surface-dim px-1.5 py-0.5 rounded text-[10px]">{TEMPLATE_HEADERS}</code></p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handlePreview}
+            />
           </div>
 
           <button
             type="button"
             onClick={() => downloadBlob(`${TEMPLATE_HEADERS}\n${TEMPLATE_SAMPLE}`, "student-import-template.csv")}
-            className="text-xs font-semibold text-gold-600 hover:text-gold-700 flex items-center gap-1"
+            className="w-full flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4 text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Download Template
+            Download Sample Template (.csv)
           </button>
 
-          <div className="space-y-3">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv"
-              className="block w-full text-sm text-tertiary file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold-50 file:text-gold-700 hover:file:bg-gold-100"
-            />
-            {previewError && <p className="text-sm text-red-600">{previewError}</p>}
-            <SubmitButton onClick={handlePreview} loading={false}>
-              Upload & Preview
-            </SubmitButton>
-          </div>
+          {previewError && <p className="text-sm font-medium text-red-600 text-center">{previewError}</p>}
         </div>
       )}
 
       {previewRows && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-secondary uppercase tracking-wider">
-              Preview — {previewRows.length} row{previewRows.length !== 1 ? "s" : ""}
-            </h4>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleReset}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={loading || previewRows.length === 0}
-                onClick={handleConfirm}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gold-600 text-white hover:bg-gold-700 disabled:opacity-50"
-              >
-                {loading ? "Importing..." : `Confirm Import (${previewRows.length})`}
-              </button>
+        <div className="flex flex-col h-full min-h-[24rem]">
+          <div className="flex-1 space-y-3 overflow-hidden">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-secondary">
+                {previewRows.length} row{previewRows.length !== 1 ? "s" : ""}
+              </h4>
+              <span className="text-[11px] text-tertiary">{TEMPLATE_HEADERS}</span>
             </div>
-          </div>
 
-          {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+            {error && <p className="text-xs font-medium text-red-600">{error}</p>}
 
-          <div className="overflow-x-auto max-h-80 overflow-y-auto border border-default rounded-lg">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
-                  <th className="p-2 w-8">#</th>
-                  <th className="p-2">Email</th>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Subject Code</th>
-                  <th className="p-2">Section</th>
-                  <th className="p-2 w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedRows.map((r, i) => {
-                  const absIdx = previewPage * PREVIEW_PAGE_SIZE + i
-                  return (
-                    <tr key={`${previewPage}-${i}`} className="border-b border-default hover:bg-surface-hover">
-                      <td className="p-2 text-tertiary">{r.row}</td>
-                      <td className="p-2 text-secondary text-[11px]">{r.email}</td>
-                      <td className="p-2">
-                        <input
-                          value={r.name}
-                          onChange={(e) => handleFieldChange(absIdx, "name", e.target.value)}
-                          className="w-full bg-transparent border border-transparent hover:border-default focus:border-gold-500 rounded px-1 py-0.5 outline-none text-[11px]"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          value={r.subjectCode}
-                          onChange={(e) => handleFieldChange(absIdx, "subjectCode", e.target.value)}
-                          className="w-full bg-transparent border border-transparent hover:border-default focus:border-gold-500 rounded px-1 py-0.5 outline-none text-[11px]"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          value={r.section}
-                          onChange={(e) => handleFieldChange(absIdx, "section", e.target.value)}
-                          className="w-full bg-transparent border border-transparent hover:border-default focus:border-gold-500 rounded px-1 py-0.5 outline-none text-[11px]"
-                        />
-                      </td>
-                      <td className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveRow(absIdx)}
-                          className="text-red-400 hover:text-red-600 transition-colors"
-                          title="Remove row"
-                        >
-                          <svg className="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+            <div className="overflow-x-auto max-h-72 overflow-y-auto border border-default rounded-xl">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="bg-surface-dim text-left text-[11px] font-semibold text-tertiary border-b border-default sticky top-0">
+                    <th className="p-3 w-8">#</th>
+                    <th className="p-3">Email</th>
+                    <th className="p-3">Name</th>
+                    <th className="p-3">Subject</th>
+                    <th className="p-3">Section</th>
+                    <th className="p-3 w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((r, i) => {
+                    const absIdx = previewPage * PREVIEW_PAGE_SIZE + i
+                    return (
+                      <tr key={`${previewPage}-${i}`} className="border-b border-default/50 hover:bg-surface-hover">
+                        <td className="p-3 text-tertiary">{r.row}</td>
+                        <td className="p-3 text-secondary">{r.email}</td>
+                        <td className="p-3">
+                          <input
+                            value={r.name}
+                            onChange={(e) => handleFieldChange(absIdx, "name", e.target.value)}
+                            className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px]"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            value={r.subjectCode}
+                            onChange={(e) => handleFieldChange(absIdx, "subjectCode", e.target.value)}
+                            className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px]"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            value={r.section}
+                            onChange={(e) => handleFieldChange(absIdx, "section", e.target.value)}
+                            className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px]"
+                          />
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRow(absIdx)}
+                            className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors"
+                            title="Remove row"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          {totalPreviewPages > 1 && (
-            <div className="flex items-center justify-between pt-1">
-              <p className="text-xs font-medium text-tertiary">
-                Showing {previewPage * PREVIEW_PAGE_SIZE + 1} to {Math.min((previewPage + 1) * PREVIEW_PAGE_SIZE, previewRows.length)} of {previewRows.length}
-              </p>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  disabled={previewPage === 0}
-                  onClick={() => setPreviewPage((p) => p - 1)}
-                  className="px-2.5 py-1.5 bg-surface-hover text-secondary rounded-lg text-xs font-semibold hover:bg-surface-dim disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  disabled={previewPage >= totalPreviewPages - 1}
-                  onClick={() => setPreviewPage((p) => p + 1)}
-                  className="px-2.5 py-1.5 bg-surface-hover text-secondary rounded-lg text-xs font-semibold hover:bg-surface-dim disabled:opacity-50"
-                >
-                  Next
-                </button>
+            {totalPreviewPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-tertiary">
+                  Page {previewPage + 1} of {totalPreviewPages}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={previewPage === 0}
+                    onClick={() => setPreviewPage((p) => p - 1)}
+                    className="px-4 py-1.5 bg-surface-dim text-secondary rounded-full text-xs font-semibold hover:bg-surface-dim/70 disabled:opacity-40 transition-colors"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={previewPage >= totalPreviewPages - 1}
+                    onClick={() => setPreviewPage((p) => p + 1)}
+                    className="px-4 py-1.5 bg-surface-dim text-secondary rounded-full text-xs font-semibold hover:bg-surface-dim/70 disabled:opacity-40 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="flex-1 text-sm font-semibold px-4 py-3 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={loading || previewRows.length === 0}
+              onClick={handleConfirm}
+              className="flex-1 text-sm font-semibold px-4 py-3 rounded-xl bg-gold-600 text-white hover:bg-gold-700 disabled:opacity-40 transition-colors"
+            >
+              {loading ? "Importing..." : `Import ${previewRows.length} Row${previewRows.length !== 1 ? "s" : ""}`}
+            </button>
+          </div>
         </div>
       )}
 
       {importResult && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="card p-3 text-center">
-              <p className="text-xl font-bold text-emerald-600">{importResult.created.length}</p>
-              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Created</p>
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-5 text-center">
+              <p className="text-2xl font-bold text-emerald-600">{importResult.created.length}</p>
+              <p className="text-[11px] font-semibold text-emerald-700/70 dark:text-emerald-300/70">Users Created</p>
             </div>
-            <div className="card p-3 text-center">
-              <p className="text-xl font-bold text-blue-600">{importResult.enrolled}</p>
-              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Enrolled</p>
-            </div>
-            <div className="card p-3 text-center">
-              <p className={`text-xl font-bold ${totalErrors > 0 ? "text-red-600" : "text-tertiary"}`}>{totalErrors}</p>
-              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">Errors</p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 text-center">
+              <p className="text-2xl font-bold text-blue-600">{importResult.enrolled}</p>
+              <p className="text-[11px] font-semibold text-blue-700/70 dark:text-blue-300/70">Enrollments</p>
             </div>
           </div>
 
           {importResult.parseErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-1.5">
-              <p className="text-xs font-bold text-red-700 uppercase tracking-wider">Parse Errors ({importResult.parseErrors.length})</p>
-              {importResult.parseErrors.map((e, i) => (
-                <p key={`pe-${i}`} className="text-xs text-red-600">Row {e.row}: {e.message}</p>
-              ))}
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-red-100 dark:border-red-800/30">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">{importResult.parseErrors.length} Parse Error{importResult.parseErrors.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="px-5 py-3 space-y-2 max-h-40 overflow-y-auto">
+                {importResult.parseErrors.map((e, i) => (
+                  <p key={`pe-${i}`} className="text-xs text-red-600 dark:text-red-400">Row {e.row}: {e.message}</p>
+                ))}
+              </div>
             </div>
           )}
 
           {importResult.failed.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1.5">
-              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Import Failures ({importResult.failed.length})</p>
-              {importResult.failed.map((f, i) => (
-                <p key={`f-${i}`} className="text-xs text-amber-700">Row {f.row}: {f.email} — {f.remark}</p>
-              ))}
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-amber-100 dark:border-amber-800/30">
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{importResult.failed.length} Import Failure{importResult.failed.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="px-5 py-3 space-y-2 max-h-40 overflow-y-auto">
+                {importResult.failed.map((f, i) => (
+                  <p key={`f-${i}`} className="text-xs text-amber-700 dark:text-amber-400">Row {f.row}: {f.email} — {f.remark}</p>
+                ))}
+              </div>
             </div>
           )}
 
           {totalErrors === 0 && importResult.enrolled > 0 && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-emerald-700">All {importResult.totalRows} rows processed successfully.</p>
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl px-5 py-4 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-200 dark:bg-emerald-700 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-emerald-700 dark:text-emerald-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">All {importResult.totalRows} rows processed successfully.</p>
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             {importResult.successCsv && (
               <button
                 type="button"
                 onClick={() => downloadBlob(importResult.successCsv, "import-successes.csv")}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim flex items-center gap-1.5"
+                className="w-full flex items-center justify-center gap-2 text-xs font-semibold px-4 py-3 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Download Successes (.csv)
@@ -372,9 +388,9 @@ export default function BulkStudentImport({ departmentId }: { departmentId?: str
               <button
                 type="button"
                 onClick={() => downloadBlob(importResult.failureCsv, "import-failures.csv")}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim flex items-center gap-1.5"
+                className="w-full flex items-center justify-center gap-2 text-xs font-semibold px-4 py-3 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Download Failures (.csv)
@@ -382,7 +398,7 @@ export default function BulkStudentImport({ departmentId }: { departmentId?: str
             )}
           </div>
 
-          <button type="button" onClick={handleReset} className="text-xs font-semibold text-gold-600 hover:text-gold-800 underline">
+          <button type="button" onClick={handleReset} className="w-full text-sm font-semibold px-4 py-3 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors">
             Import Another File
           </button>
         </div>

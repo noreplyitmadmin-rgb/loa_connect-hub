@@ -24,9 +24,6 @@ function ViewMappings() {
   const [studentData, setStudentData] = useState<MappedStudent[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [facultySearch, setFacultySearch] = useState("")
-  const [studentSearch, setStudentSearch] = useState("")
-  const [facultySubjectFilter, setFacultySubjectFilter] = useState("")
   const [facultySectionFilter, setFacultySectionFilter] = useState("")
   const [studentSectionFilter, setStudentSectionFilter] = useState("")
   const [viewingClass, setViewingClass] = useState<MappedFaculty | null>(null)
@@ -61,9 +58,6 @@ function ViewMappings() {
     return () => window.removeEventListener("app:refresh", handler)
   }, [fetchData])
 
-  const facultySubjects = facultyData
-    ? [...new Map(facultyData.map((m) => [m.subject.id, m.subject])).values()]
-    : []
   const facultySections = facultyData
     ? [...new Map(facultyData.map((m) => [m.section.id, m.section])).values()]
     : []
@@ -71,34 +65,25 @@ function ViewMappings() {
     ? [...new Map(studentData.map((m) => [m.section.id, m.section])).values()]
     : []
 
+  const totalFaculty = facultyData ? [...new Set(facultyData.map((m) => m.faculty.id))].length : 0
+  const totalSubjects = facultyData ? [...new Set(facultyData.map((m) => m.subject.id))].length : 0
+  const totalSectionsF = facultyData ? [...new Set(facultyData.map((m) => m.section.id))].length : 0
+  const totalStudents = studentData?.length ?? 0
+
   const filteredFaculty = facultyData?.filter((m) => {
-    if (facultySubjectFilter && m.subject.id !== facultySubjectFilter) return false
     if (facultySectionFilter && m.section.id !== facultySectionFilter) return false
-    if (!facultySearch) return true
-    const q = facultySearch.toLowerCase()
-    return (
-      m.faculty.email.toLowerCase().includes(q) ||
-      m.faculty.name.toLowerCase().includes(q) ||
-      m.subject.code.toLowerCase().includes(q) ||
-      `${m.section.program}-${m.section.name}`.toLowerCase().includes(q)
-    )
+    return true
   })
 
   const filteredStudents = studentData?.filter((m) => {
     if (studentSectionFilter && m.section.id !== studentSectionFilter) return false
-    if (!studentSearch) return true
-    const q = studentSearch.toLowerCase()
-    return (
-      m.student.email.toLowerCase().includes(q) ||
-      m.student.name.toLowerCase().includes(q) ||
-      `${m.section.program}-${m.section.name}`.toLowerCase().includes(q)
-    )
+    return true
   })
 
   return (
     <div className="card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-primary">Current Mappings</h3>
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-lg font-semibold text-primary">Data Preview</h3>
         <button
           type="button"
           onClick={() => fetchData(true)}
@@ -111,150 +96,146 @@ function ViewMappings() {
 
       {error && <p className="text-xs font-medium text-red-600 mb-3">{error}</p>}
 
-      <div className="flex gap-1 mb-4 border-b border-default">
-        <button
-          type="button"
-          onClick={() => setTab("faculty")}
-          className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
-            tab === "faculty" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
-          }`}
-        >
-          Faculty-Subject ({facultyData?.length ?? "..."})
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("student")}
-          className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
-            tab === "student" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
-          }`}
-        >
-          Student Enrollments ({studentData?.length ?? "..."})
-        </button>
-      </div>
-
-      {tab === "faculty" && (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <select
-              value={facultySubjectFilter}
-              onChange={(e) => setFacultySubjectFilter(e.target.value)}
-              className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
-            >
-              <option value="">All Subjects</option>
-              {facultySubjects.map((s) => (
-                <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
-              ))}
-            </select>
-            <select
-              value={facultySectionFilter}
-              onChange={(e) => setFacultySectionFilter(e.target.value)}
-              className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
-            >
-              <option value="">All Sections</option>
-              {facultySections.map((s) => (
-                <option key={s.id} value={s.id}>{s.program}-{s.name}</option>
-              ))}
-            </select>
-          </div>
-          <input
-            type="text"
-            value={facultySearch}
-            onChange={(e) => setFacultySearch(e.target.value)}
-            placeholder="Search by faculty name, email, subject code, or section..."
-            className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
-          />
-          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
-                  <th className="p-2">Faculty</th>
-                  <th className="p-2">Email</th>
-                  <th className="p-2">Subject</th>
-                  <th className="p-2">Section</th>
-                  <th className="p-2 text-right">Students</th>
-                  <th className="p-2 w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFaculty?.length === 0 ? (
-                  <tr><td colSpan={6} className="p-4 text-center text-xs text-tertiary">No mappings found.</td></tr>
-                ) : (
-                  filteredFaculty?.map((m) => (
-                    <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
-                      <td className="p-2 font-medium text-secondary">{m.faculty.name}</td>
-                      <td className="p-2 text-tertiary">{m.faculty.email}</td>
-                      <td className="p-2">
-                        <span className="font-medium text-secondary">{m.subject.code}</span>
-                        <span className="text-tertiary ml-1">{m.subject.name}</span>
-                      </td>
-                      <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
-                      <td className="p-2 text-right">
-                        <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                          {m.student_count}
-                        </span>
-                      </td>
-                      <td className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setViewingClass(m)}
-                          className="text-[10px] font-semibold px-2 py-1 rounded border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+      {loading && !facultyData ? (
+        <div className="flex items-center justify-center py-10">
+          <div className="w-6 h-6 border-2 border-gold-600 border-t-transparent rounded-full animate-spin" />
         </div>
-      )}
-
-      {tab === "student" && (
-        <div className="space-y-3">
-          <select
-            value={studentSectionFilter}
-            onChange={(e) => setStudentSectionFilter(e.target.value)}
-            className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
-          >
-            <option value="">All Sections</option>
-            {studentSections.map((s) => (
-              <option key={s.id} value={s.id}>{s.program}-{s.name}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={studentSearch}
-            onChange={(e) => setStudentSearch(e.target.value)}
-            placeholder="Search by student name, email, or section..."
-            className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
-          />
-          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
-                  <th className="p-2">Student</th>
-                  <th className="p-2">Email</th>
-                  <th className="p-2">Section</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents?.length === 0 ? (
-                  <tr><td colSpan={3} className="p-4 text-center text-xs text-tertiary">No enrollments found.</td></tr>
-                ) : (
-                  filteredStudents?.map((m) => (
-                    <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
-                      <td className="p-2 font-medium text-secondary">{m.student.name}</td>
-                      <td className="p-2 text-tertiary">{m.student.email}</td>
-                      <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="bg-gradient-to-br from-gold-50 to-amber-50 dark:from-gold-900/20 dark:to-amber-900/20 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-bold text-gold-600">{totalFaculty}</p>
+              <p className="text-[10px] font-semibold text-gold-700/70 dark:text-gold-300/70 uppercase tracking-wider">Faculty</p>
+            </div>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-bold text-blue-600">{totalSubjects}</p>
+              <p className="text-[10px] font-semibold text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider">Subjects</p>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-bold text-purple-600">{totalSectionsF}</p>
+              <p className="text-[10px] font-semibold text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider">Sections</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-bold text-emerald-600">{totalStudents}</p>
+              <p className="text-[10px] font-semibold text-emerald-700/70 dark:text-emerald-300/70 uppercase tracking-wider">Students</p>
+            </div>
           </div>
-        </div>
+
+          <div className="flex gap-1 mb-4 border-b border-default">
+            <button
+              type="button"
+              onClick={() => setTab("faculty")}
+              className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
+                tab === "faculty" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
+              }`}
+            >
+              Faculty-Subject ({facultyData?.length ?? "..."})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("student")}
+              className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
+                tab === "student" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
+              }`}
+            >
+              Student Enrollments ({studentData?.length ?? "..."})
+            </button>
+          </div>
+
+          {tab === "faculty" && (
+            <div className="space-y-3">
+              <select
+                value={facultySectionFilter}
+                onChange={(e) => setFacultySectionFilter(e.target.value)}
+                className="w-full text-xs px-3 py-2 rounded-xl border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+              >
+                <option value="">All Sections</option>
+                {facultySections.map((s) => (
+                  <option key={s.id} value={s.id}>{s.program}-{s.name}</option>
+                ))}
+              </select>
+              <div className="overflow-x-auto max-h-72 overflow-y-auto border border-default rounded-xl">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
+                      <th className="p-2">Faculty</th>
+                      <th className="p-2">Subject</th>
+                      <th className="p-2">Section</th>
+                      <th className="p-2 text-right">Students</th>
+                      <th className="p-2 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredFaculty?.length === 0 ? (
+                      <tr><td colSpan={5} className="p-4 text-center text-xs text-tertiary">No mappings yet.</td></tr>
+                    ) : (
+                      filteredFaculty?.map((m) => (
+                        <tr key={m.id} className="border-b border-default/50 hover:bg-surface-hover">
+                          <td className="p-2 font-medium text-secondary">{m.faculty.name}</td>
+                          <td className="p-2">
+                            <span className="font-medium text-secondary">{m.subject.code}</span>
+                          </td>
+                          <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
+                          <td className="p-2 text-right">
+                            <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                              {m.student_count}
+                            </span>
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setViewingClass(m)}
+                              className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === "student" && (
+            <div className="space-y-3">
+              <select
+                value={studentSectionFilter}
+                onChange={(e) => setStudentSectionFilter(e.target.value)}
+                className="w-full text-xs px-3 py-2 rounded-xl border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+              >
+                <option value="">All Sections</option>
+                {studentSections.map((s) => (
+                  <option key={s.id} value={s.id}>{s.program}-{s.name}</option>
+                ))}
+              </select>
+              <div className="overflow-x-auto max-h-72 overflow-y-auto border border-default rounded-xl">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
+                      <th className="p-2">Student</th>
+                      <th className="p-2">Section</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents?.length === 0 ? (
+                      <tr><td colSpan={2} className="p-4 text-center text-xs text-tertiary">No enrollments yet.</td></tr>
+                    ) : (
+                      filteredStudents?.map((m) => (
+                        <tr key={m.id} className="border-b border-default/50 hover:bg-surface-hover">
+                          <td className="p-2 font-medium text-secondary">{m.student.name}</td>
+                          <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {viewingClass && (
@@ -333,10 +314,29 @@ function ViewMappings() {
   )
 }
 
+interface Department {
+  id: string
+  name: string
+  code: string
+}
+
 export default function EtlHubPage() {
   const [importTab, setImportTab] = useState<"student" | "faculty">("student")
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [deptId, setDeptId] = useState("")
   const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [resetMessage, setResetMessage] = useState("")
+
+  useEffect(() => {
+    fetch("/api/admin/departments")
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data?.departments ?? []
+        setDepartments(list)
+        if (list.length === 1) setDeptId(list[0].id)
+      })
+      .catch(() => {})
+  }, [])
 
   async function handleReset() {
     if (!window.confirm("This will permanently delete ALL imported data (evaluations, enrollments, faculty-subject mappings, sections, subjects, appointments, etc.) except seed records. Are you sure?")) return
@@ -375,28 +375,51 @@ export default function EtlHubPage() {
           Upload CSV files to import evaluation data into the system.
         </p>
 
-        <div className="flex gap-1 mt-4 mb-6 border-b border-default">
-          <button
-            type="button"
-            onClick={() => setImportTab("student")}
-            className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
-              importTab === "student" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
-            }`}
+        <div className="mt-4 mb-4 flex items-center gap-3">
+          <label className="text-xs font-semibold text-secondary shrink-0">Department</label>
+          <select
+            value={deptId}
+            onChange={(e) => setDeptId(e.target.value)}
+            className="w-full max-w-xs text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
           >
-            Student Import
-          </button>
-          <button
-            type="button"
-            onClick={() => setImportTab("faculty")}
-            className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${
-              importTab === "faculty" ? "border-gold-600 text-gold-700" : "border-transparent text-tertiary hover:text-secondary"
-            }`}
-          >
-            Faculty Import
-          </button>
+            <option value="">Select department...</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
         </div>
 
-        {importTab === "student" ? <BulkStudentImport /> : <BulkFacultyImport />}
+        {deptId ? (
+          <>
+            <div className="flex items-center gap-4 mb-4">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="importType"
+                  checked={importTab === "student"}
+                  onChange={() => setImportTab("student")}
+                  className="accent-gold-600"
+                />
+                <span className="text-xs font-medium text-secondary">Student Upload</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="importType"
+                  checked={importTab === "faculty"}
+                  onChange={() => setImportTab("faculty")}
+                  className="accent-gold-600"
+                />
+                <span className="text-xs font-medium text-secondary">Faculty Upload</span>
+              </label>
+            </div>
+            {importTab === "student" ? <BulkStudentImport departmentId={deptId} /> : <BulkFacultyImport departmentId={deptId} />}
+          </>
+        ) : (
+          <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+            Select a department above to begin importing.
+          </p>
+        )}
       </div>
 
       <ViewMappings />

@@ -9,7 +9,7 @@ export interface UserData {
   departmentId: string | null
   course: string | null
   employeeNo: string | null
-  evaluationPeriodId: string | null
+  semesterId: string | null
   isDisabled: boolean
   hasLoggedInBefore: boolean
   lastLoginAt: Date | null

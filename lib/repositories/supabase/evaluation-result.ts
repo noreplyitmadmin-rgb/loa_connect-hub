@@ -2,8 +2,8 @@ import { supabase } from "@/lib/supabase"
 import type { EvaluationResultData, IEvaluationResultRepository } from "@/lib/types"
 
 export const evaluationResultRepository: IEvaluationResultRepository = {
-  async list(periodId, filters) {
-    let q = supabase.from("evaluation_results").select("*").eq("periodId", periodId)
+  async list(semesterId, filters) {
+    let q = supabase.from("evaluation_results").select("*").eq("semesterId", semesterId)
     if (filters?.departmentId) q = q.eq("departmentId", filters.departmentId)
     if (filters?.facultyId) q = q.eq("facultyId", filters.facultyId)
     const { data, error } = await q
@@ -11,11 +11,11 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     return data as EvaluationResultData[]
   },
 
-  async findByFaculty(periodId, facultyId) {
+  async findByFaculty(semesterId, facultyId) {
     const { data, error } = await supabase
       .from("evaluation_results")
       .select("*")
-      .eq("periodId", periodId)
+      .eq("semesterId", semesterId)
       .eq("facultyId", facultyId)
       .single()
     if (error) {
@@ -25,12 +25,12 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     return data as EvaluationResultData
   },
 
-  async compute(periodId, facultyId) {
+  async compute(semesterId, facultyId) {
     const filterFaculty = facultyId ? { evaluateeId: facultyId } : {}
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
       .select("id, evaluateeId")
-      .eq("periodId", periodId)
+      .eq("semesterId", semesterId)
       .eq("status", "SUBMITTED")
       .match(filterFaculty)
     if (evErr) throw evErr
@@ -112,7 +112,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       const { data: existing, error: exErr } = await supabase
         .from("evaluation_results")
         .select("id")
-        .eq("periodId", periodId)
+        .eq("semesterId", semesterId)
         .eq("facultyId", facId)
         .single()
       if (exErr && exErr.code !== "PGRST116") throw exErr
@@ -123,13 +123,13 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       } else {
         const { error: insErr } = await supabase
           .from("evaluation_results")
-          .insert({ periodId, facultyId: facId, ...updateData })
+          .insert({ semesterId, facultyId: facId, ...updateData })
         if (insErr) throw insErr
       }
     }
   },
 
-  async computeAll(periodId) {
-    await this.compute(periodId)
+  async computeAll(semesterId) {
+    await this.compute(semesterId)
   },
 }
