@@ -55,6 +55,12 @@ function ViewMappings() {
 
   useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
+  useEffect(() => {
+    const handler = () => fetchData(true)
+    window.addEventListener("app:refresh", handler)
+    return () => window.removeEventListener("app:refresh", handler)
+  }, [fetchData])
+
   const facultySubjects = facultyData
     ? [...new Map(facultyData.map((m) => [m.subject.id, m.subject])).values()]
     : []
@@ -343,6 +349,7 @@ export default function EtlHubPage() {
       if (res.ok) {
         setResetState("success")
         setResetMessage("All data has been reset successfully.")
+        window.dispatchEvent(new CustomEvent("app:refresh"))
       } else {
         setResetState("error")
         setResetMessage(data.error ?? "Reset failed.")

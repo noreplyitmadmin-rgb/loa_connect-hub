@@ -176,7 +176,7 @@ export default function NavigationBar({ title, rightItems }: NavigationBarProps)
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => window.dispatchEvent(new CustomEvent("app:refresh"))}
             className="text-xs p-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
             title="Refresh page"
           >
