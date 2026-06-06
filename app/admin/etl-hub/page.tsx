@@ -9,6 +9,7 @@ interface MappedFaculty {
   faculty: { id: string; name: string; email: string }
   subject: { id: string; code: string; name: string }
   section: { id: string; name: string; program: string }
+  student_count: number
 }
 
 interface MappedStudent {
@@ -25,6 +26,10 @@ function ViewMappings() {
   const [error, setError] = useState("")
   const [facultySearch, setFacultySearch] = useState("")
   const [studentSearch, setStudentSearch] = useState("")
+  const [facultySubjectFilter, setFacultySubjectFilter] = useState("")
+  const [facultySectionFilter, setFacultySectionFilter] = useState("")
+  const [studentSectionFilter, setStudentSectionFilter] = useState("")
+  const [viewingClass, setViewingClass] = useState<MappedFaculty | null>(null)
 
   const fetchData = useCallback(async (isRefresh?: boolean) => {
     if (isRefresh) {
@@ -50,7 +55,19 @@ function ViewMappings() {
 
   useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
+  const facultySubjects = facultyData
+    ? [...new Map(facultyData.map((m) => [m.subject.id, m.subject])).values()]
+    : []
+  const facultySections = facultyData
+    ? [...new Map(facultyData.map((m) => [m.section.id, m.section])).values()]
+    : []
+  const studentSections = studentData
+    ? [...new Map(studentData.map((m) => [m.section.id, m.section])).values()]
+    : []
+
   const filteredFaculty = facultyData?.filter((m) => {
+    if (facultySubjectFilter && m.subject.id !== facultySubjectFilter) return false
+    if (facultySectionFilter && m.section.id !== facultySectionFilter) return false
     if (!facultySearch) return true
     const q = facultySearch.toLowerCase()
     return (
@@ -62,6 +79,7 @@ function ViewMappings() {
   })
 
   const filteredStudents = studentData?.filter((m) => {
+    if (studentSectionFilter && m.section.id !== studentSectionFilter) return false
     if (!studentSearch) return true
     const q = studentSearch.toLowerCase()
     return (
@@ -110,6 +128,28 @@ function ViewMappings() {
 
       {tab === "faculty" && (
         <div className="space-y-3">
+          <div className="flex gap-2">
+            <select
+              value={facultySubjectFilter}
+              onChange={(e) => setFacultySubjectFilter(e.target.value)}
+              className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+            >
+              <option value="">All Subjects</option>
+              {facultySubjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
+              ))}
+            </select>
+            <select
+              value={facultySectionFilter}
+              onChange={(e) => setFacultySectionFilter(e.target.value)}
+              className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+            >
+              <option value="">All Sections</option>
+              {facultySections.map((s) => (
+                <option key={s.id} value={s.id}>{s.program}-{s.name}</option>
+              ))}
+            </select>
+          </div>
           <input
             type="text"
             value={facultySearch}
@@ -125,11 +165,13 @@ function ViewMappings() {
                   <th className="p-2">Email</th>
                   <th className="p-2">Subject</th>
                   <th className="p-2">Section</th>
+                  <th className="p-2 text-right">Students</th>
+                  <th className="p-2 w-12"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredFaculty?.length === 0 ? (
-                  <tr><td colSpan={4} className="p-4 text-center text-xs text-tertiary">No mappings found.</td></tr>
+                  <tr><td colSpan={6} className="p-4 text-center text-xs text-tertiary">No mappings found.</td></tr>
                 ) : (
                   filteredFaculty?.map((m) => (
                     <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
@@ -140,6 +182,20 @@ function ViewMappings() {
                         <span className="text-tertiary ml-1">{m.subject.name}</span>
                       </td>
                       <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
+                      <td className="p-2 text-right">
+                        <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                          {m.student_count}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setViewingClass(m)}
+                          className="text-[10px] font-semibold px-2 py-1 rounded border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+                        >
+                          View
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -151,6 +207,16 @@ function ViewMappings() {
 
       {tab === "student" && (
         <div className="space-y-3">
+          <select
+            value={studentSectionFilter}
+            onChange={(e) => setStudentSectionFilter(e.target.value)}
+            className="w-full text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+          >
+            <option value="">All Sections</option>
+            {studentSections.map((s) => (
+              <option key={s.id} value={s.id}>{s.program}-{s.name}</option>
+            ))}
+          </select>
           <input
             type="text"
             value={studentSearch}
@@ -181,6 +247,79 @@ function ViewMappings() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {viewingClass && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 bg-black/60" onClick={() => setViewingClass(null)}>
+          <div className="bg-white dark:bg-surface-dim rounded-2xl w-full max-w-2xl mx-4 shadow-2xl border border-default overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-default">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-secondary truncate">{viewingClass.faculty.name}</p>
+                <p className="text-xs text-tertiary truncate">{viewingClass.subject.code} — {viewingClass.section.program}-{viewingClass.section.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingClass(null)}
+                className="text-xs p-1.5 rounded-lg hover:bg-surface-dim transition-colors shrink-0"
+              >
+                <svg className="w-4 h-4 text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {(() => {
+                const enrolled = (studentData || []).filter((e) => e.section.id === viewingClass.section.id)
+                if (enrolled.length === 0) {
+                  return <p className="text-xs text-tertiary text-center py-6">No students enrolled in this section.</p>
+                }
+                return (
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default">
+                        <th className="p-2 w-8">#</th>
+                        <th className="p-2">Student</th>
+                        <th className="p-2">Email</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {enrolled.map((e, i) => (
+                        <tr key={e.id} className="border-b border-default hover:bg-surface-hover">
+                          <td className="p-2 text-tertiary">{i + 1}</td>
+                          <td className="p-2 font-medium text-secondary">{e.student.name}</td>
+                          <td className="p-2 text-tertiary">{e.student.email}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              })()}
+            </div>
+            <div className="flex items-center justify-between px-6 py-3 border-t border-default bg-surface-dim text-xs text-tertiary">
+              <span>{studentData?.filter((e) => e.section.id === viewingClass.section.id).length ?? 0} student(s) enrolled</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const enrolled = (studentData || []).filter((e) => e.section.id === viewingClass.section.id)
+                  const csv = "name,email\n" + enrolled.map((e) => `${e.student.name},${e.student.email}`).join("\n")
+                  const blob = new Blob([csv], { type: "text/csv" })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement("a")
+                  a.href = url
+                  a.download = `students-${viewingClass.section.program}-${viewingClass.section.name}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="text-xs font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download CSV
+              </button>
+            </div>
           </div>
         </div>
       )}

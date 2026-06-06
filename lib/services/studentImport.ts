@@ -51,37 +51,27 @@ export function parseStudentCsv(text: string): {
   if (lines.length === 0) return { rows, errors, headerError: "CSV file is empty" }
 
   const rawHeaders = lines[0].split(",").map((h) => h.trim().toLowerCase())
-  const hasName = rawHeaders.length > 1 && rawHeaders[1] === "name"
-  const expected = hasName
-    ? ["student email", "name", "subject code", "section"]
-    : ["student email", "subject code", "section"]
-  const minCols = expected.length
+  const expected = ["name", "email", "subject code", "section"]
 
-  if (rawHeaders.length < minCols || rawHeaders[0] !== "student email") {
-    return { rows, errors, headerError: `Expected headers: ${expected.join(", ")}` }
-  }
-
-  if (hasName && rawHeaders[2] !== "subject code") {
-    return { rows, errors, headerError: `Expected headers: ${expected.join(", ")}` }
-  }
-  if (!hasName && rawHeaders[1] !== "subject code") {
+  if (rawHeaders.length < expected.length || rawHeaders[0] !== "name" || rawHeaders[1] !== "email") {
     return { rows, errors, headerError: `Expected headers: ${expected.join(", ")}` }
   }
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",").map((c) => c.trim())
-    if (cols.length < minCols) {
-      errors.push({ row: i + 1, message: `Expected at least ${minCols} columns, got ${cols.length}` })
+    if (cols.length < expected.length) {
+      errors.push({ row: i + 1, message: `Expected ${expected.length} columns, got ${cols.length}` })
       continue
     }
 
-    const email = cols[0].toLowerCase().trim()
-    const displayName = hasName ? cols[1].trim() : ""
-    const subjectCode = hasName ? cols[2].trim() : cols[1].trim()
-    const sectionRaw = cols.slice(hasName ? 3 : 2).join(", ").trim()
+    const displayName = cols[0].trim()
+    const email = cols[1].toLowerCase().trim()
+    const subjectCode = cols[2].trim()
+    const sectionRaw = cols.slice(3).join(", ").trim()
     const { program, name: sectionName } = parseSectionIdentifier(sectionRaw)
 
-    if (!email) { errors.push({ row: i + 1, message: "Student email is required" }); continue }
+    if (!displayName) { errors.push({ row: i + 1, message: "Name is required" }); continue }
+    if (!email) { errors.push({ row: i + 1, message: "Email is required" }); continue }
     if (!ALLOWED_DOMAINS.some((d) => email.endsWith(d))) {
       errors.push({ row: i + 1, message: `Email must end with ${ALLOWED_DOMAINS.join(" or ")}` }); continue
     }
@@ -167,11 +157,11 @@ export async function importStudents(
 
   const successRows = rows
     .filter((r) => !failed.some((f) => f.email === r.email && f.subjectCode === r.subjectCode && f.section === `${r.sectionProgram}-${r.sectionName}`))
-    .map((r) => ({ "student email": r.email, name: r.name, "subject code": r.subjectCode, section: `${r.sectionProgram}-${r.sectionName}` }))
+    .map((r) => ({ name: r.name, email: r.email, "subject code": r.subjectCode, section: `${r.sectionProgram}-${r.sectionName}` }))
 
   const failureRows = failed.map((f) => ({
-    "student email": f.email,
     name: rows.find((r) => r.email === f.email && r.subjectCode === f.subjectCode)?.name ?? "",
+    email: f.email,
     "subject code": f.subjectCode,
     section: f.section,
     remarks: f.remark,
@@ -182,14 +172,14 @@ export async function importStudents(
     enrolled,
     failed,
     parseErrors: [],
-    successCsv: toCsv(successRows, ["student email", "name", "subject code", "section"]),
-    failureCsv: toCsv(failureRows, ["student email", "name", "subject code", "section", "remarks"]),
+    successCsv: toCsv(successRows, ["name", "email", "subject code", "section"]),
+    failureCsv: toCsv(failureRows, ["name", "email", "subject code", "section", "remarks"]),
     totalRows: rows.length,
   }
 }
 
 export function getStudentCsvTemplate(): string {
-  const headers = "student email, name, subject code, section"
-  const sample = "alice.student@lyceumalabang.edu.ph, Alice Student, ELEC-323, BSIT-32A1\nbob.martinez@itmlyceumalabang.onmicrosoft.com, Bob Martinez, CCS-412, BSCS-41B2"
+  const headers = "name, email, subject code, section"
+  const sample = "Alice Student, alice.student@itmlyceumalabang.onmicrosoft.com, CS101, BSIT-32A3\nBob Martinez, bob.martinez@itmlyceumalabang.onmicrosoft.com, MATH201, BSCS-21B"
   return `${headers}\n${sample}\n`
 }

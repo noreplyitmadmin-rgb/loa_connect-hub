@@ -21,8 +21,8 @@ interface ImportResult {
   totalRows: number
 }
 
-const TEMPLATE_HEADERS = "student email, name, subject code, section"
-const TEMPLATE_SAMPLE = "alice.student@lyceumalabang.edu.ph, Alice Student, ELEC-323, BSIT-32A1\nbob.martinez@itmlyceumalabang.onmicrosoft.com, Bob Martinez, CCS-412, BSCS-41B2"
+const TEMPLATE_HEADERS = "name, email, subject code, section"
+const TEMPLATE_SAMPLE = "Alice Student, alice.student@itmlyceumalabang.onmicrosoft.com, CS101, BSIT-32A3\nBob Martinez, bob.martinez@itmlyceumalabang.onmicrosoft.com, MATH201, BSCS-21B"
 
 function downloadBlob(csv: string, filename: string) {
   const blob = new Blob([csv], { type: "text/csv" })
@@ -39,10 +39,7 @@ function parseClientCsv(text: string): { rows: StudentCsvRow[]; error?: string }
   if (lines.length < 2) return { rows: [], error: "CSV file is empty" }
 
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
-  const hasName = headers.length > 1 && headers[1] === "name"
-  const expected = hasName
-    ? ["student email", "name", "subject code", "section"]
-    : ["student email", "subject code", "section"]
+  const expected = ["name", "email", "subject code", "section"]
 
   if (headers.length < expected.length) {
     return { rows: [], error: `Expected headers: ${expected.join(", ")}` }
@@ -59,10 +56,10 @@ function parseClientCsv(text: string): { rows: StudentCsvRow[]; error?: string }
     if (cols.length < expected.length) continue
     rows.push({
       row: i + 1,
-      email: cols[0],
-      name: hasName ? cols[1] : "",
-      subjectCode: hasName ? cols[2] : cols[1],
-      section: cols.slice(hasName ? 3 : 2).join(", "),
+      name: cols[0],
+      email: cols[1],
+      subjectCode: cols[2],
+      section: cols.slice(3).join(", "),
     })
   }
   return { rows }
