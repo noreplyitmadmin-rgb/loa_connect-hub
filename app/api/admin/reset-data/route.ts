@@ -37,7 +37,6 @@ export async function POST() {
     "rubric_items",
     "rubric_categories",
     "rating_scales",
-    "evaluation_periods",
     "appointment_time_slots",
     "appointment_attendees",
     "appointment_files",
