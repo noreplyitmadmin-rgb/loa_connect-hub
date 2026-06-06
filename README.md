@@ -111,7 +111,7 @@ Server Components fetch data directly via controllers and pass props to Client C
 
 ### Known Issues & Risks
 
-1. **Minimal test coverage** — Only 6 test files exist for ~17,619 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
+1. **Minimal test coverage** — Only 9 test files exist for ~23,000 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
 2. **HTML email templates via template literals** — Fragile string concatenation. No type safety or template engine.
 
 ## Environment Variables
@@ -250,6 +250,14 @@ Non-activated accounts must use the activation flow at `/activate`.
 
 | Route | Status |
 |-------|--------|
+| `/admin/data/users` | ✅ Done — Moved from `/admin/users`, CRUD only |
+| `/admin/data/users/deleted` | ✅ Done — Moved from `/admin/users/deleted` |
+| `/admin/data/departments` | ✅ Done — Moved from `/admin/departments` |
+| `/admin/data/subjects` | ✅ Done — Searchable subject table |
+| `/admin/data/sections` | ✅ Done — Searchable section table |
+| `/admin/data/faculty-mappings` | ✅ Done — Joined faculty-subject view |
+| `/admin/data/student-enrollments` | ✅ Done — Joined enrollment view |
+| `/admin/etl-hub` | ✅ Done — ETL upload with editable preview |
 | `/admin/evaluations` (hub) | ✅ Done |
 | `/admin/evaluations/periods` | ✅ Done |
 | `/admin/evaluations/periods/new` | ✅ Done |
@@ -257,7 +265,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `/admin/evaluations/periods/[id]/rubric` | ✅ Done |
 | `/admin/evaluations/results` | ✅ Done |
 | `/admin/evaluations/rubrics` (standalone editor) | ❌ Missing |
-| `/admin/evaluations/upload` (ETL status) | ✅ N/A — use `/admin/etl-upload` |
+| `/admin/evaluations/upload` (ETL status) | ✅ N/A — use `/admin/etl-hub` |
 | `/admin/evaluations/reports` (landing + sentiment) | ❌ Missing |
 | `/dean/evaluations` (dashboard) | ❌ Missing |
 | `/dean/evaluations/results` | ✅ Done |
@@ -276,6 +284,8 @@ Non-activated accounts must use the activation flow at `/activate`.
 | Migration 13: 11 new eval tables | ✅ Done (`supabase-schema.sql`) |
 | Migration 14: ALTER users (`employeeNo`, `evaluationEligible`) | ✅ Done |
 | Migration 15: `group_access` eval paths | ✅ Done |
+| Migration 16: Drop periodId FKs, make nullable — decouple ETL from periods | ✅ Done |
+| Migration 17: Introduce `sections` table, rewrite `faculty_subjects` + `student_enrollments` to section-based, add `code` to `subjects` | ✅ Done |
 
 ### Types
 
@@ -289,6 +299,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 |------------|--------|
 | `evaluation-period` | ✅ Done |
 | `subject` | ✅ Done |
+| `section` | ✅ Done |
 | `faculty-subject` | ✅ Done |
 | `student-enrollment` | ✅ Done |
 | `rubric` | ✅ Done |
@@ -347,7 +358,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `faculty/evaluation-results` | ✅ Done |
 | `import/evaluation-faculty` | ✅ Done |
 | `import/evaluation-student` | ✅ Done |
-| ETL handler for eval types in `admin/etl-upload/validate` + `confirm` | ✅ N/A — eval tabs use direct import endpoints |
+| ETL handler for eval types | ✅ Done — `/admin/etl-hub` uses direct import endpoints |
 
 ### Shared Components
 
@@ -374,19 +385,19 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `EtlUploadType` constants | ✅ Done |
 | `lib/access.ts` DEFAULT_CONFIG | ✅ Done |
 | `components/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
-| `lib/types/index.ts` evaluation export | ❌ Missing |
+| `lib/types/index.ts` evaluation export | ✅ Done |
 
 ### Summary
 
 | Category | Done | Missing |
 |----------|------|---------|
-| Pages | 10 | 7 |
-| Database | 3 | 0 |
+| Pages | 18 | 8 |
+| Database | 5 | 0 |
 | Types | 1 | 0 |
-| Repositories | 7 | 2 |
+| Repositories | 8 | 2 |
 | Controllers | 6 | 0 |
 | API Routes | 27 | 8 |
 | Components | 6 | 0 |
 | Services | 2 | 0 |
-| Wiring | 3 | 1 |
-| **Total** | **65** | **18** |
+| Wiring | 4 | 0 |
+| **Total** | **77** | **18** |

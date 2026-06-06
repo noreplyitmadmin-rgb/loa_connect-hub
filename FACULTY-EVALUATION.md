@@ -45,9 +45,11 @@
 
 | Item | Status |
 |------|--------|
-| Migration 13: 11 new eval tables | ✅ Done (`supabase-schema.sql`) |
-| Migration 14: ALTER users (`employeeNo`, `evaluationEligible`) | ✅ Done |
+| Migration 13: 11 new eval tables (subject-based, periodId FKs) | ✅ Done (`supabase-schema.sql`) |
+| Migration 14: ALTER users (`employeeNo`, `evaluationPeriodId`) | ✅ Done |
 | Migration 15: `group_access` eval paths | ✅ Done |
+| Migration 16: Drop periodId FKs, make nullable — decouple ETL from periods | ✅ Done |
+| Migration 17: Introduce `sections` table, rewrite `faculty_subjects` + `student_enrollments` to section-based, add `code` to `subjects` | ✅ Done |
 
 ### Types
 
@@ -61,6 +63,7 @@
 |------------|--------|
 | `evaluation-period` | ✅ Done |
 | `subject` | ✅ Done |
+| `section` | ✅ Done |
 | `faculty-subject` | ✅ Done |
 | `student-enrollment` | ✅ Done |
 | `rubric` | ✅ Done |
@@ -123,7 +126,7 @@
 | `import/users` | ✅ Updated — accepts `multipart/form-data` (CSV) or `application/json` (preview confirm) |
 | `import/students` | ✅ Updated — same dual-accept |
 | `admin/reset-data` | ✅ Done — deletes all non-seed data (localhost only) |
-| ETL handler for eval types in `admin/etl-upload/validate` + `confirm` | ✅ N/A — eval tabs use direct import endpoints; `/admin/etl-upload` page deprecated in favor of `/admin/users` bulk import section |
+| ETL handler for eval types | ✅ N/A — eval hub uses direct import endpoints (`/admin/etl-hub`) |
 
 ### Shared Components
 
@@ -150,22 +153,22 @@
 | `EtlUploadType` constants | ✅ Done |
 | `lib/access.ts` DEFAULT_CONFIG | ✅ Done |
 | `components/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
-| `lib/types/index.ts` evaluation export | ❌ Missing |
+| `lib/types/index.ts` evaluation export | ✅ Done |
 
 ### Summary
 
 | Category | Done | Missing |
 |----------|------|---------|
 | Pages | 10 | 8 |
-| Database | 3 | 0 |
+| Database | 5 | 0 |
 | Types | 1 | 0 |
-| Repositories | 7 | 2 |
+| Repositories | 8 | 2 |
 | Controllers | 6 | 0 |
 | API Routes | 27 | 8 |
 | Components | 6 | 0 |
 | Services | 2 | 0 |
-| Wiring | 3 | 1 |
-| **Total** | **65** | **19** |
+| Wiring | 4 | 0 |
+| **Total** | **69** | **18** |
 
 ---
 
@@ -182,7 +185,7 @@
 
 | Component | Classification | Module |
 |-----------|---------------|--------|
-| `users` table (add `employeeNo`, `evaluationEligible`) | **Enhance** | Core |
+| `users` table (add `employeeNo`, `evaluationPeriodId`) | **Enhance** | Core |
 | `UserData` / `CreateUserInput` types | **Enhance** | Core |
 | `User` entity type | **Enhance** | Core |
 | `department` model | **Existing** | Core |
@@ -205,7 +208,7 @@
 | `repositories/factory.ts` | **Enhance** | Core |
 | `jspdf` / `html2canvas` export patterns | **Existing** | Core |
 | All existing admin/dean/faculty/student pages | **Existing** | Consultation |
-| **Existing ETL page** (`/admin/etl-upload`) | **Enhance** | Core — add Evaluation Faculty + Evaluation Student tabs |
+| **ETL hub** (`/admin/etl-hub`) | **Enhance** | Core — Faculty-Subject + Student Enrollment CSV imports |
 | `EtlUploadType` constants | **Enhance** | Core — add evaluation upload types |
 | `evaluation-periods` table + types + repo + controller + routes | **New** | Evaluation |
 | `rating-scales` table + types | **New** | Evaluation |
@@ -235,7 +238,7 @@ app/
 ├── admin/
 │   ├── page.tsx, error.tsx                     ← Core
 │   ├── users/, departments/, access-config/    ← Core
-│   ├── data-management/, etl-upload/           ← Core (ETL enhanced with eval tabs)
+│   ├── data/, etl-hub/                         ← Core (ETL at etl-hub, data views at /admin/data/)
 │   ├── reports/                                ← Consultation Module
 │   │
 │   └── evaluations/                            ← Evaluation Module
@@ -280,48 +283,180 @@ app/
         └── evaluation-reports/
 ```
 
-### Data Model — Subject-Based Assignment
+### Data Model — Section-Based Assignment
 
-Faculty and Student data is linked through **subjects**, not direct assignment.
+Faculty and student data is linked through **sections** (class groups), not direct student-to-faculty assignment.
+
+**Program context**: A department (e.g., College of Computer Studies) offers programs/courses like BSIT and BSCS. Each program has sections identified by name (e.g., "32A1"). In the ETL, these are combined in the display string "BSIT-32A1" but stored separately:
+- `sections.name = "32A1"` (the section identifier within a program)
+- `sections.program = "BSIT"` (the program/course)
+
+A **faculty member** teaches a **subject** to a **section** within a **program** (e.g., Regie Ellana teaches ELEC-323 to the section "32A1" under program BSIT). A **student** is enrolled in sections (e.g., Rachel is enrolled in section "32A1"/BSIT). Evaluation is derived by joining students → sections → faculty, and the meaningful evaluation grouping is the full triplet **(program-section, subject, faculty)** — e.g., "BSIT-32A1 ELEC-323 by Regie Ellana".
 
 ```
-Faculty CSV:     name, email, department, subject
+Faculty CSV:     faculty email, subject code, section (e.g., "BSIT-32A1")
                           ↓
-                     faculty_subjects ─── subjects
+                     subjects ─── faculty_subjects ─── sections
 
-Student CSV:     name, email, subject
+Student CSV:     student email, section (e.g., "BSIT-32A1")
                           ↓
-                     student_enrollments ─── subjects
+                     student_enrollments ─── sections
 
-Evaluation:      student_enrollments.subjectId
-                 → subjects.id
+Evaluation:      student_enrollments.sectionId
+                 → faculty_subjects.sectionId
                  → faculty_subjects.facultyId
-                 → UNIQUE faculty per subject
+                 → deduplicated faculty list
 ```
 
-Each subject is unique per period and assigned to exactly one faculty member. A student evaluates each **unique** faculty member they have enrollments with (deduplicated).
+**Example** with your data:
+
+| Person | Role | Program | Section | Subject |
+|--------|------|---------|---------|---------|
+| Regie Ellana | Faculty | BSIT | 32A1 | ELEC-323 |
+| Regie Ellana | Faculty | BSIT | 11M2 | PROG-1 |
+| Nin Alamo | Faculty | BSIT | 32A1 | ELEC-212 |
+| Rachel Lucban | Student | BSIT | 32A1 | ELEC-323 |
+| Rachel Lucban | Student | BSIT | 32A1 | ELEC-212 |
+| JB Lobrico | Student | BSIT | 32A1 | ELEC-212 |
+| JB Lobrico | Student | BSIT | 11M2 | PROG-1 |
+
+**Evaluation derivation (deduplicated by faculty)**:
+- Rachel → Regie Ellana (takes ELEC-323 in BSIT-32A1, which Regie teaches)
+- Rachel → Nin Alamo (takes ELEC-212 in BSIT-32A1, which Nin teaches)
+- JB → Nin Alamo (takes ELEC-212 in BSIT-32A1, which Nin teaches)
+- JB → Regie Ellana (takes PROG-1 in BSIT-11M2, which Regie teaches)
+
+No boolean flags needed — the enrollment data (student → subject → section → faculty) speaks for itself. The constraint `UNIQUE(subjectId, sectionId)` on `faculty_subjects` ensures no two faculty can teach the same subject to the same (program-)section.
 
 #### `users` table enhancements
 
 ```sql
 ALTER TABLE users ADD COLUMN "employeeNo" TEXT;
-ALTER TABLE users ADD COLUMN "evaluationEligible" BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN "evaluationPeriodId" TEXT REFERENCES evaluation_periods(id) ON DELETE SET NULL;
 ```
 
-`evaluationEligible` is set to `TRUE` when a student is uploaded via the evaluation Student ETL.
+`evaluationPeriodId` tracks which evaluation period the user is currently participating in (set when evaluations are created for a period).
 
-### ETL Strategy (Unified at `/admin/etl-upload`)
+### Evaluation ETL (at `/admin/etl-hub`)
 
-The bulk import in `/admin/users` supports two import types:
+The `/admin/etl-hub` page handles **evaluation-specific** imports. Users are **auto-created** when missing (emails batch-looked up via `findManyByEmail()`, missing ones created with role `FACULTY`/`STUDENT` and name from email prefix). Individual user creation is also available via `/admin/users` CRUD. The ETL data is **global** — not scoped to evaluation periods.
 
-| Type | CSV Columns | What It Does | Depends On |
-|------|-------------|-------------|------------|
-| Faculty / Staff | `name, microsoft email, section, code, title` | Creates/upserts faculty users + subjects (by code) + faculty_subjects | — |
-| Students | `name, microsoft email, course` | Creates student users | — |
+#### Faculty-Subject CSV → Table Mapping
 
-**Skip behavior**: If an email already exists, the user is not duplicated — their info is read for subject linking.
+**CSV headers:** `faculty email, subject code, section`
 
-**Subjects**: Upserted by `code` column. `section` and `title` are parsed but not stored in the system (subject resolution is by code only).
+Example row: `regie.ellana@lyceumalabang.edu.ph, ELEC-323, BSIT-32A1`
+
+```
+┌──────────────────────┐     ┌──────────────────────┐
+│   CSV Row            │     │   users table         │
+│   faculty email ─────────→ │   (findByEmail)       │
+│   regie...@...       │     │   → facultyId         │
+└──────────────────────┘     └──────────────────────┘
+         │
+         ▼
+┌──────────────────────┐     ┌──────────────────────┐
+│   subject code       │     │   subjects table      │
+│   "ELEC-323" ────────────→│   code="ELEC-323"      │
+│                       │     │   name="ELEC-323"     │
+│                       │     │   (upsert by code)    │
+│                       │     │   → subjectId         │
+└──────────────────────┘     └──────────────────────┘
+         │
+         ▼
+┌──────────────────────┐     ┌──────────────────────┐
+│   section column     │     │   sections table      │
+│   "BSIT-32A1"        │     │                       │
+│       │              │     │   program="BSIT"       │
+│   parsed:            │     │   name="32A1"          │
+│   program = "BSIT"   │     │   (upsert by name+prog)│
+│   name   = "32A1"    │     │   → sectionId          │
+└──────────────────────┘     └──────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────┐
+│              faculty_subjects table               │
+│  facultyId │ subjectId │ sectionId                │
+│  (from     │ (from     │ (from                    │
+│   users)   │  subjects)│  sections)               │
+├──────────────────────────────────────────────────┤
+│  uuid-123  │ uuid-456  │ uuid-789                │
+└──────────────────────────────────────────────────┘
+         │
+   Grouped by sectionId →
+   Delete all existing for section
+   Insert new batch (replace strategy)
+```
+
+| Step | CSV Column | Database Table | Column(s) | Operation |
+|------|-----------|---------------|-----------|-----------|
+| 1 | `faculty email` | `users` | `id` (lookup) | Batch `findManyByEmail()` — missing emails auto-created via `createMany()` with `role: "FACULTY"` |
+| 2 | `subject code` | `subjects` | `code`, `name` | Batch `upsertMany()` by `code`; `name` defaults to `code`; if exists, reuse row |
+| 3 | `section` → parsed `program`+`name` | `sections` | `program`, `name` | Batch `upsertMany()` by unique `(name, program)`; splits on first `-` |
+| 4 | resolved UUIDs | `faculty_subjects` | `facultyId`, `subjectId`, `sectionId` | Grouped by `sectionId` → delete-then-insert (atomic replace per section) |
+
+#### Student Enrollment CSV → Table Mapping
+
+**CSV headers:** `student email, section`
+
+Example row: `rachel.lucban@itmlyceumalabang.onmicrosoft.com, BSIT-32A1`
+
+```
+┌──────────────────────┐     ┌──────────────────────┐
+│   CSV Row            │     │   users table         │
+│   student email ─────────→│   (findByEmail)        │
+│   rachel...@...      │     │   → studentId         │
+└──────────────────────┘     └──────────────────────┘
+         │
+         ▼
+┌──────────────────────┐     ┌──────────────────────┐
+│   section column     │     │   sections table      │
+│   "BSIT-32A1" ──────────→│   program="BSIT"       │
+│   parsed:             │     │   name="32A1"          │
+│   program = "BSIT"   │     │   (upsert by name+prog)│
+│   name   = "32A1"    │     │   → sectionId          │
+└──────────────────────┘     └──────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────┐
+│       student_enrollments table      │
+│  studentId │ sectionId              │
+│  (from     │ (from                  │
+│   users)   │  sections)             │
+├────────────────────────────────────┤
+│  uuid-abc  │ uuid-789              │
+└────────────────────────────────────┘
+         │
+   Grouped by sectionId →
+   Delete all existing for section
+   Insert new batch (replace strategy)
+```
+
+| Step | CSV Column | Database Table | Column(s) | Operation |
+|------|-----------|---------------|-----------|-----------|
+| 1 | `student email` | `users` | `id` (lookup) | Batch `findManyByEmail()` — missing emails auto-created via `createMany()` with `role: "STUDENT"` |
+| 2 | `section` → parsed `program`+`name` | `sections` | `program`, `name` | Batch `upsertMany()` by unique `(name, program)`; splits on first `-` |
+| 3 | resolved UUIDs | `student_enrollments` | `studentId`, `sectionId` | Grouped by `sectionId` → delete-then-insert (atomic replace per section) |
+
+#### Key Behaviors
+
+- **Users auto-created** — the ETL batch-looks up emails via `findManyByEmail()`. Missing emails are batch-created with role `FACULTY` or `STUDENT` and name derived from email prefix
+- **Subjects** are upserted by `code`; `name` defaults to `code` (a separate subject naming flow can update names later)
+- **Sections** are parsed from the format `PROGRAM-NAME` (e.g., `BSIT-32A1` → program=`BSIT`, name=`32A1`) and upserted by unique `(name, program)`
+- **Replace strategy**: faculty_subjects and student_enrollments are grouped by section and replaced atomically — all existing entries for a section are deleted before inserting new ones
+- **No period linkage**: ETL data is independent of evaluation periods. Period-scoping happens only at the evaluation level
+- **Batch DB trips**: Subjects/sections are batched via `upsertMany()`, users via `findManyByEmail()` + `createMany()`. Total trips ≈ 5–6 regardless of row count (eliminated N+1 per-row `findByEmail` loop from previous implementation)
+
+#### User Creation
+
+Users can be created two ways:
+1. **Individually** via `/admin/data/users` CRUD UI (Create User button + form)
+2. **Auto-created during ETL import** — when faculty/student emails don't exist in the DB, the ETL service batch-creates them with role `FACULTY`/`STUDENT` and name derived from the email prefix
+
+| Method | What It Does |
+|--------|-------------|
+| `/admin/data/users` CRUD | Admin creates users one-by-one with name, email, role, department |
+| ETL auto-creation | Batch-creates missing users during faculty-subject or student-enrollment import |
 
 **Department**: Users are NOT auto-assigned a department. The admin assigns it later via user management UI.
 
@@ -360,6 +495,16 @@ STUDENT: { pages: [
 ### Navigation Items (Sidebar.tsx)
 
 ```
+Admin collapsible "Data Management":
+  ├── Users                    (/admin/data/users)
+  ├── Deleted Users            (/admin/data/users/deleted)
+  ├── Departments              (/admin/data/departments)
+  ├── Subjects                 (/admin/data/subjects)
+  ├── Sections                 (/admin/data/sections)
+  ├── Faculty-Subject Mappings (/admin/data/faculty-mappings)
+  ├── Student Enrollments      (/admin/data/student-enrollments)
+  └── Export & Delete Data     (existing page)
+
 Admin collapsible "Evaluations":
   ├── Evaluation Dashboard     (/admin/evaluations)
   ├── Periods                  (/admin/evaluations/periods)
@@ -382,9 +527,9 @@ Student:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **ETL** | Unified at existing `/admin/etl-upload` + 2 new tabs | All data entry in one place; reuses existing validate/confirm pattern |
-| **Assignments** | Auto-derived from ETL data (subjects → faculty_subjects → enrollments) | No manual assignment UI needed; driven by real academic data |
-| **Subject Uniqueness** | `UNIQUE(periodId, name)` — one faculty per subject | Each section-subject-code-title combo is unique per period |
+| **ETL** | Unified at `/admin/etl-hub` | Two CSV imports (Faculty-Subject, Student Enrollments) |
+| **Assignments** | Auto-derived from ETL data (sections → faculty_subjects → student_enrollments) | No manual assignment UI needed; driven by real academic data |
+| **Faculty-Subject Uniqueness** | `UNIQUE(subjectId, sectionId)` — one faculty per subject per section | A faculty member teaches one subject to one section |
 | **Evaluation Dedup** | One evaluation per faculty per period per student | If student has 2 subjects with same faculty, only 1 evaluation needed |
 | **Sentiment Analysis** | Cloud AI API (OpenAI / HuggingFace) | Async analysis on submission + batch reanalysis |
 | **Results Computation** | Lazy on-demand + cached in `evaluation_results` | Avoids recomputation on every view |
@@ -396,17 +541,18 @@ Student:
 ### Workflow Summary
 
 ```
- 1. ADMIN creates Evaluation Period (semester-based)
- 2. ADMIN sets up Rubric (8 categories, up to 34 items) for the period
-  3. ADMIN uploads Faculty CSV via `/admin/users` bulk import → subjects upserted by code, users created or linked if email exists
-  4. ADMIN uploads Students CSV → creates student users
- 5. STUDENT (with evaluationEligible=true) sees pending evaluations
- 6. STUDENT submits evaluation → DRAFT → SUBMITTED
- 7. SYSTEM computes results (category averages, general rating, remarks)
- 8. SYSTEM runs AI sentiment analysis on comments (async)
- 9. FACULTY views results on /faculty/evaluations
-10. DEAN views department rollup on /dean/evaluations
-11. ADMIN views institutional results, reports, sentiment dashboard
+ 1. ADMIN creates users (Faculty/Student) individually via `/admin/users` CRUD (Create User form)
+ 2. ADMIN creates Evaluation Period (semester-based) via `/admin/evaluations/periods`
+ 3. ADMIN sets up Rubric for the period (categories + items)
+ 4. ADMIN imports Faculty-Subject mappings via `/admin/etl-hub` → links faculty, subjects, sections
+ 5. ADMIN imports Student Enrollments via `/admin/etl-hub` → links students to sections
+ 6. STUDENT sees pending evaluations (derived from section membership)
+ 7. STUDENT submits evaluation → DRAFT → SUBMITTED
+ 8. SYSTEM computes results (category averages, general rating, remarks)
+ 9. SYSTEM runs AI sentiment analysis on comments (async)
+10. FACULTY views results on /faculty/evaluations
+11. DEAN views department rollup on /dean/evaluations
+12. ADMIN views institutional results, reports, sentiment dashboard
 ```
 
 ---
@@ -426,15 +572,15 @@ All naming follows existing e-Consultation conventions:
 
 ### Existing Table Enhancement
 
-#### `users` — add employee number + evaluation eligibility
+#### `users` — add employee number + evaluation period reference
 
 ```sql
 ALTER TABLE users ADD COLUMN "employeeNo" TEXT;
-ALTER TABLE users ADD COLUMN "evaluationEligible" BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN "evaluationPeriodId" TEXT REFERENCES evaluation_periods(id) ON DELETE SET NULL;
 ```
 
 `employeeNo` matches the "Employee No" column in evaluation spreadsheet output.
-`evaluationEligible` is set to `TRUE` when a student is uploaded via evaluation ETL.
+`evaluationPeriodId` tracks which evaluation period the user is currently linked to. No boolean flag needed — enrollment data itself determines who evaluates whom.
 
 ### New Tables
 
@@ -460,35 +606,31 @@ CREATE INDEX idx_eval_periods_school_year ON evaluation_periods("schoolYear");
 
 #### `rating_scales`
 
-Defines the rating options per period. Default 1-5: Poor, Fair, Good, Very Good, Excellent.
+Defines the rating options per period. Default 1-5: Poor, Fair, Good, Very Good, Excellent. `periodId` FK was dropped (Migration 16) making it nullable.
 
 ```sql
 CREATE TABLE rating_scales (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "periodId" TEXT,                         -- nullable, no FK constraint
   name TEXT NOT NULL,
   value INTEGER NOT NULL CHECK (value >= 1),
   "displayOrder" INTEGER NOT NULL,
   UNIQUE("periodId", value)
 );
-
-CREATE INDEX idx_rating_scales_period ON rating_scales("periodId");
 ```
 
 #### `rubric_categories`
 
-The 8 evaluation categories (Professional Manner, Communication, etc.).
+The 8 evaluation categories (Professional Manner, Communication, etc.). `periodId` FK was dropped (Migration 16) making it nullable.
 
 ```sql
 CREATE TABLE rubric_categories (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "periodId" TEXT,                         -- nullable, no FK constraint
   name TEXT NOT NULL,
   "displayOrder" INTEGER NOT NULL,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX idx_rubric_categories_period ON rubric_categories("periodId");
 ```
 
 #### `rubric_items`
@@ -509,75 +651,84 @@ CREATE INDEX idx_rubric_items_category ON rubric_items("categoryId");
 
 #### `subjects`
 
-Academic subjects identified by their full name string (e.g., "BSIT-3A-CC104-Data Structures"). Each subject is unique per period and assigned to exactly one faculty member.
+Academic subjects identified by a short `code` (e.g., "ELEC-323"). Subjects are global (not period-scoped). The `name` can hold a descriptive title (e.g., "Elective 3: Fullstack Web Development").
 
 ```sql
 CREATE TABLE subjects (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  name TEXT NOT NULL,                     -- "BSIT-3A-CC104-Data Structures" (treated as whole string)
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
-  UNIQUE("periodId", name)
+  code TEXT NOT NULL UNIQUE,              -- "ELEC-323"
+  name TEXT NOT NULL                      -- "Elective 3: Fullstack Web Development" (defaults to code)
 );
 
-CREATE INDEX idx_subjects_period ON subjects("periodId");
+CREATE INDEX idx_subjects_code ON subjects(code);
+```
+
+#### `sections`
+
+Class groups identified by `name` within a `program` (e.g., program="BSIT", name="32A1"). Each section is globally unique by `(name, program)`. Links are established through `faculty_subjects` and `student_enrollments`.
+
+```sql
+CREATE TABLE sections (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,                     -- "32A1"
+  program TEXT NOT NULL,                  -- "BSIT"
+  UNIQUE(name, program)
+);
+
+CREATE INDEX idx_sections_name ON sections(name);
+CREATE INDEX idx_sections_program ON sections(program);
 ```
 
 #### `faculty_subjects`
 
-Links faculty to the subjects they teach in a given period. One faculty per subject per period.
+Links a faculty member, a subject, and a section together — a faculty member teaches one subject to one section. This table has **no periodId** because the ETL data is global.
 
 ```sql
 CREATE TABLE faculty_subjects (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
-  UNIQUE("subjectId", "periodId")         -- one faculty per subject per period
+  "sectionId" TEXT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+  UNIQUE("subjectId", "sectionId")         -- one faculty per subject per section
 );
 
-CREATE INDEX idx_faculty_subjects_period ON faculty_subjects("periodId");
+CREATE INDEX idx_faculty_subjects_section ON faculty_subjects("sectionId");
 CREATE INDEX idx_faculty_subjects_faculty ON faculty_subjects("facultyId");
+CREATE INDEX idx_faculty_subjects_subject ON faculty_subjects("subjectId");
 ```
 
 #### `student_enrollments`
 
-Links students to the subjects they are enrolled in. The evaluation assignment is derived from this: through `subjectId → faculty_subjects.facultyId`.
+Links a student to a section they attend. Evaluation is derived by joining `student_enrollments.sectionId → faculty_subjects.sectionId` to find which faculty teach the sections a student belongs to.
 
 ```sql
 CREATE TABLE student_enrollments (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  "subjectId" TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
-  UNIQUE("studentId", "subjectId", "periodId")
+  "sectionId" TEXT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+  UNIQUE("studentId", "sectionId")
 );
 
-CREATE INDEX idx_student_enrollments_period ON student_enrollments("periodId");
+CREATE INDEX idx_student_enrollments_section ON student_enrollments("sectionId");
 CREATE INDEX idx_student_enrollments_student ON student_enrollments("studentId");
 ```
 
 #### `evaluations`
 
-One row per student-faculty-period combination. Status: DRAFT → SUBMITTED.
+One row per student-faculty-period combination. Status: DRAFT → SUBMITTED. Uses `evaluatorId` (student) and `evaluateeId` (faculty) for column naming. The `periodId` FK constraint was dropped (Migration 16) to decouple from evaluation_periods.
 
 ```sql
 CREATE TABLE evaluations (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
-  "studentId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "periodId" TEXT,                         -- references evaluation_periods(id) — nullable, no FK constraint
+  "evaluatorId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "evaluateeId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'SUBMITTED')),
   "submittedAt" TIMESTAMPTZ,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE("periodId", "studentId", "facultyId")
+  UNIQUE("periodId", "evaluatorId", "evaluateeId")
 );
-
-CREATE INDEX idx_evaluations_period ON evaluations("periodId");
-CREATE INDEX idx_evaluations_student ON evaluations("studentId");
-CREATE INDEX idx_evaluations_faculty ON evaluations("facultyId");
-CREATE INDEX idx_evaluations_status ON evaluations(status);
-CREATE INDEX idx_evaluations_period_student ON evaluations("periodId", "studentId");
 ```
 
 #### `evaluation_ratings`
@@ -617,12 +768,12 @@ CREATE INDEX idx_eval_comments_sentiment ON evaluation_comments("sentimentLabel"
 
 #### `evaluation_results`
 
-Pre-computed aggregate results per faculty per period. Mirrors spreadsheet output.
+Pre-computed aggregate results per faculty per period. Mirrors spreadsheet output. `periodId` FK was dropped (Migration 16) to decouple from evaluation_periods.
 
 ```sql
 CREATE TABLE evaluation_results (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "periodId" TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  "periodId" TEXT,                         -- nullable, no FK constraint
   "facultyId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   "departmentId" TEXT REFERENCES departments(id) ON DELETE SET NULL,
   "totalRespondents" INTEGER NOT NULL DEFAULT 0,
@@ -651,29 +802,41 @@ CREATE INDEX idx_eval_results_department ON evaluation_results("departmentId");
 ### Entity Relationship Diagram
 
 ```
-evaluation_periods
-  ├── rating_scales (1:N)
-  ├── rubric_categories (1:N)
-  │     └── rubric_items (1:N)
-  ├── subjects (1:N)
-  │     ├── faculty_subjects (1:1 per subject) ← users(faculty)
-  │     └── student_enrollments (1:N) ← users(student)
-  └── evaluations (1:N)
-        ├── users(student) (N:1)
-        ├── users(faculty) (N:1)
-        ├── evaluation_ratings (1:N) → rubric_items
-        ├── evaluation_comments (1:N)
-        └── evaluation_results (1:1 per faculty)
+users(faculty) ──┐
+                 ├── faculty_subjects ── subjects
+                 │         │
+                 │    sections ──────────── student_enrollments ── users(student)
+                 │         │
+                 └── evaluations ── evaluation_periods (via periodId)
+                       │
+                       ├── evaluation_ratings ── rubric_items
+                       ├── evaluation_comments
+                       └── evaluation_results (1:1 per faculty per period)
 ```
 
-### Evaluation Assignment Derivation (SQL)
+**Key relationships**:
+- `faculty_subjects` links faculty + subject + section (no period scope)
+- `student_enrollments` links student + section (no period scope)
+- `evaluations` links evaluator + evaluatee + period (period-scoped)
+- ETL data (subjects, sections, faculty_subjects, student_enrollments) is **global** — periods only scope evaluations and results
 
-```sql
--- Which faculty should student X evaluate in period Y?
-SELECT DISTINCT fs."facultyId"
-FROM student_enrollments se
-JOIN faculty_subjects fs ON se."subjectId" = fs."subjectId" AND se."periodId" = fs."periodId"
-WHERE se."studentId" = @studentId AND se."periodId" = @periodId;
+### Evaluation Assignment Derivation (SQL / Repository)
+
+```typescript
+// Which faculty should student X evaluate in period Y?
+// 1. Find all sections the student belongs to
+const enrollments = await db
+  .from("student_enrollments")
+  .select("sectionId")
+  .eq("studentId", studentId)
+
+// 2. Find all faculty teaching those sections (deduplicated)
+const facultyIds = await db
+  .from("faculty_subjects")
+  .select("facultyId")
+  .in("sectionId", sectionIds)
+
+// 3. Result is the distinct list of faculty
 ```
 
 ### Results Computation Logic
@@ -733,8 +896,8 @@ All APIs follow existing e-Consultation conventions:
 | `GET /api/admin/users` | Include `employeeNo` in response | Spreadsheet output |
 | `POST /api/admin/users` | Accept `employeeNo` in request body | User creation |
 | `PATCH /api/admin/users/[id]` | Accept `employeeNo` | User editing |
-| `POST /api/admin/etl-upload/validate` | Handle `evaluation-faculty` and `evaluation-student` types | ETL for evaluation data |
-| `POST /api/admin/etl-upload/confirm` | Handle `evaluation-faculty` and `evaluation-student` types | ETL for evaluation data |
+| `POST /api/import/evaluation-faculty` | CSV upload for Faculty-Subject mappings | ETL for evaluation data |
+| `POST /api/import/evaluation-student` | CSV upload for Student Enrollments | ETL for evaluation data |
 
 ### New API Routes
 
@@ -803,25 +966,28 @@ POST   /api/evaluation-periods/[id]/rubrics/copy-from
 
 #### ETL Data (Subjects, Faculty-Subjects, Student Enrollments)
 
-These are NOT separate CRUD APIs. Data is managed entirely through the unified ETL upload. The following are **read-only** views of the uploaded data:
+These are NOT separate CRUD APIs. Data is managed entirely through the unified ETL upload. The following are **read-only** views returning **global** data (not period-scoped):
 
 ```
 GET    /api/evaluation-periods/[id]/subjects
        → { data: Subject[] }
        Auth: ADMIN, DEAN
+       Note: Returns ALL subjects (ignores [id])
 
 GET    /api/evaluation-periods/[id]/faculty-subjects
        → { data: FacultySubject[] }
        Auth: ADMIN, DEAN
+       Note: Returns ALL faculty-subject mappings (ignores [id])
 
 GET    /api/evaluation-periods/[id]/enrollments
        → { data: StudentEnrollment[] }
        Auth: ADMIN, DEAN
-       Dean sees only their department
+       Note: Returns ALL enrollments (ignores [id])
 
 GET    /api/evaluation-periods/[id]/enrollment-stats
        → { data: { facultyCount, subjectCount, studentCount, enrollmentCount } }
        Auth: ADMIN, DEAN
+       Note: Returns global counts (ignores [id])
 ```
 
 #### Student Evaluations
@@ -829,7 +995,7 @@ GET    /api/evaluation-periods/[id]/enrollment-stats
 ```
 GET    /api/evaluations/pending
        → { data: { period: EvaluationPeriod, faculty: User[] }[] }
-       Auth: STUDENT — auto-derived from enrollments
+       Auth: STUDENT — auto-derived from section enrollments
 
 GET    /api/evaluations/submitted
        → { data: Evaluation[] }
@@ -838,7 +1004,7 @@ GET    /api/evaluations/submitted
 POST   /api/evaluations
        → { data: Evaluation }
        Auth: STUDENT
-       Body: { periodId, facultyId }
+       Body: { periodId, evaluateeId }
        Creates DRAFT evaluation
 
 GET    /api/evaluations/[id]
@@ -922,14 +1088,14 @@ GET    /api/evaluation-reports/faculty/[facultyId]
        Auth: ADMIN, DEAN, FACULTY
 ```
 
-### New Types (`lib/types/evaluation.ts`)
+### Types (`lib/types/evaluation.ts`)
 
 ```typescript
 // ── Entity Types ──
 
 export interface EvaluationPeriod {
   id: string
-  name: string
+  name: string                           // "First Semester 2026 - 2027"
   semester: string
   schoolYear: string
   startDate: string
@@ -938,12 +1104,29 @@ export interface EvaluationPeriod {
   createdAt: Date
 }
 
-export interface RatingScale {
+export interface Subject {
   id: string
-  periodId: string
-  name: string
-  value: number
-  displayOrder: number
+  code: string                           // "ELEC-323"
+  name: string                           // "Elective 3: Fullstack Web Development"
+}
+
+export interface Section {
+  id: string
+  name: string                           // "32A1"
+  program: string                        // "BSIT"
+}
+
+export interface FacultySubject {
+  id: string
+  facultyId: string
+  subjectId: string
+  sectionId: string
+}
+
+export interface StudentEnrollment {
+  id: string
+  studentId: string
+  sectionId: string
 }
 
 export interface RubricCategory {
@@ -962,35 +1145,11 @@ export interface RubricItem {
   weight: number
 }
 
-export interface Subject {
-  id: string
-  periodId: string
-  name: string
-}
-
-export interface FacultySubject {
-  id: string
-  facultyId: string
-  subjectId: string
-  periodId: string
-  faculty?: import("./entity").User
-  subject?: Subject
-}
-
-export interface StudentEnrollment {
-  id: string
-  studentId: string
-  subjectId: string
-  periodId: string
-  student?: import("./entity").User
-  subject?: Subject
-}
-
 export interface Evaluation {
   id: string
-  periodId: string
-  studentId: string
-  facultyId: string
+  periodId: string                      // scopes to period at evaluation level only
+  evaluatorId: string                   // the student
+  evaluateeId: string                   // the faculty
   status: "DRAFT" | "SUBMITTED"
   submittedAt: Date | null
   createdAt: Date
@@ -1036,13 +1195,10 @@ export interface EvaluationResult {
 export interface EvaluationWithDetails extends Evaluation {
   ratings: EvaluationRating[]
   comments: EvaluationComment[]
-  faculty: import("./entity").User
   result?: EvaluationResult
 }
 
 export interface EvaluationResultDetail extends EvaluationResult {
-  faculty: import("./entity").User
-  department?: import("./entity").Department
   commentCount: number
   sentimentDistribution: {
     positive: number
@@ -1066,28 +1222,40 @@ export interface EnrollmentStats {
 }
 ```
 
-### Repository Interface Additions
-
-Added to `lib/types/repository.ts`:
+### Repository Interfaces (`lib/types/evaluation.ts` — current)
 
 ```typescript
 export interface ISubjectRepository {
-  list(periodId: string): Promise<SubjectData[]>
-  upsertMany(periodId: string, names: string[]): Promise<Map<string, SubjectData>>
-  deleteByPeriod(periodId: string): Promise<void>
+  list(): Promise<SubjectData[]>
+  upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number }>
+  findByCode(code: string): Promise<SubjectData | null>
+}
+
+export interface ISectionRepository {
+  list(): Promise<SectionData[]>
+  upsertMany(items: { name: string; program: string }[]): Promise<{ data: Map<string, SectionData>; created: number }>
+  findByNameAndProgram(name: string, program: string): Promise<SectionData | null>
 }
 
 export interface IFacultySubjectRepository {
-  list(periodId: string, facultyId?: string): Promise<FacultySubjectData[]>
-  replaceAll(periodId: string, items: { facultyId: string; subjectId: string }[]): Promise<void>
-  findBySubject(periodId: string, subjectId: string): Promise<FacultySubjectData | null>
+  list(filters?: { facultyId?: string; sectionId?: string }): Promise<FacultySubjectData[]>
+  replaceBySection(sectionId: string, items: { facultyId: string; subjectId: string }[]): Promise<void>
+  findBySubjectAndSection(subjectId: string, sectionId: string): Promise<FacultySubjectData | null>
 }
 
 export interface IStudentEnrollmentRepository {
-  list(periodId: string, studentId?: string): Promise<StudentEnrollmentData[]>
-  replaceAll(periodId: string, items: { studentId: string; subjectId: string }[]): Promise<void>
-  getDistinctFaculty(studentId: string, periodId: string): Promise<string[]>
+  list(filters?: { studentId?: string; sectionId?: string }): Promise<StudentEnrollmentData[]>
+  replaceBySection(sectionId: string, items: { studentId: string }[]): Promise<void>
+  getDistinctFaculty(studentId: string): Promise<string[]>
 }
+```
+
+#### User Repository Additions (`lib/types/repository.ts`)
+
+```typescript
+// Added to IUserRepository:
+findManyByEmail(emails: string[]): Promise<Map<string, UserData>>
+createMany(inputs: CreateUserInput[]): Promise<Map<string, UserData>>
 ```
 
 ### Controllers (`lib/controllers/`)
@@ -1096,46 +1264,31 @@ export interface IStudentEnrollmentRepository {
 |------------|---------------|
 | `evaluation-periods.ts` | `listPeriods`, `createPeriod`, `updatePeriod`, `deletePeriod`, `activatePeriod` |
 | `rubrics.ts` | `getRubric`, `saveRubric`, `copyRubric`, `addItem`, `updateItem`, `deleteItem`, `addCategory`, `deleteCategory` |
-| `evaluations.ts` | `getPendingEvaluations` (derives from enrollments), `createDraft`, `saveRatings`, `submitEvaluation`, `addComment` |
+| `evaluations.ts` | `getPendingEvaluations` (derives from sections → faculty), `createDraft`, `saveRatings`, `submitEvaluation`, `addComment` |
 | `evaluation-results.ts` | `computeResults`, `getResults`, `getResultDetail` |
 | `sentiment-analysis.ts` | `analyzeComment` (calls external AI API), `batchAnalyze` |
-| `etl-evaluation.ts` (NEW) | `validateFacultyCsv`, `confirmFacultyCsv`, `validateStudentCsv`, `confirmStudentCsv` |
 
-### ETL Enhancement
+> Note: There is no `etl-evaluation.ts` controller — the ETL import routes (`/api/import/evaluation-faculty`, `/api/import/evaluation-student`) call the `etlEvaluation.ts` service directly.
 
-#### New upload types for existing ETL routes
+### ETL Implementation
 
+The evaluation ETL uses direct import endpoints (no validate/confirm separation):
+
+- **`/api/import/evaluation-faculty`** — accepts CSV (`multipart/form-data`) or JSON (`application/json`) body. CSV parsed via `parseFacultySubjectCsv()`, JSON parsed from `{ rows: [...] }`. Both call `importFacultySubjects()` in `lib/services/etlEvaluation.ts`
+- **`/api/import/evaluation-student`** — same dual-accept pattern. Calls `importStudentEnrollments()` in `lib/services/etlEvaluation.ts`
+
+**Batch optimization**: Previously made N+4 DB trips (one `findByEmail` per row + extra `list()` scans). Now uses batch lookup/creation reducing trips to ≈5–6:
+
+1. `upsertMany` for subjects (1 trip: `SELECT IN` + `INSERT` missing)
+2. `upsertMany` for sections (1 trip: `SELECT *` + `INSERT` missing)
+3. `findManyByEmail` for users (1 trip: `SELECT IN`)
+4. `createMany` for missing users (1 trip: `INSERT users` + `INSERT roles` + `SELECT`)
+5. `replaceBySection` per unique section (1 trip each: `DELETE` + `INSERT`)
+
+Upload types defined in `lib/constants.ts`:
 ```typescript
-// lib/constants.ts additions
 export type EtlUploadType = "student" | "faculty" | "evaluation-faculty" | "evaluation-student"
 ```
-
-#### Validate route enhancement (`app/api/admin/etl-upload/validate/route.ts`)
-
-For `evaluation-faculty` type:
-- Expected columns: `name, email, department, subject`
-- Validates: email domain, user existence (creates if not found), subject format
-- Returns preview rows with name, email, department, subject, status
-
-For `evaluation-student` type:
-- Expected columns: `name, email, subject`
-- Validates: email domain, user existence (creates if not found), subject exists in system
-- Skips rows where subject has no faculty assignment (flagged as error)
-- Returns preview rows with name, email, subject, inferred faculty, status
-
-#### Confirm route enhancement (`app/api/admin/etl-upload/confirm/route.ts`)
-
-For `evaluation-faculty`:
-1. Creates/updates user accounts (faculty role)
-2. Creates subjects (if new for this period)
-3. Clears and rebuilds faculty_subjects for the period
-4. Logs audit event
-
-For `evaluation-student`:
-1. Creates/updates user accounts (student role, evaluationEligible=true)
-2. Creates subjects (if new — but should already exist from faculty upload)
-3. Clears and rebuilds student_enrollments for the period
-4. Logs audit event
 
 ### Sentiment Analysis Integration
 
@@ -1154,11 +1307,9 @@ API key stored in `.env`. Analysis runs:
 
 ## 5. UI Design
 
-### Redesign: `/admin/users` — Consolidated User Management + Bulk Import
+### `/admin/users` — User Management (CRUD only)
 
-**Current**: `/admin/users` (table/manage) separate from `/admin/etl-upload` (bulk CSV). `/dean/upload` is more refined.
-
-**Decision**: Merge bulk CSV import into `/admin/users` as a toggleable section. This eliminates the separate `/admin/etl-upload` page and reuses the dean/upload card-selector pattern.
+**Current**: `/admin/users` (table/manage) handles individual user CRUD only. The bulk import component was decommissioned — no CSV import for creating users.
 
 **Page Layout**:
 
@@ -1168,40 +1319,15 @@ API key stored in `.env`. Analysis runs:
 │  Search, filter, paginate users table                       │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  [▼] Bulk Import (click to expand)                          │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │ Faculty/Staff│  │   Students   │  │ Eval Faculty │ ←NEW  │
-│  │ name, email, │  │ name, email, │  │ name, email, │     │
-│  │ dept, dean   │  │ course       │  │ dept, subject│     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                                                             │
-│  [Selected: Eval Faculty]                                   │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ CSV File: [Choose File] faculty.csv                  │   │
-│  │                                                      │   │
-│  │ [Upload & Preview]                                   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  Preview Table: 3 rows found                                │
-│  #  Name           Email           Dept  Subject        Status│
-│  1  Dr. Juan S.    juan@...        CCS   BSIT-3A-CC104  ✓   │
-│  2  Dr. Maria C.   maria@...       COE   BSEE-2A-EE201  ✓   │
-│                                                             │
-│  [Confirm Import 2 records]                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  User table with edit/create modals, role mgmt       │   │
+│  │  No bulk CSV import                                  │   │
+│  │  Users created one-by-one via Create User modal      │   │
+│  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Reuse from dean/upload**:
-- Card selector pattern (gold border on selected type)
-- Template download per type
-- Preview table with status badges
-- Import summary (Created / Skipped / Errors)
-
-**What changes**:
-- `app/admin/users/page.tsx` — add collapsible "Bulk Import" section above the filters
-- Existing user CRUD table stays unchanged below
-- Remove `app/admin/etl-upload/page.tsx` (replaced by this)
+**Key**: User creation is manual (individual CRUD). Evaluation ETL data (faculty-subject, student-enrollment) is handled exclusively at `/admin/etl-hub`.
 
 ---
 
@@ -1570,11 +1696,16 @@ Grouped by period, showing faculty name, rating, remarks, submission date.
 
 | Page | Status | Action |
 |------|--------|--------|
-| `/admin/users` | ✅ Done | Collapsible bulk import section with card selector, CSV preview with inline editing, confirm flow; localhost-only Reset Data button |
-| `/admin/etl-upload` | ❌ Deprecated | Replaced by `/admin/users` bulk import |
+| `/admin/data/users` | ✅ Done | Moved from `/admin/users` — CRUD only, bulk import decommissioned |
+| `/admin/data/departments` | ✅ Done | Moved from `/admin/departments` |
+| `/admin/data/subjects` | ✅ Done | Searchable table of subjects (new) |
+| `/admin/data/sections` | ✅ Done | Searchable table of sections (new) |
+| `/admin/data/faculty-mappings` | ✅ Done | Joined faculty-subject view (new) |
+| `/admin/data/student-enrollments` | ✅ Done | Joined student enrollment view (new) |
+| `/admin/etl-hub` | ✅ Done | ETL upload UI with editable preview, JSON confirm, result card, ViewMappings |
 | `/admin/evaluations` | ✅ Done | Add rubric + reports cards |
 | `/admin/evaluations/rubrics` | ❌ Missing | Build standalone rubric editor with period selector |
-| `/admin/evaluations/upload` | ❌ Missing | Build upload status dashboard |
+| `/admin/evaluations/upload` | ✅ N/A | Use `/admin/etl-hub` + `/admin/data/*` instead |
 | `/admin/evaluations/results` | ✅ Done | Enhance with spreadsheet table + exports |
 | `/admin/evaluations/reports` | ❌ Missing | Build report card grid |
 | `/admin/evaluations/reports/sentiment` | ❌ Missing | Build sentiment dashboard |
@@ -1646,29 +1777,21 @@ Grouped by period, showing faculty name, rating, remarks, submission date.
 - **Props**: `rubric: RubricCategory[]`, `facultyName`, `periodName`, `onSubmit`
 - **Used by**: Student evaluation page
 
-### Bulk Import in `/admin/users`
+### Data Management Pages (`/admin/data/*`)
 
-The `/admin/users` page has a collapsible **Bulk Import** section above the user table. The flow:
+Six dedicated pages for viewing and managing evaluation data:
 
-1. **Select type**: Faculty/Staff (3-column CSV) or Students
-2. **Preview**: Upload CSV → `/api/import/preview` parses it and checks each email against the `users` table
-3. **Edit**: Preview table shows all rows with inline-editable fields (name, email, section, code, title). Existing users are flagged with an orange **EXISTS** badge; new rows show **NEW**
-4. **Confirm**: Sends the edited rows as JSON to the import endpoint
+| Route | Content | Features |
+|-------|---------|----------|
+| `/admin/data/users` | User list with roles, departments | Searchable table, CRUD modals |
+| `/admin/data/users/deleted` | Soft-deleted users | Searchable table |
+| `/admin/data/departments` | Department/course list | Searchable table |
+| `/admin/data/subjects` | All subjects (code + name) | Searchable table |
+| `/admin/data/sections` | All sections (program + name) | Searchable table |
+| `/admin/data/faculty-mappings` | Faculty name/email, subject code/name, section | Joined read-only view |
+| `/admin/data/student-enrollments` | Student name/email, section | Joined read-only view |
 
-#### Faculty CSV Format
-
-```
-name, microsoft email, section, code, title
-Jane Faculty, jane.faculty@lyceumalabang.edu.ph, BSIT-32A1, ELEC-323, Elective 3 - Fullstack Development
-Mike Dean, mike.dean@lyceumalabang.edu.ph, BSCS-41B2, CCS-412, Capstone Project 2
-```
-
-#### Student CSV Format (unchanged)
-
-```
-name, microsoft email, course
-Alice Student, alice.student@lyceumalabang.edu.ph, BSIT
-```
+All pages follow the same pattern: server-side searchable table with Supabase query, showing a max of rows. Access is controlled via `group_access` DB table for the `/admin/data/*` paths.
 
 ### STUDENT PAGES
 
@@ -1817,17 +1940,17 @@ Mobile views share the same data layer, using iOS-native patterns: full-width gr
 
 **Blast radius**: None. All new files in `components/`.
 
-### Phase 5: Consolidated Bulk Import in `/admin/users` (3 prompts — risk: moderate)
+### Phase 5: Consolidated Evaluation ETL (3 prompts — risk: moderate)
 
 | # | Prompt | What It Touches | Existing Risk |
 |---|--------|----------------|---------------|
 | 14 | Edit `lib/constants.ts` — add `evaluation-faculty` and `evaluation-student` to `EtlUploadType` | 1 existing file | Low — adds enum values |
-| 15 | Edit `app/admin/users/page.tsx` — add collapsible Bulk Import section with card selector, CSV preview with inline editing, confirm flow, localhost-only Reset Data button | 1 existing file | **Moderate** — must preserve existing CRUD functionality; bulk import is additive above the table |
-| 16 | Edit `app/api/import/users/route.ts` + `students/route.ts` — add JSON body support for preview confirm flow | 2 existing files | Low — additive branching on content-type |
+| 15 | Create `/admin/etl-hub` — evaluation-specific ETL page with editable preview, JSON confirm, result card, ViewMappings | 1 new file | None |
+| 16 | Edit `app/api/import/evaluation-faculty/route.ts` + `evaluation-student/route.ts` — add JSON body support for preview confirm flow | 2 existing files | Low — additive branching on content-type |
 
-**Decision**: Use existing `app/api/import/evaluation-faculty` and `app/api/import/evaluation-student` endpoints directly (they're already built). No changes needed to the old `etl-upload/validate` and `etl-upload/confirm` routes. The `/admin/etl-upload` page can be deprecated.
+**Decision**: Use dedicated `/admin/etl-hub` for evaluation imports (separate from user CRUD). The bulk import feature in `/admin/users` was decommissioned — users are created individually via CRUD or auto-created during ETL.
 
-**Blast radius**: The `/admin/users` page must preserve its existing user CRUD table, modals, search, filter, and pagination. The bulk import section is a collapsible area added above the table — visible only when expanded.
+**Blast radius**: Low. The etl-hub is an entirely new page. API routes add a JSON branch alongside existing multipart handling.
 
 ### Additional: CSV Format Change + Seed Cleanup
 

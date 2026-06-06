@@ -13,22 +13,27 @@ export interface EvaluationPeriod {
 
 export interface Subject {
   id: string
+  code: string
   name: string
-  periodId: string
+}
+
+export interface Section {
+  id: string
+  name: string
+  program: string
 }
 
 export interface FacultySubject {
   id: string
   facultyId: string
   subjectId: string
-  periodId: string
+  sectionId: string
 }
 
 export interface StudentEnrollment {
   id: string
   studentId: string
-  subjectId: string
-  periodId: string
+  sectionId: string
 }
 
 export interface RubricCategory {
@@ -117,22 +122,27 @@ export interface CreateEvaluationPeriodInput {
 
 export interface SubjectData {
   id: string
+  code: string
   name: string
-  periodId: string | null
+}
+
+export interface SectionData {
+  id: string
+  name: string
+  program: string
 }
 
 export interface FacultySubjectData {
   id: string
-  facultyId: string
-  subjectId: string
-  periodId: string | null
+  faculty_id: string
+  subject_id: string
+  section_id: string
 }
 
 export interface StudentEnrollmentData {
   id: string
-  studentId: string
-  subjectId: string
-  periodId: string | null
+  student_id: string
+  section_id: string
 }
 
 export interface RubricCategoryData {
@@ -228,21 +238,27 @@ export interface IEvaluationPeriodRepository {
 }
 
 export interface ISubjectRepository {
-  list(periodId: string | null): Promise<SubjectData[]>
-  upsertMany(periodId: string | null, names: string[]): Promise<Map<string, SubjectData>>
-  deleteByPeriod(periodId: string | null): Promise<void>
+  list(): Promise<SubjectData[]>
+  upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number }>
+  findByCode(code: string): Promise<SubjectData | null>
+}
+
+export interface ISectionRepository {
+  list(): Promise<SectionData[]>
+  upsertMany(items: { name: string; program: string }[]): Promise<{ data: Map<string, SectionData>; created: number }>
+  findByNameAndProgram(name: string, program: string): Promise<SectionData | null>
 }
 
 export interface IFacultySubjectRepository {
-  list(periodId: string | null, facultyId?: string): Promise<FacultySubjectData[]>
-  replaceAll(periodId: string | null, items: { facultyId: string; subjectId: string }[]): Promise<void>
-  findBySubject(periodId: string | null, subjectId: string): Promise<FacultySubjectData | null>
+  list(filters?: { faculty_id?: string; section_id?: string }): Promise<FacultySubjectData[]>
+  replaceBySection(section_id: string, items: { faculty_id: string; subject_id: string }[]): Promise<void>
+  findBySubjectAndSection(subject_id: string, section_id: string): Promise<FacultySubjectData | null>
 }
 
 export interface IStudentEnrollmentRepository {
-  list(periodId: string | null, studentId?: string): Promise<StudentEnrollmentData[]>
-  replaceAll(periodId: string | null, items: { studentId: string; subjectId: string }[]): Promise<void>
-  getDistinctFaculty(studentId: string, periodId: string): Promise<string[]>
+  list(filters?: { student_id?: string; section_id?: string }): Promise<StudentEnrollmentData[]>
+  replaceBySection(section_id: string, items: { student_id: string }[]): Promise<void>
+  getDistinctFaculty(student_id: string): Promise<string[]>
 }
 
 export interface IRubricRepository {

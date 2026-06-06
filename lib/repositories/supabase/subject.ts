@@ -2,56 +2,42 @@ import { supabase } from "@/lib/supabase"
 import type { SubjectData, ISubjectRepository } from "@/lib/types"
 
 export const subjectRepository: ISubjectRepository = {
-  async list(periodId) {
-    let q = supabase.from("subjects").select("*")
-    if (periodId) {
-      q = q.eq("periodId", periodId)
-    } else {
-      q = q.is("periodId", null)
-    }
-    const { data, error } = await q.order("name", { ascending: true })
+  async list() {
+    const { data, error } = await supabase.from("subjects").select("*").order("code", { ascending: true })
     if (error) throw error
     return data as SubjectData[]
   },
 
-  async upsertMany(periodId, names) {
+  async upsertMany(items) {
     const result = new Map<string, SubjectData>()
-    let q = supabase.from("subjects").select("*")
-    if (periodId) {
-      q = q.eq("periodId", periodId)
-    } else {
-      q = q.is("periodId", null)
-    }
-    const { data: existing, error: fetchErr } = await q.in("name", names)
+
+    const codes = items.map((i) => i.code)
+    const { data: existing, error: fetchErr } = await supabase.from("subjects").select("*").in("code", codes)
     if (fetchErr) throw fetchErr
+
     for (const row of existing as SubjectData[]) {
-      result.set(row.name, row)
+      result.set(row.code, row)
     }
 
-    const missing = names.filter((n) => !result.has(n))
+    const missing = items.filter((i) => !result.has(i.code))
     if (missing.length > 0) {
-      const inserts = missing.map((name) => ({ name, periodId }))
-      const { data: created, error: insertErr } = await supabase
-        .from("subjects")
-        .insert(inserts)
-        .select("*")
+      const inserts = missing.map((i) => ({ code: i.code, name: i.name }))
+      const { data: created, error: insertErr } = await supabase.from("subjects").insert(inserts).select("*")
       if (insertErr) throw insertErr
       for (const row of created as SubjectData[]) {
-        result.set(row.name, row)
+        result.set(row.code, row)
       }
     }
 
-    return result
+    return { data: result, created: missing.length }
   },
 
-  async deleteByPeriod(periodId) {
-    let q = supabase.from("subjects").delete()
-    if (periodId) {
-      q = q.eq("periodId", periodId)
-    } else {
-      q = q.is("periodId", null)
+  async findByCode(code) {
+    const { data, error } = await supabase.from("subjects").select("*").eq("code", code).single()
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
     }
-    const { error } = await q
-    if (error) throw error
+    return data as SubjectData
   },
 }

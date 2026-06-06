@@ -32,6 +32,7 @@ export async function POST() {
     "evaluations",
     "student_enrollments",
     "faculty_subjects",
+    "sections",
     "subjects",
     "rubric_items",
     "rubric_categories",

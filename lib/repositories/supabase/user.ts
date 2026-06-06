@@ -35,6 +35,29 @@ export const userRepository: IUserRepository = {
       throw err
     }
   },
+
+  async findManyByEmail(emails) {
+    const unique = [...new Set(emails.map((e) => e.toLowerCase().trim()))]
+    try {
+      const { data, error } = await supabase.from("users").select(USER_SELECT).in("email", unique)
+      if (error) throw error
+      const result = new Map<string, UserData>()
+      for (const row of (data || []) as DbRecord[]) {
+        result.set((row.email as string).toLowerCase(), toUserWithRole(row))
+      }
+      return result
+    } catch (err) {
+      if (isMissingUserrole(err as QueryError)) {
+        const { data } = await supabase.from("users").select("*").in("email", unique)
+        const result = new Map<string, UserData>()
+        for (const row of (data || []) as DbRecord[]) {
+          result.set((row.email as string).toLowerCase(), { ...row, role: "GUEST" } as unknown as UserData)
+        }
+        return result
+      }
+      throw err
+    }
+  },
   async findById(id) {
     try {
       return await singleQueryWithRoles(
@@ -67,6 +90,35 @@ export const userRepository: IUserRepository = {
     await logUserAction(user.email, "CREATE_USER", `Created ${role} user: ${user.name}`)
     return user
   },
+
+  async createMany(inputs) {
+    if (inputs.length === 0) return new Map()
+    const userFields = inputs.map(({ role: _role, ...fields }) => ({
+      ...fields,
+      email: fields.email.toLowerCase().trim(),
+    }))
+    const { data: users, error: userErr } = await supabase.from("users").insert(userFields).select("*")
+    if (userErr) throw userErr
+
+    const roleInserts = (users as DbRecord[]).flatMap((row) => {
+      const input = inputs.find((i) => i.email.toLowerCase().trim() === (row.email as string).toLowerCase())
+      if (!input?.role) return []
+      return input.role.split("|").map((roleName: string) => ({ userId: row.id, roleName }))
+    })
+    if (roleInserts.length > 0) {
+      const { error: roleErr } = await supabase.from("userrole").insert(roleInserts)
+      if (roleErr) throw roleErr
+    }
+
+    const { data: withRoles } = await supabase.from("users").select(USER_SELECT).in("id", (users as DbRecord[]).map((u) => u.id))
+    const result = new Map<string, UserData>()
+    for (const row of (withRoles || []) as DbRecord[]) {
+      result.set((row.email as string).toLowerCase(), toUserWithRole(row))
+    }
+    await logUserAction("system", "BULK_CREATE_USERS", `Created ${inputs.length} users via ETL`)
+    return result
+  },
+
   async listByRole(role, options) {
     try {
       let query = supabase.from("users").select(USER_SELECT).eq("userrole.roleName", role)

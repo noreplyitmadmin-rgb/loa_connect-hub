@@ -1,4 +1,4 @@
-import { userRepository, departmentRepository, availabilityRuleRepository, subjectRepository, facultySubjectRepository } from "@/lib/repositories/factory"
+import { userRepository, departmentRepository, availabilityRuleRepository } from "@/lib/repositories/factory"
 import type { CsvRow } from "./csvParser"
 import { hasRole } from "@/lib/utils/roles"
 
@@ -102,15 +102,6 @@ export async function importUsers(
 
       if (hasRole(role, "FACULTY") || hasRole(role, "DEAN")) {
         await createDefaultAvailabilityRules(user.id)
-      }
-
-      // Create subject mapping for faculty
-      if (hasRole(role, "FACULTY") && row.code) {
-        const subjectMap = await subjectRepository.upsertMany(null, [row.code])
-        const subject = subjectMap.get(row.code)
-        if (subject) {
-          await facultySubjectRepository.replaceAll(null, [{ facultyId: user.id, subjectId: subject.id }])
-        }
       }
 
       result.created.push({

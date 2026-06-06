@@ -8,6 +8,7 @@ import type {
   IReportsRepository,
   IEvaluationPeriodRepository,
   ISubjectRepository,
+  ISectionRepository,
   IFacultySubjectRepository,
   IStudentEnrollmentRepository,
   IRubricRepository,
@@ -24,6 +25,7 @@ import { auditLogRepository as supabaseAuditLogRepo } from "./supabase/audit-log
 import { reportsRepository as supabaseReportsRepo } from "./supabase/reports"
 import { evaluationPeriodRepository as supabaseEvalPeriodRepo } from "./supabase/evaluation-period"
 import { subjectRepository as supabaseSubjectRepo } from "./supabase/subject"
+import { sectionRepository as supabaseSectionRepo } from "./supabase/section"
 import { facultySubjectRepository as supabaseFacultySubjectRepo } from "./supabase/faculty-subject"
 import { studentEnrollmentRepository as supabaseStudentEnrollmentRepo } from "./supabase/student-enrollment"
 import { rubricRepository as supabaseRubricRepo } from "./supabase/rubric"
@@ -39,6 +41,7 @@ export const auditLogRepository: IAuditLogRepository = supabaseAuditLogRepo
 export const reportsRepository: IReportsRepository = supabaseReportsRepo
 export const evaluationPeriodRepository: IEvaluationPeriodRepository = supabaseEvalPeriodRepo
 export const subjectRepository: ISubjectRepository = supabaseSubjectRepo
+export const sectionRepository: ISectionRepository = supabaseSectionRepo
 export const facultySubjectRepository: IFacultySubjectRepository = supabaseFacultySubjectRepo
 export const studentEnrollmentRepository: IStudentEnrollmentRepository = supabaseStudentEnrollmentRepo
 export const rubricRepository: IRubricRepository = supabaseRubricRepo

@@ -2,45 +2,31 @@ import { supabase } from "@/lib/supabase"
 import type { FacultySubjectData, IFacultySubjectRepository } from "@/lib/types"
 
 export const facultySubjectRepository: IFacultySubjectRepository = {
-  async list(periodId, facultyId) {
+  async list(filters) {
     let q = supabase.from("faculty_subjects").select("*")
-    if (periodId) {
-      q = q.eq("periodId", periodId)
-    } else {
-      q = q.is("periodId", null)
-    }
-    if (facultyId) q = q.eq("facultyId", facultyId)
+    if (filters?.faculty_id) q = q.eq("faculty_id", filters.faculty_id)
+    if (filters?.section_id) q = q.eq("section_id", filters.section_id)
     const { data, error } = await q
     if (error) throw error
     return data as FacultySubjectData[]
   },
 
-  async replaceAll(periodId, items) {
-    let delQ = supabase.from("faculty_subjects").delete()
-    if (periodId) {
-      delQ = delQ.eq("periodId", periodId)
-    } else {
-      delQ = delQ.is("periodId", null)
-    }
-    const { error: delErr } = await delQ
+  async replaceBySection(section_id, items) {
+    const { error: delErr } = await supabase.from("faculty_subjects").delete().eq("section_id", section_id)
     if (delErr) throw delErr
     if (items.length === 0) return
-    const rows = items.map((i) => ({ ...i, periodId }))
+    const rows = items.map((i) => ({ ...i, section_id }))
     const { error: insErr } = await supabase.from("faculty_subjects").insert(rows)
     if (insErr) throw insErr
   },
 
-  async findBySubject(periodId, subjectId) {
-    const q = supabase.from("faculty_subjects").select("*")
-    if (periodId) {
-      const { data, error } = await q.eq("periodId", periodId).eq("subjectId", subjectId).single()
-      if (error) {
-        if (error.code === "PGRST116") return null
-        throw error
-      }
-      return data as FacultySubjectData
-    }
-    const { data, error } = await q.is("periodId", null).eq("subjectId", subjectId).single()
+  async findBySubjectAndSection(subject_id, section_id) {
+    const { data, error } = await supabase
+      .from("faculty_subjects")
+      .select("*")
+      .eq("subject_id", subject_id)
+      .eq("section_id", section_id)
+      .single()
     if (error) {
       if (error.code === "PGRST116") return null
       throw error

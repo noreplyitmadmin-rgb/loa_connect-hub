@@ -47,7 +47,7 @@ Transform the web app from a sidebar-based dashboard layout into a native-feelin
 - ✅ **globals.css**: Added `.ios-table-section`, `.ios-table-row`, `.ios-table-row-label`, `.ios-table-row-detail`, `.ios-table-row-chevron` CSS classes.
 - ✅ **AppointmentCard.tsx**: Converted to iOS table row with avatar+name+date/status+chevron layout, action buttons in footer section.
 - ✅ **faculty/meetings/page.tsx**, **student/m/meetings/page.tsx**, **faculty/m/meetings/page.tsx**: Updated to use `ios-table-section`/`ios-table-row` lists.
-- ✅ **Desktop standardisation**: All pages standardised to `max-w-6xl mx-auto` (dean/upload, dean/departments, admin/data-management, admin/access-config, faq, admin/etl-upload, admin/departments, faculty/availability, ConsultationHistory, AppointmentDetail).
+- ✅ **Desktop standardisation**: All pages standardised to `max-w-6xl mx-auto` (dean/upload, dean/departments, admin/data-management, admin/access-config, faq, admin/etl-hub, admin/departments, faculty/availability, ConsultationHistory, AppointmentDetail).
 
 ### 2.2 iOS Action Buttons ✅
 

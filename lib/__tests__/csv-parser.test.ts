@@ -84,16 +84,18 @@ Jane Faculty, jane.faculty@lyceumalabang.edu.ph, A, CCS101, Intro`
 })
 
 describe("parseCsv — students", () => {
-  const validHeaders = "name, microsoft email, course"
+  const validHeaders = "name, microsoft email, section, code"
 
   it("parses valid student rows", () => {
     const csv = `${validHeaders}
-Alice Student, alice.student@lyceumalabang.edu.ph, BSIT
-Bob Martinez, bob.martinez@lyceumalabang.edu.ph, BSCS`
+Alice Student, alice.student@lyceumalabang.edu.ph, BSIT-32A1, ELEC-323
+Bob Martinez, bob.martinez@lyceumalabang.edu.ph, BSCS-41B2, CCS-412`
     const result = parseCsv(csv, "students")
     expect(result.rows).toHaveLength(2)
-    expect(result.rows[0].course).toBe("BSIT")
-    expect(result.rows[1].course).toBe("BSCS")
+    expect(result.rows[0].section).toBe("BSIT-32A1")
+    expect(result.rows[0].code).toBe("ELEC-323")
+    expect(result.rows[1].section).toBe("BSCS-41B2")
+    expect(result.rows[1].code).toBe("CCS-412")
   })
 })
 
@@ -109,7 +111,8 @@ describe("getCsvTemplate", () => {
 
   it("generates student template unchanged", () => {
     const tpl = getCsvTemplate("students")
-    expect(tpl).toContain("name,microsoft email,course")
-    expect(tpl).toContain("BSIT")
+    expect(tpl).toContain("name,microsoft email,section,code")
+    expect(tpl).toContain("BSIT-32A1")
+    expect(tpl).toContain("ELEC-323")
   })
 })

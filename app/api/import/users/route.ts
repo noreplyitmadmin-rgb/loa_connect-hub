@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
 
   let rows: CsvRow[]
   let parseErrors: { row: number; message: string }[] = []
+  const userId = (session!.user as Record<string, unknown>).id as string
+  let departmentId: string | null = null
+  if (hasRole(role, "DEAN")) {
+    const dept = await departmentRepository.findByDeanId(userId)
+    departmentId = dept?.id ?? null
+  }
 
   const contentType = request.headers.get("content-type") || ""
 
@@ -34,6 +40,19 @@ export async function POST(request: NextRequest) {
     rows = body.rows as CsvRow[]
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ error: "No rows provided" }, { status: 400 })
+    }
+    // Preview flow: department field in rows contains the department ID
+    // (selected from the dropdown), not a department name from CSV.
+    // Resolve the ID to the actual department name so importUsers can
+    // find it by name lookup instead of trying to create a department
+    // with the UUID as its name.
+    const deptIdFromRows = rows[0]?.department
+    if (deptIdFromRows) {
+      const dept = await departmentRepository.findById(deptIdFromRows)
+      if (dept) {
+        departmentId = dept.id
+        rows = rows.map((r) => ({ ...r, department: dept.name }))
+      }
     }
   } else {
     const formData = await request.formData()
@@ -53,13 +72,6 @@ export async function POST(request: NextRequest) {
     if (parseErrors.length > 0 && rows.length === 0) {
       return NextResponse.json({ error: "CSV parsing failed", details: parseErrors }, { status: 400 })
     }
-  }
-
-  const userId = (session!.user as Record<string, unknown>).id as string
-  let departmentId: string | null = null
-  if (hasRole(role, "DEAN")) {
-    const dept = await departmentRepository.findByDeanId(userId)
-    departmentId = dept?.id ?? null
   }
 
   const result = await importUsers(rows, "DEAN", departmentId)

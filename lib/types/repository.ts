@@ -36,7 +36,9 @@ export interface ListUsersOptions {
 export interface IUserRepository {
   findByEmail(email: string): Promise<UserData | null>
   findById(id: string): Promise<UserData | null>
+  findManyByEmail(emails: string[]): Promise<Map<string, UserData>>
   create(input: CreateUserInput): Promise<UserData>
+  createMany(inputs: CreateUserInput[]): Promise<Map<string, UserData>>
   listByRole(role: string, options?: ListUsersOptions): Promise<UserData[]>
   listByDepartment(departmentId: string, options?: ListUsersOptions): Promise<UserData[]>
   listByIds(ids: string[], options?: ListUsersOptions): Promise<UserData[]>

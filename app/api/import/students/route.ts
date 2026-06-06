@@ -26,6 +26,17 @@ export async function POST(request: NextRequest) {
 
   let rows: CsvRow[]
   let parseErrors: { row: number; message: string }[] = []
+  const userId = (session!.user as Record<string, unknown>).id as string
+  let departmentId: string | null = null
+  const dept = await departmentRepository.findByDeanId(userId)
+  if (dept) {
+    departmentId = dept.id
+  } else {
+    if (!dept && role) {
+      const userData = await userRepository.findById(userId)
+      departmentId = userData?.departmentId ?? null
+    }
+  }
 
   const contentType = request.headers.get("content-type") || ""
 
@@ -34,6 +45,14 @@ export async function POST(request: NextRequest) {
     rows = body.rows as CsvRow[]
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ error: "No rows provided" }, { status: 400 })
+    }
+    const deptIdFromRows = rows[0]?.department
+    if (deptIdFromRows) {
+      const resolved = await departmentRepository.findById(deptIdFromRows)
+      if (resolved) {
+        departmentId = resolved.id
+        rows = rows.map((r) => ({ ...r, department: resolved.name }))
+      }
     }
   } else {
     const formData = await request.formData()
@@ -52,18 +71,6 @@ export async function POST(request: NextRequest) {
     }
     if (parseErrors.length > 0 && rows.length === 0) {
       return NextResponse.json({ error: "CSV parsing failed", details: parseErrors }, { status: 400 })
-    }
-  }
-
-  const userId = (session!.user as Record<string, unknown>).id as string
-  let departmentId: string | null = null
-  const dept = await departmentRepository.findByDeanId(userId)
-  if (dept) {
-    departmentId = dept.id
-  } else {
-    if (!dept && role) {
-      const userData = await userRepository.findById(userId)
-      departmentId = userData?.departmentId ?? null
     }
   }
 
