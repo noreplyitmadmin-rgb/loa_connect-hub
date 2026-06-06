@@ -258,6 +258,7 @@ export interface IFacultySubjectRepository {
 export interface IStudentEnrollmentRepository {
   list(filters?: { student_id?: string; section_id?: string }): Promise<StudentEnrollmentData[]>
   replaceBySection(section_id: string, items: { student_id: string }[]): Promise<void>
+  addEnrollments(items: { student_id: string; section_id: string }[]): Promise<void>
   getDistinctFaculty(student_id: string): Promise<string[]>
 }
 

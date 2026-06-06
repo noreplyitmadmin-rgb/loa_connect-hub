@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useApiGet } from "@/lib/api/client"
 import { getPrimaryRole } from "@/lib/utils/roles"
 
@@ -13,18 +13,6 @@ interface NavItem {
   icon?: string
   badge?: boolean
   children?: NavItem[]
-}
-
-const roleColors: Record<string, { bg: string; label: string }> = {
-  ADMIN: { bg: "bg-purple-500/20 text-purple-300", label: "Admin" },
-  DEAN: { bg: "bg-amber-500/20 text-amber-300", label: "Dean" },
-  FACULTY: { bg: "bg-emerald-500/20 text-emerald-300", label: "Faculty" },
-  STUDENT: { bg: "bg-blue-500/20 text-blue-300", label: "Student" },
-  GUEST: { bg: "bg-slate-500/20 text-slate-300", label: "Guest" },
-}
-
-function getInitial(name: string) {
-  return name?.charAt(0)?.toUpperCase() || "?"
 }
 
 const reportChildren: NavItem[] = [
@@ -62,37 +50,10 @@ export default function Sidebar() {
   const pathname = usePathname()
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
 
-  const [dark, setDark] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("theme")
-      return stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme:dark)").matches)
-    }
-    return false
-  })
-
   const { data: accessData } = useApiGet<{ pages: string[] }>(
     session ? "/api/auth/access" : null
   )
   const allowedPages = accessData?.pages ?? null
-
-  useEffect(() => {
-    if (dark) document.documentElement.classList.add("dark")
-    else document.documentElement.classList.remove("dark")
-  }, [dark])
-
-  const toggleTheme = useCallback(() => {
-    setDark((prev) => {
-      const next = !prev
-      if (next) {
-        document.documentElement.classList.add("dark")
-        localStorage.setItem("theme", "dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-        localStorage.setItem("theme", "light")
-      }
-      return next
-    })
-  }, [])
 
   const toggleGroup = useCallback((name: string) => {
     setExpandedGroups((prev) => {
@@ -154,8 +115,6 @@ export default function Sidebar() {
     }
     return items
   }, [flatItems, dataVisible, reportsVisible, evaluationsVisible])
-
-  const rc = primaryRole ? roleColors[primaryRole] || roleColors.STUDENT : roleColors.STUDENT
 
   if (status === "loading" || !session || !allowedPages) {
     return (
@@ -426,34 +385,6 @@ export default function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-slate-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gold-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white shadow-md shrink-0">
-              {getInitial(session.user?.name || "")}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">{session.user?.name}</p>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] mt-1 ${rc.bg}`}>
-                {rc.label}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={toggleTheme}
-            className="mt-2 w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-xs font-medium text-tertiary hover:text-white hover:bg-slate-800/50 transition-colors border border-slate-800"
-            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {dark ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.7.7m-13.93 13.93l-.7.7M21 12h-1M4 12H3m16.66 7.66l-.7-.7m-13.93-13.93l-.7-.7M12 8a4 4 0 100 8 4 4 0 000-8z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            )}
-            {dark ? "Light Mode" : "Dark Mode"}
-          </button>
-
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="mt-2 w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-xs font-medium text-tertiary hover:text-white hover:bg-slate-800/50 transition-colors border border-slate-800"

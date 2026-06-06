@@ -20,6 +20,21 @@ export const studentEnrollmentRepository: IStudentEnrollmentRepository = {
     if (insErr) throw insErr
   },
 
+  async addEnrollments(items) {
+    if (items.length === 0) return
+    const sectionIds = [...new Set(items.map((i) => i.section_id))]
+    const { data: existing, error: fetchErr } = await supabase
+      .from("student_enrollments")
+      .select("student_id, section_id")
+      .in("section_id", sectionIds)
+    if (fetchErr) throw fetchErr
+    const existingSet = new Set((existing || []).map((r) => `${r.student_id}|${r.section_id}`))
+    const newItems = items.filter((i) => !existingSet.has(`${i.student_id}|${i.section_id}`))
+    if (newItems.length === 0) return
+    const { error: insErr } = await supabase.from("student_enrollments").insert(newItems)
+    if (insErr) throw insErr
+  },
+
   async getDistinctFaculty(student_id) {
     const { data: enrollments, error: enrollErr } = await supabase
       .from("student_enrollments")
