@@ -187,3 +187,91 @@ The `loadAccessConfig()` function in `lib/access.ts` loads from the DB `group_ac
 - `NextRequest` type mismatch — test file was written for an older Next.js version
 - Unrelated to evaluation work
 - Low priority
+
+---
+
+## 5. User-Level Permission Overrides
+
+### Goal
+
+Add granular per-user permission overrides on top of the existing RBAC (`group_access`). RBAC stays as the backbone (page-level routing via `proxy.ts`); the new layer controls specific actions within a page (API + UI).
+
+### Plan
+
+**5 phases, 5 PRs:**
+
+| Phase | Scope | Key Files |
+|-------|-------|-----------|
+| **0: Schema + Types** | `permissions JSONB` column on `users`; TypeScript types | `supabase-schema.sql`, `lib/types/permissions.ts`, `lib/types/repository.ts` |
+| **1: Resolution Engine** | `parsePermission()`, `hasPermission()`, `pageCapabilities()`; JWT embedding | `lib/utils/permissions.ts`, `lib/auth.ts`, `lib/repositories/supabase/user.ts` |
+| **2: UI Components** | `<AccessDeniedCard />` inline card | `components/AccessDeniedCard.tsx` |
+| **3: Pilot — Departments** | API guards + `pageCapabilities` compose | `app/api/admin/departments/route.ts`, `app/admin/data/departments/page.tsx` |
+| **4: Pilot — ETL Hub** | Tab hides via `pageCapabilities` | `app/admin/etl-hub/page.tsx` |
+| **5: Admin Editor** | User search + checkbox grid for grants/denies | `app/admin/access-config/permissions/page.tsx` |
+
+### Permission Format
+
+URL-based: `<resource-path>:<action>` (e.g. `/admin/data/departments:create`)
+
+| Resource | Actions |
+|----------|---------|
+| `/admin/data/departments` | `create`, `update`, `delete`, `read-all`, `read-only` |
+| `/admin/etl-hub` | `import-faculty`, `import-student`, `download-template` |
+| `/admin/users` | `create`, `update`, `delete`, `read-all`, `read-only`, `import`, `restore` |
+| `/admin/appointments` | `create`, `update`, `delete`, `read-all`, `read-only`, `cancel`, `complete` |
+| `/admin/evaluations` | `create-period`, `edit-period`, `delete-period`, `manage-rubric`, `view-results`, `compute-results`, `export-results` |
+| `/admin/reports` | `view`, `export` |
+| `/admin/access-config/permissions` | `view`, `edit` |
+
+### Key Types
+
+```ts
+interface UserPermissions { grants: string[]; denies: string[] }
+type EffectivePermissions = string[]
+interface PageCapabilities {
+  readScope: "all" | "own" | "none"
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
+}
+```
+
+### Resolution
+
+```
+effective = role_base (implicit via group_access)
+if user.permissions is object:
+  effective += grants; effective -= denies
+embedded as effectivePermissions: string[] on session
+
+pageCapabilities(resource) → readScope cascade:
+  has(:delete|:update|:create|:read-all) → "all"
+  has(:read-only)                         → "own"
+  else                                    → "none"
+```
+
+### UI Pattern
+
+```tsx
+const caps = pageCapabilities(perms, "/admin/data/departments")
+{caps.readScope === "all"  && <AllDataTable />}
+{caps.readScope === "own"  && <OwnDataTable />}
+{caps.readScope === "none" && <AccessDeniedCard />}
+{caps.canCreate && <CreateForm />}
+{caps.canUpdate && <EditActions />}
+{caps.canDelete && <DeleteActions />}
+```
+
+### Admin Editor UX
+
+Search user → checkbox grid per resource with 3 states:
+- ✓ checked → in `grants`
+- ✗ unchecked → in `denies`
+- · dimmed → omitted (role default applies)
+
+### Out of Scope
+
+- `role_capabilities` table — role defaults stay implicit in `group_access`
+- Wildcard matching — `hasPermission` stays O(n) includes
+- Migration for existing users — `NULL` means role default
+- SSO sync — permissions set manually via admin editor
