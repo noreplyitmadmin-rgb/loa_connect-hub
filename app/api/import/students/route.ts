@@ -25,19 +25,21 @@ export async function POST(request: NextRequest) {
   let importRows: { email: string; name: string; subjectCode: string; sectionName: string; sectionProgram: string }[]
   let parseErrors: { row: number; message: string }[] = []
   let departmentId: string | null = null
+  let semesterId: string | null = null
 
   const contentType = request.headers.get("content-type") || ""
 
   if (contentType.includes("application/json")) {
     const body = await request.json()
+    const { departmentId: bodyDeptId = null, semesterId: bodySemesterId = null } = body
+    semesterId = bodySemesterId
     const rawRows = body.rows as { email: string; name?: string; subjectCode: string; section: string }[] | undefined
     if (!rawRows || !Array.isArray(rawRows) || rawRows.length === 0) {
       return NextResponse.json({ error: "Rows array is required" }, { status: 400 })
     }
-    departmentId = body.departmentId ?? null
-    if (departmentId) {
-      const dept = await departmentRepository.findById(departmentId)
-      if (!dept) departmentId = null
+    if (bodyDeptId) {
+      const dept = await departmentRepository.findById(bodyDeptId)
+      if (dept) departmentId = bodyDeptId
     }
     importRows = rawRows.map((r) => {
       const idx = (r.section || "").indexOf("-")
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
     parseErrors = parsed.errors
   }
 
-  const result = await importStudents(importRows, departmentId)
+  const result = await importStudents(importRows, departmentId, semesterId)
   result.parseErrors = parseErrors
 
   await logAuditEvent({

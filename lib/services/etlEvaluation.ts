@@ -119,6 +119,7 @@ export function parseFacultySubjectCsv(text: string): {
 export async function importFacultySubjects(
   rows: FacultySubjectCsvRow[],
   departmentId?: string | null,
+  semesterId?: string | null,
 ): Promise<FacultySubjectImportResult> {
   const result: FacultySubjectImportResult = {
     matched: 0,
@@ -168,7 +169,7 @@ export async function importFacultySubjects(
   }
 
   // ── Build mappings ──
-  const fsItems: { faculty_id: string; subject_id: string; section_id: string }[] = []
+  const fsItems: { faculty_id: string; subject_id: string; section_id: string; semesterId?: string | null }[] = []
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
     const rowNum = i + 1
@@ -192,19 +193,25 @@ export async function importFacultySubjects(
       continue
     }
 
-    fsItems.push({ faculty_id: user.id, subject_id: subject.id, section_id: section.id })
+    fsItems.push({ faculty_id: user.id, subject_id: subject.id, section_id: section.id, semesterId })
     result.matched++
   }
 
   // ── Group by section and replace ──
-  const bySection = new Map<string, { faculty_id: string; subject_id: string }[]>()
+  const bySection = new Map<string, { faculty_id: string; subject_id: string; semesterId?: string | null }[]>()
   for (const item of fsItems) {
     if (!bySection.has(item.section_id)) bySection.set(item.section_id, [])
-    bySection.get(item.section_id)!.push({ faculty_id: item.faculty_id, subject_id: item.subject_id })
+    bySection.get(item.section_id)!.push({ faculty_id: item.faculty_id, subject_id: item.subject_id, semesterId: item.semesterId })
   }
 
   for (const [section_id, items] of bySection) {
-    await facultySubjectRepository.replaceBySection(section_id, items)
+    const seen = new Set<string>()
+    const unique = items.filter((item) => {
+      if (seen.has(item.subject_id)) return false
+      seen.add(item.subject_id)
+      return true
+    })
+    await facultySubjectRepository.replaceBySection(section_id, unique)
   }
 
   return result
@@ -293,6 +300,7 @@ export function parseStudentEnrollmentCsv(text: string): {
 
 export async function importStudentEnrollments(
   rows: StudentEnrollmentCsvRow[],
+  semesterId: string | null,
 ): Promise<StudentEnrollmentImportResult> {
   const result: StudentEnrollmentImportResult = {
     matched: 0,
@@ -334,7 +342,7 @@ export async function importStudentEnrollments(
   }
 
   // ── Build enrollment items ──
-  const enrollmentItems: { student_id: string; section_id: string }[] = []
+  const enrollmentItems: { student_id: string; section_id: string; semesterId?: string | null }[] = []
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
     const rowNum = i + 1
@@ -352,19 +360,25 @@ export async function importStudentEnrollments(
       continue
     }
 
-    enrollmentItems.push({ student_id: user.id, section_id: section.id })
+    enrollmentItems.push({ student_id: user.id, section_id: section.id, semesterId })
     result.matched++
   }
 
   // ── Group by section and replace ──
-  const bySection = new Map<string, { student_id: string }[]>()
+  const bySection = new Map<string, { student_id: string; semesterId?: string | null }[]>()
   for (const item of enrollmentItems) {
     if (!bySection.has(item.section_id)) bySection.set(item.section_id, [])
-    bySection.get(item.section_id)!.push({ student_id: item.student_id })
+    bySection.get(item.section_id)!.push({ student_id: item.student_id, semesterId: item.semesterId })
   }
 
   for (const [section_id, items] of bySection) {
-    await studentEnrollmentRepository.replaceBySection(section_id, items)
+    const seen = new Set<string>()
+    const unique = items.filter((item) => {
+      if (seen.has(item.student_id)) return false
+      seen.add(item.student_id)
+      return true
+    })
+    await studentEnrollmentRepository.replaceBySection(section_id, unique)
   }
 
   return result

@@ -67,7 +67,7 @@ function parseClientCsv(text: string): { rows: FacultyCsvRow[]; error?: string }
 
 const PREVIEW_PAGE_SIZE = 50
 
-export default function BulkFacultyImport({ departmentId }: { departmentId?: string | null }) {
+export default function BulkFacultyImport({ departmentId, semesterId }: { departmentId?: string | null; semesterId?: string | null }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [previewRows, setPreviewRows] = useState<FacultyCsvRow[] | null>(null)
   const [previewPage, setPreviewPage] = useState(0)
@@ -123,6 +123,7 @@ export default function BulkFacultyImport({ departmentId }: { departmentId?: str
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           departmentId,
+          semesterId,
           rows: previewRows.map((r) => ({
             email: r.email,
             name: r.name,

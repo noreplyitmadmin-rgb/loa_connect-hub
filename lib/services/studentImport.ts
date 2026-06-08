@@ -87,6 +87,7 @@ export function parseStudentCsv(text: string): {
 export async function importStudents(
   rows: StudentCsvRow[],
   departmentId: string | null,
+  semesterId: string | null,
 ): Promise<StudentImportResult> {
   const failed: StudentImportResult["failed"] = []
   const created: StudentImportResult["created"] = []
@@ -128,7 +129,7 @@ export async function importStudents(
     if (s) sections.set(key, s)
   }
 
-  const toEnroll: { student_id: string; section_id: string }[] = []
+  const toEnroll: { student_id: string; section_id: string; semesterId?: string | null }[] = []
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]
@@ -147,7 +148,7 @@ export async function importStudents(
     const mapping = await facultySubjectRepository.findBySubjectAndSection(subject.id, section.id)
     if (!mapping) { failed.push({ row: rowNum, email: r.email, subjectCode: r.subjectCode, section: sectionLabel, remark: `No faculty assigned to ${r.subjectCode} in ${sectionLabel}` }); continue }
 
-    toEnroll.push({ student_id: user.id, section_id: section.id })
+    toEnroll.push({ student_id: user.id, section_id: section.id, semesterId })
     enrolled++
   }
 
