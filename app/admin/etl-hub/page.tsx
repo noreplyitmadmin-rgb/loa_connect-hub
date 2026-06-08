@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import BulkStudentImport from "@/features/users/components/bulk-import/BulkStudentImport"
 import BulkFacultyImport from "@/features/users/components/bulk-import/BulkFacultyImport"
+import Skeleton, { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
 
 interface MappedFaculty {
   id: string
@@ -97,8 +98,14 @@ function ViewMappings() {
       {error && <p className="text-xs font-medium text-red-600 mb-3">{error}</p>}
 
       {loading && !facultyData ? (
-        <div className="flex items-center justify-center py-10">
-          <div className="w-6 h-6 border-2 border-gold-600 border-t-transparent rounded-full animate-spin" />
+        <div className="space-y-4">
+          <SkeletonMetricGrid count={4} />
+          <div className="flex gap-1 border-b border-default pb-2">
+            <Skeleton variant="badge" className="h-6 w-32" />
+            <Skeleton variant="badge" className="h-6 w-32" />
+          </div>
+          <Skeleton variant="text" className="max-w-xs h-8 rounded-lg" />
+          <SkeletonTable rows={8} cols={5} />
         </div>
       ) : (
         <>
@@ -326,8 +333,10 @@ export default function EtlHubPage() {
   const [deptId, setDeptId] = useState("")
   const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [resetMessage, setResetMessage] = useState("")
+  const [deptLoading, setDeptLoading] = useState(true)
 
   useEffect(() => {
+    setDeptLoading(true)
     fetch("/api/admin/departments")
       .then((r) => r.json())
       .then((data) => {
@@ -336,6 +345,7 @@ export default function EtlHubPage() {
         if (list.length === 1) setDeptId(list[0].id)
       })
       .catch(() => {})
+      .finally(() => setDeptLoading(false))
   }, [])
 
   async function handleReset() {
@@ -377,16 +387,20 @@ export default function EtlHubPage() {
 
         <div className="mt-4 mb-4 flex items-center gap-3">
           <label className="text-xs font-semibold text-secondary shrink-0">Department</label>
-          <select
-            value={deptId}
-            onChange={(e) => setDeptId(e.target.value)}
-            className="w-full max-w-xs text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
-          >
-            <option value="">Select department...</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
+          {deptLoading ? (
+            <Skeleton variant="text" className="w-48 h-9 rounded-lg" />
+          ) : (
+            <select
+              value={deptId}
+              onChange={(e) => setDeptId(e.target.value)}
+              className="w-full max-w-xs text-xs px-3 py-2 rounded-lg border border-default bg-surface-hover focus:border-gold-500 outline-none transition-colors"
+            >
+              <option value="">Select department...</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {deptId ? (
