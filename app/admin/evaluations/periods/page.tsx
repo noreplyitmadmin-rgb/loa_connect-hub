@@ -105,7 +105,7 @@ export default function AdminEvaluationPeriodsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-primary">Evaluation Periods</h1>
           <p className="text-xs sm:text-sm text-tertiary mt-0.5 sm:mt-1">
-            Evaluation periods are created via <strong>Semesters</strong>. Use this page to set date ranges and activate a period.
+            Evaluation periods are created via <strong>Semesters</strong>. This page lets you set start and end dates for each period and activate one period to mark it as current. Only one period can be active at a time. Use the actions below to edit dates or activate a period.
           </p>
         </div>
       </div>
