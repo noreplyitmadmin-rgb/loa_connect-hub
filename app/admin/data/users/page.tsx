@@ -323,11 +323,13 @@ export default function AdminUsersPage() {
           <option value="activated">Activated</option>
           <option value="pending">Pending</option>
         </select>
-        <label className="relative inline-flex items-center cursor-pointer" title="Exclude students from view">
-          <input type="checkbox" checked={excludeStudents} onChange={(e) => setExcludeStudents(e.target.checked)} className="sr-only peer" />
-          <div className="w-10 h-6 rounded-full bg-gray-200 peer-checked:bg-indigo-600 transition-colors" />
-          <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white peer-checked:translate-x-4 transition-transform" />
-          <span className="ml-3 text-xs">Exclude Students</span>
+        <label className="flex items-center gap-2 text-xs" title="Exclude students from view">
+          <div className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={excludeStudents} onChange={(e) => setExcludeStudents(e.target.checked)} className="sr-only peer" />
+            <div className="w-10 h-6 rounded-full bg-gray-200 peer-checked:bg-indigo-600 transition-colors" />
+            <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white peer-checked:translate-x-4 transition-transform" />
+          </div>
+          Exclude Students
         </label>
         
       </div>
