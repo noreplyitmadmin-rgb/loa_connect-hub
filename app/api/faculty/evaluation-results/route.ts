@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { getFacultyEvaluationResult } from "@/features/evaluation-results/evaluation-results.service"
+import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const userId = (session.user as Record<string, unknown>).id as string
     if (!periodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
-    const result = await getFacultyEvaluationResult(periodId, userId)
+    const result = await evaluationResultRepository.findByFaculty(periodId, userId)
     if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json({ result })
   } catch {

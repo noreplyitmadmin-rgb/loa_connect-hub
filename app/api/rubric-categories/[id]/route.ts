@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { deleteRubricCategory } from "@/features/rubrics/rubrics.service"
+import { rubricRepository } from "@/lib/repositories/factory"
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -11,7 +11,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params
   try {
-    await deleteRubricCategory(id)
+    await rubricRepository.deleteCategory(id)
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: "Failed to delete rubric category" }, { status: 500 })

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { getFacultyEvaluationResult } from "@/features/evaluation-results/evaluation-results.service"
+import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -8,7 +8,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   try {
     const { id } = await params
-    const result = await getFacultyEvaluationResult(id, (session.user as Record<string, unknown>).id as string)
+    const result = await evaluationResultRepository.findByFaculty(id, (session.user as Record<string, unknown>).id as string)
     if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json({ result })
   } catch {

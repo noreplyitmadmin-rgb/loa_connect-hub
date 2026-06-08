@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { recomputeAllResults } from "@/features/evaluation-results/evaluation-results.service"
+import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const { periodId } = await request.json()
-    await recomputeAllResults(periodId)
+    await evaluationResultRepository.computeAll(periodId)
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: "Failed to recompute results" }, { status: 500 })

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { getEvaluationResults } from "@/features/evaluation-results/evaluation-results.service"
+import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const userId = (session.user as Record<string, unknown>).id as string
     if (!periodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
-    const results = await getEvaluationResults(periodId, { departmentId: userId })
+    const results = await evaluationResultRepository.list(periodId, { departmentId: userId })
     return NextResponse.json({ results })
   } catch {
     return NextResponse.json({ error: "Failed to fetch evaluation results" }, { status: 500 })

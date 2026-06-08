@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { computeEvaluationResults } from "@/features/evaluation-results/evaluation-results.service"
+import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const { periodId, facultyId } = await request.json()
-    await computeEvaluationResults(periodId, facultyId)
+    await evaluationResultRepository.compute(periodId, facultyId)
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: "Failed to compute results" }, { status: 500 })
