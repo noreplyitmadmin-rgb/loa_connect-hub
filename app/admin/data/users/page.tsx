@@ -46,7 +46,7 @@ export default function AdminUsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [deptFilter, setDeptFilter] = useState("all")
+  const [excludeStudents, setExcludeStudents] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
   const [changingRole, setChangingRole] = useState<string | null>(null)
@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
   const filtered = useMemo(() => {
     return users.filter((u) => {
       if (roleFilter !== "all" && !hasRole(u.role, roleFilter)) return false
-      if (deptFilter !== "all" && u.departmentId !== deptFilter) return false
+  if (excludeStudents && hasRole(u.role, "STUDENT")) return false
       if (statusFilter === "active" && u.isDisabled) return false
       if (statusFilter === "disabled" && !u.isDisabled) return false
       if (statusFilter === "activated" && !u.hasLoggedInBefore) return false
@@ -299,27 +299,24 @@ export default function AdminUsersPage() {
             className="input text-xs pl-9 w-full"
           />
         </div>
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
+        {/* <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Roles</option>
           <option value="ADMIN">Admin</option>
           <option value="DEAN">Dean</option>
           <option value="FACULTY">Faculty</option>
           <option value="STUDENT">Student</option>
           <option value="GUEST">Guest</option>
-        </select>
+        </select> */}
         <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Departments</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="disabled">Disabled</option>
-          <option value="activated">Activated</option>
-          <option value="pending">Pending</option>
-        </select>
+        <label className="flex items-center gap-2 text-xs" title="Exclude students from view">
+          <input type="checkbox" checked={excludeStudents} onChange={(e) => setExcludeStudents(e.target.checked)} className="checkbox" />
+          Exclude Students
+        </label>
       </div>
 
       {/* Empty state */}
