@@ -26,14 +26,18 @@ export async function GET() {
 
     const { data: facultyUsers } = await supabase
       .from("users")
-      .select("id, name")
+      .select("id, name, email")
       .in("id", facultyIds)
-    const nameMap = new Map((facultyUsers || []).map((u) => [u.id, u.name]))
+    const facultyMap = new Map((facultyUsers || []).map((u) => [u.id, u]))
 
-    const result = pending.map((p) => ({
-      evaluateeId: p.evaluateeId,
-      evaluateeName: nameMap.get(p.evaluateeId) || "Unknown",
-    }))
+    const result = pending.map((p) => {
+      const f = facultyMap.get(p.evaluateeId)
+      return {
+        evaluateeId: p.evaluateeId,
+        evaluateeName: f?.name || "Unknown",
+        evaluateeEmail: f?.email || "",
+      }
+    })
 
     return NextResponse.json({ pending: result })
   } catch {
