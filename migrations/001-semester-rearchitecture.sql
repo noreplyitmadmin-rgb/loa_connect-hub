@@ -56,33 +56,6 @@ BEGIN
 END $$;
 
 -- =========================================================
--- Step 2A: Seed default semester
--- =========================================================
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM semesters
-  ) THEN
-    INSERT INTO semesters (
-      id,
-      title,
-      "evalStartDate",
-      "evalEndDate",
-      "isActive"
-    )
-    VALUES (
-      gen_random_uuid()::TEXT,
-      'System Default Semester',
-      CURRENT_DATE,
-      CURRENT_DATE + INTERVAL '180 days',
-      TRUE
-    );
-  END IF;
-END $$;
-
--- =========================================================
 -- Step 3: Add semesterId to faculty_subjects
 -- =========================================================
 

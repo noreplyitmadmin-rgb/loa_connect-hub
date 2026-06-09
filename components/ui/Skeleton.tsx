@@ -22,7 +22,7 @@ const variants: Record<SkeletonVariant, string> = {
 export default function Skeleton({ variant = "text", className = "", count = 1 }: SkeletonProps) {
   const v = variants[variant]
   return (
-    <>
+    <div>
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -30,7 +30,7 @@ export default function Skeleton({ variant = "text", className = "", count = 1 }
           aria-hidden="true"
         />
       ))}
-    </>
+    </div>
   )
 }
 
