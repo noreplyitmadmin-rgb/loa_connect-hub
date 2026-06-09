@@ -64,14 +64,13 @@ export default function AdminSemestersPage() {
   }
 
   const handleUpdate = async (id: string) => {
-    if (!editTitle || !editStartDate) return
+    if (!editTitle) return
     setSaving(true); setError("")
     try {
-      console.log({ id, editTitle, editIsActive, editStartDate, editEndDate })
       const res = await fetch(`/api/semesters/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle, isActive: editIsActive, evalStartDate: editStartDate, evalEndDate: editEndDate || null }),
+        body: JSON.stringify({ title: editTitle, isActive: editIsActive }),
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
       setEditingId(null)

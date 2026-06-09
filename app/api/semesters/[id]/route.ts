@@ -58,13 +58,13 @@ export async function PATCH(
 
   try {
     const body = await request.json()
-    const { title, evalStartDate, evalEndDate } = body
+    const { title, isActive } = body
     
-    if (!title || !evalStartDate) {
-        return NextResponse.json({ error: "Missing required fields: Title and Evaluation Start Date are mandatory." }, { status: 400 })
+    if (!title) {
+        return NextResponse.json({ error: "Title is required." }, { status: 400 })
     }
 
-    const updatedSemester = await updateSemester(id, { title, evalStartDate, evalEndDate })
+    const updatedSemester = await updateSemester(id, { title, isActive })
     return NextResponse.json({ data: updatedSemester }, { status: 200 })
   } catch (error) {
     console.error("Error updating semester", error)

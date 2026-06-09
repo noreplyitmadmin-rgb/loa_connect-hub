@@ -6,7 +6,7 @@ interface UserItem {
   id: string
   name: string
   email: string
-}
+  }
 
 interface UserSearchSelectProps {
   userRole: string
@@ -70,6 +70,10 @@ export default function UserSearchSelect({
     if (userRole === "STUDENT") {
       filtered = filtered.filter((u) => u.email.trim().endsWith("@lyceumalabang.edu.ph"))
     }
+
+    filtered = filtered.filter((u) => !u.name.toLowerCase().includes("admin"))
+
+
     return filtered.sort((a, b) => {
       const aNameStarts = a.name.toLowerCase().startsWith(q)
       const bNameStarts = b.name.toLowerCase().startsWith(q)

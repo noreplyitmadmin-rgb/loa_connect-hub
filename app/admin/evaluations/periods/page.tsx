@@ -55,6 +55,25 @@ export default function AdminEvaluationPeriodsPage() {
     }
   }
 
+  const handleEndPeriod = async (id: string) => {
+    setSaving(true); setError("")
+    try {
+      const today = new Date().toISOString().split("T")[0]
+      const res = await fetch(`/api/admin/evaluation-periods/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evalEndDate: today }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
+      showSuccessMessage("Period ended!")
+      invalidate("/api/admin/evaluation-periods")
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleActivate = async (id: string) => {
     setActivatingId(id)
     try {
@@ -173,7 +192,7 @@ export default function AdminEvaluationPeriodsPage() {
                     <th className="px-6 py-3">Start Date</th>
                     <th className="px-6 py-3">End Date</th>
                     <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3 w-40">Actions</th>
+                    <th className="px-6 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -185,32 +204,32 @@ export default function AdminEvaluationPeriodsPage() {
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${isPeriodActive(period)
-                              ? "bg-green-50 text-green-600 border border-green-200"
-                              : "bg-red-50 text-red-600 border border-red-200"
+                            ? "bg-green-50 text-green-600 border border-green-200"
+                            : "bg-red-50 text-red-600 border border-red-200"
                             }`}
                         >
                           {period.isActive ? "Active" : "Inactive"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 space-x-3">
-                        <button
+                      <td className="px-6 py-4 space-x-3 text-center">
+
+                        <SubmitButton
                           onClick={() => setEditingId(period.id)}
-                          className="text-xs font-bold text-amber-500 hover:text-amber-700"
+                          variant="primary"
+                          className="text-[10px] font-semibold px-2 py-1 rounded-lg"
                         >
                           Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (!isPeriodActive(period)) {
-                              handleActivate(period.id)
-                            }
-                          }}
-                          className={`text-xs font-bold ${!isPeriodActive(period) ? "text-green-600 hover:text-green-800" : "text-gray-400 cursor-default"
-                            }`}
-                          disabled={isPeriodActive(period) && activatingId !== period.id}
-                        >
-                          {isPeriodActive(period) ? "Active" : "Activate"}
-                        </button>
+                        </SubmitButton>
+
+                        {period.isActive && (
+                          <SubmitButton
+                            onClick={() => handleEndPeriod(period.id)}
+                            variant="danger"
+                            className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                          >
+                            End Evaluation Period
+                          </SubmitButton>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -246,18 +265,16 @@ export default function AdminEvaluationPeriodsPage() {
                         Edit
                       </SubmitButton>
 
-                      <button
-                        onClick={() => {
-                          if (!isActive) {
-                            handleActivate(period.id)
-                          }
-                        }}
-                        className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${!isActive ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-gray-100 text-gray-500 cursor-not-allowed"
-                          }`}
-                        disabled={isActive && activatingId !== period.id}
-                      >
-                        {isActive ? "Active" : "Activate"}
-                      </button>
+                      {isActive && (
+                        <SubmitButton
+                          onClick={() => handleEndPeriod(period.id)}
+                          variant="danger"
+                          className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                        >
+                          End Evaluation Period
+                        </SubmitButton>
+                      )}
+
                     </div>
                   </div>
                 )

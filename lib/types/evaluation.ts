@@ -112,7 +112,7 @@ export interface SemesterData {
 
 export interface CreateSemesterInput {
   title: string
-  evalStartDate: string
+  evalStartDate?: string | null
   evalEndDate?: string | null
 }
 

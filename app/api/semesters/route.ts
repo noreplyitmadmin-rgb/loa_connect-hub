@@ -23,13 +23,13 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { title, evalStartDate, evalEndDate = null } = body
+    const { title } = body
     
-    if (!title || !evalStartDate) {
-      return NextResponse.json({ error: "Missing required fields: Title and Evaluation Start Date are mandatory." }, { status: 400 })
+    if (!title) {
+      return NextResponse.json({ error: "Title is required." }, { status: 400 })
     }
 
-    const semester = await createSemester({ title, evalStartDate, evalEndDate })
+    const semester = await createSemester({ title })
     return NextResponse.json({ data: semester }, { status: 201 })
   } catch (error) {
     console.error("Error creating semester", error)

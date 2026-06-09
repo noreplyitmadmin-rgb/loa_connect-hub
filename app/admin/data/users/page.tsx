@@ -302,14 +302,6 @@ export default function AdminUsersPage() {
             className="input text-xs pl-9 w-full"
           />
         </div>
-        {/* <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
-          <option value="all">All Roles</option>
-          <option value="ADMIN">Admin</option>
-          <option value="DEAN">Dean</option>
-          <option value="FACULTY">Faculty</option>
-          <option value="STUDENT">Student</option>
-          <option value="GUEST">Guest</option>
-        </select> */}
         <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Departments</option>
           {departments.map((d) => (
@@ -318,16 +310,18 @@ export default function AdminUsersPage() {
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs py-1.5 w-full sm:w-auto">
           <option value="all">All Status</option>
-          <option value="active">Active</option>
+          {/* <option value="active">Active</option> */}
           <option value="disabled">Disabled</option>
           <option value="activated">Activated</option>
           <option value="pending">Pending</option>
         </select>
-        <label className="relative inline-flex items-center cursor-pointer" title="Exclude students from view">
-          <input type="checkbox" checked={excludeStudents} onChange={(e) => setExcludeStudents(e.target.checked)} className="sr-only peer" />
-          <div className="w-10 h-6 rounded-full bg-gray-200 peer-checked:bg-indigo-600 transition-colors" />
-          <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white peer-checked:translate-x-4 transition-transform" />
-          <span className="ml-3 text-xs">Exclude Students</span>
+        <label className="flex items-center gap-2 text-xs" title="Exclude students from view">
+          <div className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={excludeStudents} onChange={(e) => setExcludeStudents(e.target.checked)} className="sr-only peer" />
+            <div className="w-10 h-6 rounded-full bg-gray-200 peer-checked:bg-[var(--color-brand-600)] transition-colors" />
+            <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white peer-checked:translate-x-4 transition-transform" />
+          </div>
+          Exclude Students
         </label>
         
       </div>
@@ -338,18 +332,18 @@ export default function AdminUsersPage() {
       ) : (
         <>
           {/* Desktop table */}
-          <div className="desktop-only overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
+            <table className="w-full text-[11px]">
               <thead>
-                <tr className="border-b border-default text-left text-[10px] font-bold text-tertiary uppercase tracking-wider">
-                  <th className="pb-3 pr-4">User</th>
-                  <th className="pb-3 pr-4">Role</th>
-                  <th className="pb-3 pr-4">Department</th>
-                  <th className="pb-3 pr-4">Status</th>
-                  <th className="pb-3 pr-4">Registered</th>
-                  <th className="pb-3 pr-4">Activated</th>
-                  <th className="pb-3 pr-4">Last Login</th>
-                  <th className="pb-3 pr-4">Actions</th>
+                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
+                  <th className="p-2">User</th>
+                  <th className="p-2">Role</th>
+                  <th className="p-2">Department</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2">Registered</th>
+                  <th className="p-2">Activated</th>
+                  <th className="p-2">Last Login</th>
+                  <th className="p-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,15 +351,15 @@ export default function AdminUsersPage() {
                   const currentRoles = VALID_ROLES.filter((vr) => hasRole(u.role, vr))
                   const hasStudent = currentRoles.includes("STUDENT")
                   const hasNonStudent = currentRoles.some((r) => r !== "STUDENT" && r !== "GUEST" && STUDENT_BLOCKED.has(r))
-                  const isDefaultAdmin = u.email === "admin@lyceumalabang.edu.ph"
+                  const isDefaultAdmin = u.email === "admin@lyceumalabang.ph"
 
                   return (
-                    <tr key={u.id} className="border-b border-default">
-                      <td className="py-3 pr-4">
+                    <tr key={u.id} className="border-b border-default hover:bg-surface-hover">
+                      <td className="p-2">
                         <p className="text-primary font-medium">{u.name}</p>
                         <p className="text-tertiary text-xs">{u.email}</p>
                       </td>
-                      <td className="py-3 pr-4 relative">
+                      <td className="p-2 relative">
                         <button
                           onClick={() => !isDefaultAdmin && setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
                           disabled={changingRole === u.id || isDefaultAdmin}
@@ -421,28 +415,28 @@ export default function AdminUsersPage() {
                           </div>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-xs text-tertiary">
+                      <td className="p-2 text-xs text-tertiary">
                         {u.departmentId ? deptMap[u.departmentId] || "—" : "—"}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="p-2">
                         {u.isDisabled ? (
                           <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Disabled</span>
                         ) : (
                           <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-tertiary text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>
-                      <td className="py-3 pr-4">
+                      <td className="p-2 text-tertiary text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>
+                      <td className="p-2">
                         {u.hasLoggedInBefore ? (
                           <span className="text-xs text-emerald-600">Yes</span>
                         ) : (
                           <span className="text-xs text-amber-600">Pending</span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-tertiary text-xs">
+                      <td className="p-2 text-tertiary text-xs">
                         {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "—"}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="p-2">
                         {isDefaultAdmin ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-lg bg-surface text-tertiary border border-default">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
