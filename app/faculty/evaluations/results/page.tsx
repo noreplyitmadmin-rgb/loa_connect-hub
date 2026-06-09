@@ -55,13 +55,13 @@ export default function FacultyEvaluationResultsPage() {
   const categories = result
     ? [
         { label: "Professional Manner", score: result.professionalManner },
-        { label: "Communication w/ Students", score: result.communicationWithStudent },
+        { label: "Communication with Students", score: result.communicationWithStudent },
         { label: "Student Engagement", score: result.studentEngagement },
         { label: "Learning Materials", score: result.learningMaterials },
         { label: "Time Management", score: result.timeManagement },
         { label: "Experiential Learning", score: result.experientialLearning },
         { label: "Respect for Uniqueness", score: result.respectUniqueness },
-        { label: "Assessment & Feedback", score: result.assessmentAndFeedback },
+        { label: "Assessment and Feedback", score: result.assessmentAndFeedback },
       ].filter((c) => c.score !== null)
     : []
 

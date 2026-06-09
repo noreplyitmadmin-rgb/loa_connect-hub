@@ -81,13 +81,13 @@ export default function AdminEvaluationResultsPage() {
           {results.map((r) => {
             const categories = [
               { label: "Professional Manner", score: r.professionalManner },
-              { label: "Communication w/ Students", score: r.communicationWithStudent },
+              { label: "Communication with Students", score: r.communicationWithStudent },
               { label: "Student Engagement", score: r.studentEngagement },
               { label: "Learning Materials", score: r.learningMaterials },
               { label: "Time Management", score: r.timeManagement },
               { label: "Experiential Learning", score: r.experientialLearning },
               { label: "Respect for Uniqueness", score: r.respectUniqueness },
-              { label: "Assessment & Feedback", score: r.assessmentAndFeedback },
+              { label: "Assessment and Feedback", score: r.assessmentAndFeedback },
             ].filter((c) => c.score !== null)
             return (
               <FacultyResultCard
