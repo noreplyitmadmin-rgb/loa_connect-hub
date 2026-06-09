@@ -18,12 +18,14 @@ const PAGE_ACCESS: Record<string, string[]> = {
     "/", "/admin", "/admin/data-management", "/admin/users", "/admin/users/deleted",
     "/admin/access-config", "/admin/departments", "/admin/reports",
     "/admin/reports/health", "/admin/reports/demand", "/admin/reports/responsiveness",
-    "/admin/reports/backlog", "/admin/etl-hub", "/admin/evaluations",
+    "/admin/reports/backlog", "/admin/reports/evaluation-results",
+    "/admin/etl-hub", "/admin/evaluations",
     "/admin/evaluations/periods", "/admin/evaluations/periods/new",
-    "/admin/evaluations/results", "/faq",
+    "/faq",
   ],
   DEAN: [
-    "/", "/dean", "/dean/upload", "/dean/departments", "/dean/evaluations/results",
+    "/", "/dean", "/dean/upload", "/dean/departments",
+    "/dean/reports", "/dean/reports/evaluation-results",
     "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/faq",
   ],
   FACULTY: [

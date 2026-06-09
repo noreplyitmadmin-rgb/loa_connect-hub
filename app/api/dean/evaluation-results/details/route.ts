@@ -6,7 +6,9 @@ import { getStudentBreakdownsForFaculty } from "@/features/evaluation-results/ev
 
 export async function GET(request: Request) {
   const session = await auth()
-  if (!session?.user || !hasRole((session.user as Record<string, unknown>).role as string, "DEAN")) {
+  if (!session?.user) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const role = (session.user as Record<string, unknown>).role as string
+  if (!hasRole(role, "DEAN") && !hasRole(role, "ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -14,13 +16,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const periodId = searchParams.get("periodId")
     const facultyId = searchParams.get("facultyId")
-    const userId = (session.user as Record<string, unknown>).id as string
     if (!periodId || !facultyId) {
       return NextResponse.json({ error: "periodId and facultyId are required" }, { status: 400 })
     }
 
-    const dept = await departmentRepository.findByDeanId(userId)
-    if (!dept) return NextResponse.json({ students: [] })
+    if (hasRole(role, "DEAN")) {
+      const userId = (session.user as Record<string, unknown>).id as string
+      const dept = await departmentRepository.findByDeanId(userId)
+      if (!dept) return NextResponse.json({ students: [] })
+    }
 
     const students = await getStudentBreakdownsForFaculty(periodId, facultyId)
     const anonymized = students.map((s, i) => ({

@@ -2,11 +2,11 @@
 
 import EvaluationDashboard from "@/features/evaluations/components/EvaluationDashboard"
 
-export default function DeanEvaluationResultsPage() {
+export default function DeanEvalResultsReports() {
   return (
     <EvaluationDashboard
       apiBase="/api/dean/evaluation-results"
-      title="Evaluation Dashboard"
+      title="Evaluation Results"
       subtitle="Department results overview"
     />
   )

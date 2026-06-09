@@ -2,7 +2,7 @@
 
 import EvaluationDashboard from "@/features/evaluations/components/EvaluationDashboard"
 
-export default function AdminEvaluationResultsPage() {
+export default function AdminEvalResultsReports() {
   return (
     <EvaluationDashboard
       apiBase="/api/admin/evaluation-results"

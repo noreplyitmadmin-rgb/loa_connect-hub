@@ -4,7 +4,7 @@ import Providers from "@/components/Providers"
 import AppShell from "@/components/AppShell"
 
 export const metadata: Metadata = {
-  title: "E-Consultation",
+  title: "LOA Connect Hub",
   description: "Academic e-Consultation booking system",
   other: {
     "apple-mobile-web-app-capable": "yes",
