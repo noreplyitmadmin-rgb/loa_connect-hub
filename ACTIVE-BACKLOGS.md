@@ -125,6 +125,45 @@ Each calls hasPageAccess() and redirects to /403 on failure.
 
 ---
 
+## 2. Evaluation Results Route Migration — Old Paths Removed
+
+### What Changed
+
+The evaluation results pages were moved from `/admin/evaluations/results` and `/dean/evaluations/results` to live under **Reports**: `/admin/reports/evaluation-results` and `/dean/reports/evaluation-results`.
+
+### Proxy Access
+
+- **Removed** from `proxy.ts` `PAGE_ACCESS`:
+  - `"/admin/evaluations/results"` (ADMIN list)
+  - `"/dean/evaluations/results"` (DEAN list)
+- **Added** to `proxy.ts` `PAGE_ACCESS`:
+  - `"/admin/reports/evaluation-results"` (ADMIN list)
+  - `"/dean/reports"` + `"/dean/reports/evaluation-results"` (DEAN list)
+
+### Stale Items That Still Reference Old Paths
+
+These need updating but haven't been done yet:
+
+| Location | Old Path | Action Needed |
+|----------|----------|---------------|
+| `lib/access.ts` `DEFAULT_CONFIG.ADMIN` | `"/admin/evaluations/results"` | Replace with `"/admin/reports/evaluation-results"` |
+| `lib/access.ts` `DEFAULT_CONFIG.DEAN` | `"/dean/evaluations/results"` | Replace with `"/dean/reports/evaluation-results"` (and add `"/dean/reports"` prefix) |
+| `components/layouts/Sidebar.tsx` — `evaluationChildren` | `"/admin/evaluations/results"` (label: "All Results") | Move to `reportChildren` or remove |
+| `components/layouts/Sidebar.tsx` — `evaluationChildren` | `"/dean/evaluations/results"` (label: "Department Results") | Move to a dean `reportChildren` or remove |
+| `components/layouts/Sidebar.tsx` — `reportChildren` | Missing new path | Add `"/admin/reports/evaluation-results"` entry |
+| DB `group_access` table | `"/admin/evaluations/results"` | Update via admin UI or seed data |
+
+### Implementation Checklist
+
+- [x] Create `/admin/reports/evaluation-results/page.tsx`
+- [x] Create `/dean/reports/evaluation-results/page.tsx`
+- [x] Update `proxy.ts` `PAGE_ACCESS` for both roles
+- [x] Update `lib/access.ts` `DEFAULT_CONFIG` — replace old paths with new
+- [x] Update sidebar navigation — move links under Reports accordion
+- [x] Update DB `group_access` rows (if present) to match
+
+---
+
 ## 3. DB `group_access` Overrides `DEFAULT_CONFIG`
 
 ### Symptom

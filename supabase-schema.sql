@@ -816,8 +816,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS "evaluationPeriodId" TEXT REFERENCES 
 -- Migration 15: Add evaluation page paths to group_access
 -- =========================================================
 
-UPDATE group_access SET pages = pages || '["/admin/evaluations","/admin/evaluations/periods","/admin/evaluations/periods/new","/admin/evaluations/results"]'::JSONB WHERE "groupName" = 'ADMIN';
-UPDATE group_access SET pages = pages || '["/dean/evaluations/results"]'::JSONB WHERE "groupName" = 'DEAN';
+-- Removed old eval results paths; replaced with reports-based paths
+-- Old: /admin/evaluations/results -> /admin/reports/evaluation-results
+-- Old: /dean/evaluations/results   -> /dean/reports + /dean/reports/evaluation-results
+UPDATE group_access SET pages = pages || '["/admin/evaluations","/admin/evaluations/periods","/admin/evaluations/periods/new"]'::JSONB WHERE "groupName" = 'ADMIN';
+UPDATE group_access SET pages = pages || '["/dean/reports","/dean/reports/evaluation-results"]'::JSONB WHERE "groupName" = 'DEAN';
 UPDATE group_access SET pages = pages || '["/faculty/evaluations/results"]'::JSONB WHERE "groupName" = 'FACULTY';
 UPDATE group_access SET pages = pages || '["/student/evaluations"]'::JSONB WHERE "groupName" = 'STUDENT';
 

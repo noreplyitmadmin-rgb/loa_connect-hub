@@ -6,10 +6,10 @@ interface GroupAccessEntry {
 
 const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
   ADMIN: {
-    pages: ["/", "/admin", "/admin/data-management", "/admin/users", "/admin/users/deleted", "/admin/access-config", "/admin/departments", "/admin/data/users", "/admin/data/subjects", "/admin/data/sections", "/admin/data/faculty-mappings", "/admin/data/student-enrollments", "/admin/data/departments", "/admin/semesters", "/admin/reports", "/admin/reports/health", "/admin/reports/demand", "/admin/reports/responsiveness", "/admin/reports/backlog", "/admin/etl-hub", "/admin/evaluations", "/admin/evaluations/periods", "/admin/evaluations/periods/new", "/admin/evaluations/results", "/faq"],
+    pages: ["/", "/admin", "/admin/data-management", "/admin/users", "/admin/users/deleted", "/admin/access-config", "/admin/departments", "/admin/data/users", "/admin/data/subjects", "/admin/data/sections", "/admin/data/faculty-mappings", "/admin/data/student-enrollments", "/admin/data/departments", "/admin/semesters", "/admin/reports", "/admin/reports/health", "/admin/reports/demand", "/admin/reports/responsiveness", "/admin/reports/backlog", "/admin/reports/evaluation-results", "/admin/etl-hub", "/admin/evaluations", "/admin/evaluations/periods", "/admin/evaluations/periods/new", "/faq"],
   },
   DEAN: {
-    pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/evaluations/results", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/faq"],
+    pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/reports", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/dean/reports/evaluation-results", "/faq"],
   },
   FACULTY: {
     pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations/results", "/faq"],

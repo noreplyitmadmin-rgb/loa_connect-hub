@@ -19,15 +19,15 @@ interface NavItem {
 const reportChildren: NavItem[] = [
   { href: "/admin/reports/health", label: "General Report", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   { href: "/admin/reports/distribution", label: "Distribution Report", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
+  { href: "/admin/reports/evaluation-results", label: "Evaluation Results", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
+  { href: "/dean/reports/evaluation-results", label: "Evaluation Results", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
 ]
 
 const evaluationChildren: NavItem[] = [
   { href: "/student/evaluations", label: "My Evaluations", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
   { href: "/faculty/evaluations/results", label: "My Results", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
-  { href: "/dean/evaluations/results", label: "Department Results", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   { href: "/admin/evaluations", label: "Evaluation Hub", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" },
   { href: "/admin/evaluations/periods", label: "Periods", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
-  { href: "/admin/evaluations/results", label: "All Results", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
 ]
 
 const dataChildren: NavItem[] = [
@@ -42,7 +42,7 @@ const dataChildren: NavItem[] = [
   { href: "/admin/data-management", label: "Export & Delete", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" },
 ]
 
-const hiddenHrefs = new Set(['/admin/reports', '/admin/evaluations'])
+const hiddenHrefs = new Set(['/admin/reports', '/admin/evaluations', '/dean/reports'])
 const reportHrefs = new Set(reportChildren.map((c) => c.href!))
 const evaluationHrefs = new Set(evaluationChildren.map((c) => c.href!))
 const dataHrefs = new Set(dataChildren.map((c) => c.href!))
@@ -110,11 +110,11 @@ export default function Sidebar() {
     [ALL_NAV_ITEMS, allowedPages, dashHref]
   )
 
-  const isInReports = pathname.startsWith("/admin/reports") || pathname.startsWith("/faculty/reports")
+  const isInReports = pathname.startsWith("/admin/reports") || pathname.startsWith("/dean/reports") || pathname.startsWith("/faculty/reports")
   const reportsVisible = reportChildren.some((c) => c.href === dashHref || (allowedPages && allowedPages.includes(c.href!)))
   const reportsOpen = expandedGroups.has("reports") || isInReports
 
-  const isInEvaluations = pathname.startsWith("/admin/evaluations") || pathname.startsWith("/dean/evaluations") || pathname.startsWith("/faculty/evaluations") || pathname.startsWith("/student/evaluations")
+  const isInEvaluations = pathname.startsWith("/admin/evaluations") || pathname.startsWith("/faculty/evaluations") || pathname.startsWith("/student/evaluations")
   const evaluationsVisible = evaluationChildren.some((c) => c.href === dashHref || (allowedPages && allowedPages.includes(c.href!)))
   const evaluationsOpen = expandedGroups.has("evaluations") || isInEvaluations
 
