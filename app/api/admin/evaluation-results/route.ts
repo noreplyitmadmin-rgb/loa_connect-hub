@@ -26,7 +26,7 @@ function getRemark(general: number | null): string | null {
 export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user || !hasRole((session.user as Record<string, unknown>).role as string, "ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return NextResponse.json({ error: "Forbidden", session: session }, { status: 403 })
   }
 
   try {

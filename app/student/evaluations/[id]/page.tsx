@@ -211,7 +211,7 @@ export default function FillEvaluationPage() {
                   onClick={() => setStep((s) => s - 1)}
                   className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold text-secondary border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dim active:bg-slate-50 dark:active:bg-slate-800 transition-colors"
                 >
-                  Back
+                  Previous
                 </button>
               )}
               <button
