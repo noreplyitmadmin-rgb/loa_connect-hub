@@ -6,7 +6,7 @@ export async function GET(
 ) {
   const { data: users, error } = await supabase
     .from('users')
-    .select('id,email,name')
+    .select('id, email, name, "departmentId", "isDisabled", "hasLoggedInBefore", "lastLoginAt", "createdAt", "onboardingVersion"')
   if (error || !users) {
     return new NextResponse(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 })
   }
@@ -27,9 +27,21 @@ export async function GET(
   }
 
   const enriched = users.map((u) => ({
-    ...u,
+    id: u.id,
+    name: u.name,
+    email: u.email,
     role: roleMap[u.id] || null,
+    departmentId: u.departmentId,
+    isDisabled: u.isDisabled,
+    hasLoggedInBefore: u.hasLoggedInBefore,
+    lastLoginAt: u.lastLoginAt,
+    createdAt: u.createdAt,
+    onboardingVersion: u.onboardingVersion,
   }))
 
-  return NextResponse.json(enriched)
+  const { data: departments } = await supabase
+    .from('departments')
+    .select('id, name, code')
+
+  return NextResponse.json({ users: enriched, departments: departments || [] })
 }
