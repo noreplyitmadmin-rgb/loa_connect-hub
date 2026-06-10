@@ -258,6 +258,7 @@ export interface IStudentEnrollmentRepository {
   replaceBySection(section_id: string, items: { student_id: string; semesterId?: string | null }[]): Promise<void>
   addEnrollments(items: { student_id: string; section_id: string; semesterId?: string | null }[]): Promise<void>
   getDistinctFaculty(student_id: string, semesterId?: string): Promise<string[]>
+  getFacultySubjectsByStudent(student_id: string, faculty_id: string, semesterId: string): Promise<{ id: string; code: string; title: string }[]>
 }
 
 export interface IRubricRepository {

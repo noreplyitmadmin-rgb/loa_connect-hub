@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Skeleton from "@/components/ui/Skeleton"
+import { SkeletonCard } from "@/components/ui/Skeleton"
 
 interface PendingItem {
   evaluateeId: string
@@ -15,6 +17,8 @@ interface ExistingEvaluation {
   evaluateeName: string
   status: string
   submittedAt: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export default function StudentEvaluationsPage() {
@@ -43,7 +47,15 @@ export default function StudentEvaluationsPage() {
   const total = pending.length + evaluations.length
   const completed = evaluations.length
 
-  if (loading) return <p className="text-sm text-tertiary text-center py-12">Loading...</p>
+  if (loading) {
+    return (
+      <div className="pb-12 px-5 pt-8">
+        <Skeleton variant="text" className="w-1/3 h-7 mb-2" />
+        <Skeleton variant="text" className="w-1/4 h-4 mb-6" />
+        <SkeletonCard count={3} />
+      </div>
+    )
+  }
 
   return (
     <div className="pb-12">
@@ -112,8 +124,9 @@ export default function StudentEvaluationsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-primary">{ev.evaluateeName}</p>
                   <p className="text-xs text-tertiary mt-0.5">
-                    {ev.status === "SUBMITTED" ? "Submitted" : "Draft"}
-                    {ev.submittedAt ? ` · ${new Date(ev.submittedAt).toLocaleDateString()}` : ""}
+                    {ev.status === "SUBMITTED"
+                      ? `Submitted · ${new Date(ev.submittedAt!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                      : `Last saved · ${new Date(ev.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
                   </p>
                 </div>
                 {ev.status === "DRAFT" && (

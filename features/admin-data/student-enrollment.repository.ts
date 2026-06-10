@@ -36,6 +36,35 @@ export const studentEnrollmentRepository: IStudentEnrollmentRepository = {
     if (insErr) throw insErr
   },
 
+  async getFacultySubjectsByStudent(student_id, faculty_id, semesterId) {
+    let q = supabase.from("student_enrollments").select("section_id").eq("student_id", student_id)
+    if (semesterId) q = q.eq("semesterId", semesterId) as typeof q
+    const { data: enrollments, error: enrollErr } = await q
+    if (enrollErr) throw enrollErr
+    if (!enrollments?.length) return []
+
+    const sectionIds = enrollments.map((r) => r.section_id)
+
+    let fsQ = supabase
+      .from("faculty_subjects")
+      .select("subject_id")
+      .eq("faculty_id", faculty_id)
+      .in("section_id", sectionIds)
+    if (semesterId) fsQ = fsQ.eq("semesterId", semesterId) as typeof fsQ
+    const { data: fs, error: fsErr } = await fsQ
+    if (fsErr) throw fsErr
+    if (!fs?.length) return []
+
+    const subjectIds = [...new Set(fs.map((r) => r.subject_id))]
+    const { data: subjects, error: subjErr } = await supabase
+      .from("subjects")
+      .select("id, code, title")
+      .in("id", subjectIds)
+    if (subjErr) throw subjErr
+
+    return (subjects || []) as { id: string; code: string; title: string }[]
+  },
+
   async getDistinctFaculty(student_id, semesterId) {
     let q = supabase.from("student_enrollments").select("section_id").eq("student_id", student_id)
     if (semesterId) q = q.eq("semesterId", semesterId) as typeof q

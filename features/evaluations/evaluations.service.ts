@@ -1,4 +1,4 @@
-import { evaluationRepository } from "@/lib/repositories/factory"
+import { evaluationRepository, studentEnrollmentRepository } from "@/lib/repositories/factory"
 
 export async function getPendingEvaluations(evaluatorId: string, semesterId: string) {
   return evaluationRepository.findPending(evaluatorId, semesterId)
@@ -36,4 +36,8 @@ export async function addEvaluationComment(evaluationId: string, comment: string
 
 export async function getEvaluationComment(evaluationId: string) {
   return evaluationRepository.getComment(evaluationId)
+}
+
+export async function getFacultySubjectsByStudent(student_id: string, faculty_id: string, semesterId: string) {
+  return studentEnrollmentRepository.getFacultySubjectsByStudent(student_id, faculty_id, semesterId)
 }

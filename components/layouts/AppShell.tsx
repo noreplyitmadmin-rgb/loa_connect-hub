@@ -8,7 +8,7 @@ import { useSidebar } from "@/lib/contexts/sidebar"
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { collapsed } = useSidebar()
+  const { collapsed, exclusive } = useSidebar()
 
   const isAuthPage =
     pathname === "/login" ||
@@ -17,7 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/change-password") ||
     pathname.startsWith("/setup-password")
 
-  if (isAuthPage) {
+  if (isAuthPage || exclusive) {
     return <>{children}</>
   }
 
