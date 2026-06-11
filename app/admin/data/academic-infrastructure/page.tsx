@@ -58,8 +58,7 @@ interface SemesterData {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const tabClass = (active: boolean) =>
-  `px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition-all ${
-    active ? "border-amber-500 text-amber-600" : "border-transparent text-tertiary hover:text-secondary"
+  `px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition-all ${active ? "border-amber-500 text-amber-600" : "border-transparent text-tertiary hover:text-secondary"
   }`
 
 const mainTabs: { key: MainTab; label: string }[] = [
@@ -734,7 +733,7 @@ function FacultyTab() {
           }
         }
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   const { data: allUsers } = useApiGet<{ users: { id: string; name: string; email: string; role: string; departmentId: string | null }[]; departments: Department[] }>("/api/admin/users")
@@ -847,11 +846,10 @@ function FacultyTab() {
                   setDeptFilter(pill.id)
                 }}
                 disabled={!isAdmin && pill.id !== currentUserDept}
-                className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                  active
+                className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${active
                     ? "bg-amber-500 text-white border-amber-500 shadow-sm"
                     : "bg-surface text-tertiary border-default hover:border-amber-300 hover:text-secondary"
-                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
                 {pill.label}
               </button>
