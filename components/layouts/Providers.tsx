@@ -6,6 +6,7 @@ import { SessionProvider } from "next-auth/react"
 import { SWRConfig } from "swr"
 import { fetcher } from "@/lib/api/client"
 import { SidebarProvider } from "@/lib/contexts/sidebar"
+import { PageTitleProvider } from "@/lib/contexts/page-title"
 
 function RefreshListener({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -22,9 +23,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <SWRConfig value={{ fetcher, revalidateOnFocus: false }}>
         <SidebarProvider>
-          <RefreshListener>
-            {children}
-          </RefreshListener>
+          <PageTitleProvider>
+            <RefreshListener>
+              {children}
+            </RefreshListener>
+          </PageTitleProvider>
         </SidebarProvider>
       </SWRConfig>
     </SessionProvider>

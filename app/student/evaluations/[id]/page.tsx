@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useSidebar } from "@/lib/contexts/sidebar"
+import { usePageTitle } from "@/lib/contexts/page-title"
 
 interface RubricItem {
   id: string
@@ -38,7 +40,7 @@ function FacultyHeader({
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 dark:bg-black/90 backdrop-blur-lg shadow-lg">
       <div className="flex items-center justify-between px-4 sm:px-6 h-14 sm:h-16">
-        {!isSubmitted && (
+        {!isSubmitted && evaluateeName && (
           <button
             type="button"
             onClick={onExit}
@@ -85,6 +87,7 @@ export default function FillEvaluationPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const { setExclusive } = useSidebar()
+  const { setTitle } = usePageTitle()
   const [categories, setCategories] = useState<RubricCategory[]>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -103,20 +106,27 @@ export default function FillEvaluationPage() {
   const [comment, setComment] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [step, setStep] = useState(0)
+  const [mobileStepperOpen, setMobileStepperOpen] = useState(false)
   const [pledgeAgreed, setPledgeAgreed] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
   const [existingComment, setExistingComment] = useState<string | null>(null)
   const [subjects, setSubjects] = useState<SubjectData[]>([])
+  const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
     return () => setExclusive(false)
   }, [setExclusive])
 
+  useEffect(() => {
+    if (evaluateeName && isSubmitted && submittedAt) {
+      setTitle(`Evaluation Result for ${evaluateeName} — ${new Date(submittedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`)
+    } else if (evaluateeName) {
+      setTitle(evaluateeName)
+    }
+  }, [evaluateeName, isSubmitted, submittedAt, setTitle])
 
   useEffect(() => {
-    setExclusive(true)
-
     async function load() {
       try {
         const evalRes = await fetch(`/api/evaluations/${params.id}`)
@@ -128,11 +138,10 @@ export default function FillEvaluationPage() {
         setEvaluateeName(ev.evaluateeName || "Unknown")
         setEvaluationId(ev.id)
 
-        if (ev.status === "SUBMITTED") {
-          setExclusive(false)
-          setIsSubmitted(true)
-          setSubmittedAt(ev.submittedAt || null)
-        }
+        const isSubmitted = ev.status === "SUBMITTED"
+        setIsSubmitted(isSubmitted)
+        if (isSubmitted) setSubmittedAt(ev.submittedAt || null)
+        setExclusive(!isSubmitted)
 
         const ratingsRes = await fetch(`/api/evaluations/${ev.id}/ratings`)
         const ratingsData = await ratingsRes.json()
@@ -142,7 +151,7 @@ export default function FillEvaluationPage() {
           setRatings(map)
         }
 
-        if (ev.status === "SUBMITTED") {
+        if (isSubmitted) {
           const commentRes = await fetch(`/api/evaluations/${ev.id}/comments`)
           const commentData = await commentRes.json()
           if (commentData.comment) setExistingComment(commentData.comment.comment || null)
@@ -163,6 +172,14 @@ export default function FillEvaluationPage() {
     }
     load()
   }, [params.id, router, setExclusive])
+
+  useEffect(() => {
+    const el = document.querySelector("main")
+    if (!el) return
+    const handleScroll = () => setShowScrollTop(el.scrollTop > 400)
+    el.addEventListener("scroll", handleScroll, { passive: true })
+    return () => el.removeEventListener("scroll", handleScroll)
+  }, [])
 
   const handleRatingChange = useCallback((itemId: string, value: number) => {
     setRatings((prev) => ({ ...prev, [itemId]: value }))
@@ -242,7 +259,7 @@ export default function FillEvaluationPage() {
         })
       }
       await fetch(`/api/evaluations/${evaluationId}/submit`, { method: "POST" })
-      router.replace("/student/evaluations")
+      router.replace("/student/evaluations/thank-you")
     } catch {
       alert("Failed to submit evaluation")
     } finally {
@@ -263,11 +280,23 @@ export default function FillEvaluationPage() {
     const labelMap = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"]
     return (
       <div className="mx-auto max-w-5xl">
+        <Link
+          href="/student/evaluations"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 mb-6"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Evaluations
+        </Link>
+
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-primary tracking-tight">Evaluation Results</h1>
+          <h1 className="text-2xl font-bold text-primary tracking-tight">
+            Evaluation Result for <span className="text-brand-600">{evaluateeName}</span>
+          </h1>
           {submittedAt && (
             <p className="text-sm text-tertiary mt-1">
-              Submitted {new Date(submittedAt).toLocaleDateString()}
+              Submitted {new Date(submittedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </p>
           )}
         </div>
@@ -320,6 +349,19 @@ export default function FillEvaluationPage() {
             </div>
           )}
         </div>
+
+        {showScrollTop && (
+          <button
+            type="button"
+            onClick={() => document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 active:scale-95 transition-all flex items-center justify-center"
+            aria-label="Scroll to top"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+        )}
       </div>
     )
   }
@@ -330,6 +372,107 @@ export default function FillEvaluationPage() {
       <FacultyHeader evaluateeName={evaluateeName} subjects={subjects} onExit={handleExit} isSubmitted={isSubmitted} />
 
       <div className="pt-20 sm:pt-22 pb-12">
+        {/* ── Mobile progress indicator (outside flex) ── */}
+        <div className="md:hidden mx-auto max-w-5xl px-4 sm:px-8 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileStepperOpen(true)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-tertiary active:bg-surface-tertiary transition-all -ml-1"
+                aria-label="Open steps"
+              >
+                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <span className="text-xs font-semibold text-brand-600">{stepNames[step]}</span>
+            </div>
+            <span className="text-xs text-tertiary">{step + 1}/{TOTAL_STEPS}</span>
+          </div>
+          <div className="h-2 bg-surface-tertiary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* ── Mobile stepper drawer overlay ── */}
+        {mobileStepperOpen && (
+          <div className="fixed inset-0 z-[60] md:hidden">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setMobileStepperOpen(false)}
+            />
+            <div className="absolute left-0 top-0 bottom-0 w-64 bg-surface shadow-2xl animate-ios-slide-in rounded-r-3xl">
+              <div className="flex items-center justify-between px-5 h-14 border-b border-default">
+                <span className="text-sm font-bold text-primary">Steps</span>
+                <button
+                  type="button"
+                  onClick={() => setMobileStepperOpen(false)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-tertiary active:bg-surface-tertiary transition-all"
+                >
+                  <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="px-5 pt-4 pb-6 space-y-1">
+                {stepNames.map((name, i) => {
+                  const done = isStepCompleted(i)
+                  const isCurrent = i === step
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={!done || isCurrent}
+                      onClick={() => { setStep(i); setMobileStepperOpen(false) }}
+                      className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-xl transition-all ${
+                        isCurrent
+                          ? "bg-brand-50 dark:bg-brand-500/10"
+                          : done
+                            ? "active:bg-surface-tertiary"
+                            : "opacity-50"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${
+                            done
+                              ? "bg-green-500 text-white"
+                              : isCurrent
+                                ? "bg-brand-500 text-white"
+                                : "bg-surface-tertiary text-tertiary"
+                          }`}
+                        >
+                          {done ? (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            i + 1
+                          )}
+                        </div>
+                        {i < stepNames.length - 1 && (
+                          <div className={`w-0.5 h-5 ${done ? "bg-green-400" : isCurrent ? "bg-brand-300" : "bg-surface-tertiary"}`} />
+                        )}
+                      </div>
+                      <span
+                        className={`text-sm leading-snug ${
+                          isCurrent ? "text-brand-600 font-semibold" : done ? "text-primary" : "text-tertiary"
+                        }`}
+                      >
+                        {name}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mx-auto max-w-5xl flex gap-0 px-4 sm:px-8">
           {/* ── Sidebar Stepper (desktop) ── */}
           <div className="hidden md:block w-52 lg:w-60 shrink-0 -ml-4">
@@ -383,53 +526,6 @@ export default function FillEvaluationPage() {
             </div>
           </div>
 
-          {/* ── Mobile progress indicator ── */}
-          <div className="md:hidden w-full mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-brand-600">{stepNames[step]}</span>
-              <span className="text-xs text-tertiary">{step + 1}/{TOTAL_STEPS}</span>
-            </div>
-            <div className="h-2 bg-surface-tertiary rounded-full overflow-hidden mb-3">
-              <div
-                className="h-full bg-brand-500 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
-              />
-            </div>
-            <div className="flex items-center gap-0 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-none">
-              {stepNames.map((name, i) => {
-                const done = isStepCompleted(i)
-                const isCurrent = i === step
-                return (
-                  <div key={i} className="flex items-center gap-0 shrink-0">
-                    <button
-                      type="button"
-                      disabled={!done || isCurrent}
-                      onClick={() => setStep(i)}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0 ${
-                        done
-                          ? "bg-green-500 text-white"
-                          : isCurrent
-                            ? "bg-brand-500 text-white"
-                            : "bg-surface-tertiary text-tertiary"
-                      } ${isCurrent ? "ring-2 ring-brand-500/20" : ""} ${done && !isCurrent ? "active:opacity-70" : ""}`}
-                    >
-                      {done ? (
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </button>
-                    {i < stepNames.length - 1 && (
-                      <div className={`h-0.5 w-5 shrink-0 mx-0.5 ${done ? "bg-green-400" : isCurrent ? "bg-brand-300" : "bg-surface-tertiary"}`} />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
           {/* ── Content ── */}
           <div className="flex-1 min-w-0 space-y-5 md:pl-8 lg:pl-12">
           {/* ── Category step ── */}
@@ -467,28 +563,38 @@ export default function FillEvaluationPage() {
                               ratings[item.id] !== undefined ? "text-primary font-medium" : "text-secondary"
                             }`}>{item.text}</p>
                           </div>
-                          <div className="grid grid-cols-5 gap-2">
-                            {["Poor", "Fair", "Good", "Very Good", "Excellent"].map((label, i) => {
-                              const v = i + 1
-                              const isSelected = ratings[item.id] === v
-                              return (
-                                <button
-                                  key={v}
-                                  type="button"
-                                  onClick={() => handleRatingChange(item.id, v)}
-                                  className={`h-12 sm:h-14 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-95 ${
-                                    isSelected
-                                      ? "bg-brand-500 text-white shadow-md scale-105 ring-2 ring-brand-500 ring-offset-4 ring-offset-white dark:ring-offset-surface"
-                                      : "bg-surface-tertiary text-tertiary hover:bg-surface-hover"
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              )
-                            })}
+                          <div className="flex flex-col gap-1.5">
+                            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                              {["Poor", "Fair", "Good", "Very Good", "Excellent"].map((label, i) => {
+                                const v = i + 1
+                                const isSelected = ratings[item.id] === v
+                                return (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => handleRatingChange(item.id, v)}
+                                    className={`h-12 sm:h-14 rounded-2xl font-semibold transition-all duration-200 active:scale-95 ${
+                                      isSelected
+                                        ? "bg-brand-500 text-white shadow-md scale-105 ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-surface sm:ring-offset-4"
+                                        : "bg-surface-tertiary text-tertiary hover:bg-surface-hover"
+                                    }`}
+                                  >
+                                    <span className="sm:hidden" title={label}>{v}</span>
+                                    <span className="hidden sm:inline text-xs sm:text-sm">{label}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
                           </div>
                         </div>
                       ))}
+                      <div className="flex items-center justify-between px-1 sm:hidden pt-3 pb-1 border-t border-default/50 mt-4">
+                        {["Poor", "Fair", "Good", "Very Good", "Excellent"].map((lbl, i) => (
+                          <span key={lbl} className="text-[10px] text-tertiary/50 text-center leading-tight" style={{ maxWidth: '18%' }}>
+                            {i + 1}<br /><span className="text-tertiary/40">{lbl}</span>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
@@ -601,14 +707,6 @@ export default function FillEvaluationPage() {
                   className="btn-ios-gray flex-1"
                 >
                   Back
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveDraft}
-                  disabled={submitting}
-                  className="btn-ios-gray flex-1"
-                >
-                  Save Draft
                 </button>
                 <button
                   type="button"

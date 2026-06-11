@@ -42,6 +42,10 @@ function getInitial(name: string) {
   return name?.charAt(0)?.toUpperCase() || "?"
 }
 
+function isUuid(s: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+}
+
 export default function NavigationBar({ title, rightItems }: NavigationBarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
@@ -162,6 +166,7 @@ export default function NavigationBar({ title, rightItems }: NavigationBarProps)
           {segments.map((seg, index) => {
             const href = "/" + segments.slice(0, index + 1).join("/")
             const label = LABELS[seg] || seg.charAt(0).toUpperCase() + seg.slice(1)
+            const active = href === pathname
             return (
               <span key={href} className="flex items-center gap-1 min-w-0">
                 {index > 0 && (
@@ -169,7 +174,11 @@ export default function NavigationBar({ title, rightItems }: NavigationBarProps)
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 )}
-                <span className={href === pathname ? "text-secondary font-semibold truncate" : "truncate"}>{label}</span>
+                {isUuid(seg) ? (
+                  <span className={active ? "text-secondary font-semibold truncate" : "truncate"}>{label}</span>
+                ) : (
+                  <Link href={href} className={`${active ? "text-secondary font-semibold" : ""} truncate hover:underline`}>{label}</Link>
+                )}
               </span>
             )
           })}

@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { jsPDF } from "jspdf"
+import "jspdf-autotable"
 import { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
 
 interface Result {
@@ -186,8 +188,6 @@ export default function EvaluationDashboard({
   }, [selectedPeriod, selectedFaculty, studentData])
 
   const downloadPDF = useCallback(async () => {
-    const { default: jsPDF } = await import("jspdf")
-    await import("jspdf-autotable")
     const doc = new jsPDF("landscape")
     const pageW = doc.internal.pageSize.getWidth()
     const periodName = periods.find((p) => p.id === selectedPeriod)?.name || periods.find((p) => p.id === selectedPeriod)?.title || selectedPeriod

@@ -24,6 +24,10 @@ export default function Loading() {
       </header>
 
       <div className="pt-20 sm:pt-22 pb-12 animate-pulse">
+        <div className="md:hidden mx-auto max-w-5xl px-4 sm:px-8 mb-4">
+          <div className="h-2 bg-surface-tertiary rounded-full" />
+        </div>
+
         <div className="mx-auto max-w-5xl flex gap-0 px-4 sm:px-8">
           <div className="hidden md:block w-52 lg:w-60 shrink-0 -ml-4">
             <div className="sticky top-24 pl-4 pr-6 lg:pr-8 border-r border-default min-h-[calc(100dvh-10rem)]">
@@ -38,18 +42,6 @@ export default function Loading() {
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-          <div className="md:hidden w-full mb-4">
-            <div className="h-2 bg-surface-tertiary rounded-full mb-3" />
-            <div className="flex items-center gap-0 -mx-4 px-4 pb-1">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-0 shrink-0">
-                  <div className="w-7 h-7 rounded-full bg-surface-tertiary shrink-0" />
-                  {i < 5 && <div className="h-0.5 w-5 bg-surface-tertiary mx-0.5" />}
-                </div>
-              ))}
             </div>
           </div>
 
