@@ -85,7 +85,18 @@ export default function FillEvaluationPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const { setExclusive } = useSidebar()
-  const [categories, setCategories] = useState<RubricCategory[]>([])
+  const [categories, setCategories] = useState<RubricCategory[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = sessionStorage.getItem("eval_rubric_cache")
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed.categories && Date.now() - parsed.fetchedAt < 300000) return parsed.categories
+        }
+      } catch { /* ignore */ }
+    }
+    return []
+  })
   const [evaluationId, setEvaluationId] = useState<string | null>(null)
   const [evaluateeName, setEvaluateeName] = useState("")
   const [ratings, setRatings] = useState<Record<string, number>>({})
@@ -105,6 +116,7 @@ export default function FillEvaluationPage() {
 
   useEffect(() => {
     setExclusive(true)
+
     async function load() {
       try {
         const evalRes = await fetch(`/api/evaluations/${params.id}`)

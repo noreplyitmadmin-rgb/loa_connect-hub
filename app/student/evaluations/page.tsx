@@ -38,6 +38,23 @@ export default function StudentEvaluationsPage() {
         const [pendingData, evalData] = await Promise.all([pendingRes.json(), evalRes.json()])
         setPending(pendingData.pending || [])
         setEvaluations(evalData.evaluations || [])
+
+        fetch("/api/evaluation-periods")
+          .then((r) => r.json())
+          .then((periodData) => {
+            const active = (periodData.periods || []).find((p: { isActive: boolean }) => p.isActive)
+            if (active) {
+              fetch(`/api/evaluation-periods/${active.id}/rubric`)
+                .then((r) => r.json())
+                .then((rubricData) => {
+                  if (rubricData.rubric) {
+                    sessionStorage.setItem("eval_rubric_cache", JSON.stringify({ categories: rubricData.rubric, fetchedAt: Date.now() }))
+                  }
+                })
+                .catch(() => {})
+            }
+          })
+          .catch(() => {})
       } catch {
         alert("Failed to load evaluations")
       } finally {
