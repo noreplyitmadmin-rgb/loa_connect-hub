@@ -98,7 +98,7 @@ function LoginForm() {
       </div>
 
       <div className="px-6 pb-8 text-center">
-        <p className="text-xs text-tertiary">Lyceum of Alabang</p>
+        <p className="text-xs text-tertiary"></p>
       </div>
     </div>
   )
