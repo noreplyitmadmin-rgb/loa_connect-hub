@@ -8,9 +8,7 @@ export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const role = (session.user as Record<string, unknown>).role as string
-  if (!hasRole(role, "DEAN") && !hasRole(role, "ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const userId = (session.user as Record<string, unknown>).id as string
 
   try {
     const { searchParams } = new URL(request.url)
@@ -20,8 +18,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "periodId and facultyId are required" }, { status: 400 })
     }
 
+    if (!hasRole(role, "DEAN") && !hasRole(role, "ADMIN") && facultyId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     if (hasRole(role, "DEAN")) {
-      const userId = (session.user as Record<string, unknown>).id as string
       const dept = await departmentRepository.findByDeanId(userId)
       if (!dept) return NextResponse.json({ students: [] })
     }

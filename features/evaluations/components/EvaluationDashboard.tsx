@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { jsPDF } from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 import { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
 
 interface Result {
@@ -254,7 +254,7 @@ export default function EvaluationDashboard({
       doc.text(`General: ${r.generalRating?.toFixed(2) ?? "—"}  |  Respondents: ${r.totalRespondents}  |  Remarks: ${r.remarks || "—"}`, 10, y)
       y += 4
       const catVals = CATEGORIES_FULL.map((c) => (r[c.key] !== null ? r[c.key]!.toFixed(2) : "—"))
-      doc.autoTable({ startY: y, head: [CATEGORIES_FULL.map((c) => c.label)], body: [{ columns: catVals }], theme: "grid", styles: { fontSize: 7 }, headStyles: { fillColor: [59, 130, 246] }, tableWidth: "wrap", margin: { left: 10 } })
+      autoTable(doc, { startY: y, head: [CATEGORIES_FULL.map((c) => c.label)], body: [{ columns: catVals }], theme: "grid", styles: { fontSize: 7 }, headStyles: { fillColor: [59, 130, 246] }, tableWidth: "wrap", margin: { left: 10 } })
       y = doc.lastAutoTable.finalY + 5
       const students = studentData[r.facultyId]
       if (students?.length) {
@@ -265,12 +265,106 @@ export default function EvaluationDashboard({
         const stuHead = ["Student", ...CATEGORIES_FULL.map((c) => c.label === "Communication w/ Students" ? "Comm" : c.label === "Assessment & Feedback" ? "Assess." : c.label), "General", "Comment"]
         const stuBody = slice.map((s) => [s.id, ...CATEGORIES_FULL.map((c) => (s[c.key] !== null ? s[c.key]!.toFixed(2) : "—")), s.generalRating?.toFixed(2) ?? "—", s.comment?.slice(0, 30) ?? ""])
         if (students.length > 100) stuBody.push([`... and ${students.length - 100} more`, "", "", "", "", "", "", "", "", ""])
-        doc.autoTable({ startY: y, head: [stuHead], body: stuBody, theme: "grid", styles: { fontSize: 5.5 }, headStyles: { fillColor: [100, 100, 100] }, tableWidth: "wrap", margin: { left: 10 } })
+        autoTable(doc, { startY: y, head: [stuHead], body: stuBody, theme: "grid", styles: { fontSize: 5.5 }, headStyles: { fillColor: [100, 100, 100] }, tableWidth: "wrap", margin: { left: 10 } })
         y = doc.lastAutoTable.finalY + 8
       } else { y += 4 }
     }
     doc.save("evaluation-results.pdf")
   }, [results, periods, selectedPeriod, facultyNames, studentData])
+
+  const fetchStudentsForFaculty = useCallback(async (facultyId: string): Promise<StudentRow[]> => {
+    if (studentData[facultyId]) return studentData[facultyId]
+    try {
+      const r = await fetch(`/api/dean/evaluation-results/details?periodId=${selectedPeriod}&facultyId=${facultyId}`)
+      const data = await r.json()
+      setStudentData((prev) => ({ ...prev, [facultyId]: data.students || [] }))
+      return data.students || []
+    } catch {
+      return []
+    }
+  }, [selectedPeriod, studentData])
+
+  const downloadFacultyPDF = useCallback(async (facultyResult: Result) => {
+    const students = await fetchStudentsForFaculty(facultyResult.facultyId)
+    const doc = new jsPDF("landscape")
+    const pageW = doc.internal.pageSize.getWidth()
+    const name = facultyNames[facultyResult.facultyId] || facultyResult.facultyId
+    const periodName = periods.find((p) => p.id === selectedPeriod)?.name || periods.find((p) => p.id === selectedPeriod)?.title || selectedPeriod
+
+    doc.setFontSize(16)
+    doc.text("Evaluation Result", pageW / 2, 15, { align: "center" })
+    doc.setFontSize(11)
+    doc.text(name, pageW / 2, 23, { align: "center" })
+    doc.setFontSize(8)
+    doc.text(`Period: ${periodName}  |  Generated: ${new Date().toLocaleDateString()}`, pageW / 2, 29, { align: "center" })
+
+    let y = 36
+    doc.setFontSize(9)
+    doc.text(`General Rating: ${facultyResult.generalRating?.toFixed(2) ?? "—"}  |  Respondents: ${facultyResult.totalRespondents}  |  Remarks: ${facultyResult.remarks || "—"}`, 10, y)
+    y += 6
+
+    const catVals = CATEGORIES_FULL.map((c) => (facultyResult[c.key] !== null ? facultyResult[c.key]!.toFixed(2) : "—"))
+    autoTable(doc, { startY: y, head: [CATEGORIES_FULL.map((c) => c.label)], body: [{ columns: catVals }], theme: "grid", styles: { fontSize: 8 }, headStyles: { fillColor: [59, 130, 246] }, tableWidth: "wrap", margin: { left: 10 } })
+    y = doc.lastAutoTable.finalY + 6
+
+    if (students.length > 0) {
+      doc.setFontSize(9)
+      doc.text(`Per-Student Breakdown (${students.length} total):`, 10, y)
+      y += 4
+      const stuHead = ["Student", ...CATEGORIES_FULL.map((c) => c.label === "Communication w/ Students" ? "Comm" : c.label === "Assessment & Feedback" ? "Assess." : c.label), "General", "Comment"]
+      const stuBody = students.map((s) => [s.id, ...CATEGORIES_FULL.map((c) => (s[c.key] !== null ? s[c.key]!.toFixed(2) : "—")), s.generalRating?.toFixed(2) ?? "—", s.comment?.slice(0, 40) ?? ""])
+      autoTable(doc, { startY: y, head: [stuHead], body: stuBody, theme: "grid", styles: { fontSize: 6 }, headStyles: { fillColor: [100, 100, 100] }, tableWidth: "wrap", margin: { left: 10 } })
+    }
+    doc.save(`evaluation-${facultyResult.facultyId}.pdf`)
+  }, [facultyNames, periods, selectedPeriod, fetchStudentsForFaculty])
+
+  const downloadFacultyCSV = useCallback(async (facultyResult: Result) => {
+    const students = await fetchStudentsForFaculty(facultyResult.facultyId)
+    const name = facultyNames[facultyResult.facultyId] || facultyResult.facultyId
+    const lines: string[] = []
+    lines.push(`Faculty,${name}`)
+    lines.push(`General Rating,${facultyResult.generalRating?.toFixed(2) ?? ""}`)
+    lines.push(`Total Respondents,${facultyResult.totalRespondents}`)
+    lines.push(`Remarks,${facultyResult.remarks ?? ""}`)
+    lines.push("")
+    lines.push("Category Scores")
+    lines.push("Category,Score")
+    for (const c of CATEGORIES_FULL) {
+      lines.push(`${c.label},${facultyResult[c.key] !== null ? facultyResult[c.key]!.toFixed(2) : ""}`)
+    }
+    if (students.length > 0) {
+      lines.push("")
+      lines.push("Student Breakdown")
+      const headers = ["Student ID", ...CATEGORIES_FULL.map((c) => c.label), "General", "Comment"]
+      lines.push(headers.join(","))
+      for (const s of students) {
+        const vals = [s.id, ...CATEGORIES_FULL.map((c) => (s[c.key] !== null ? s[c.key]!.toFixed(2) : "")), s.generalRating?.toFixed(2) ?? "", `"${(s.comment ?? "").replace(/"/g, '""')}"`]
+        lines.push(vals.join(","))
+      }
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url; a.download = `evaluation-${facultyResult.facultyId}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }, [facultyNames, fetchStudentsForFaculty])
+
+  const downloadBulkCSV = useCallback(() => {
+    const lines: string[] = []
+    const headers = ["Faculty Name", ...CATEGORIES_FULL.map((c) => c.label), "General Rating", "Total Respondents", "Remarks"]
+    lines.push(headers.join(","))
+    for (const r of results) {
+      const name = (facultyNames[r.facultyId] || r.facultyId).replace(/,/g, " ")
+      const vals = [name, ...CATEGORIES_FULL.map((c) => (r[c.key] !== null ? r[c.key]!.toFixed(2) : "")), r.generalRating?.toFixed(2) ?? "", String(r.totalRespondents), `"${(r.remarks ?? "").replace(/"/g, '""')}"`]
+      lines.push(vals.join(","))
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const periodName = periods.find((p) => p.id === selectedPeriod)?.name || selectedPeriod
+    const a = document.createElement("a")
+    a.href = url; a.download = `evaluation-results-${periodName}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }, [results, facultyNames, periods, selectedPeriod])
 
   const departmentSummary = useMemo(() => {
     if (results.length === 0) return null
@@ -343,6 +437,14 @@ export default function EvaluationDashboard({
                 </button>
               </>
             )}
+            <button
+              type="button"
+              onClick={downloadBulkCSV}
+              disabled={results.length === 0}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm disabled:opacity-50"
+            >
+              Export CSV
+            </button>
             <button
               type="button"
               onClick={downloadPDF}
@@ -420,6 +522,7 @@ export default function EvaluationDashboard({
                     <th className="p-3 text-center whitespace-nowrap">Respondents</th>
                     <th className="p-3 text-center">Remark</th>
                     {showVisibilityToggles && <th className="p-3 text-center whitespace-nowrap">Visible</th>}
+                    <th className="p-3 text-center w-16">Actions</th>
                     <th className="p-3 text-center w-10"></th>
                   </tr>
                 </thead>
@@ -457,6 +560,31 @@ export default function EvaluationDashboard({
                             </button>
                           </td>
                         )}
+                        <td className="p-3 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); downloadFacultyPDF(r) }}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Download PDF"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v4a1 1 0 001 1h4" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); downloadFacultyCSV(r) }}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              title="Download CSV"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
                         <td className="p-3 text-center">
                           <svg className={`w-4 h-4 mx-auto text-tertiary transition-transform ${isSelected ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
