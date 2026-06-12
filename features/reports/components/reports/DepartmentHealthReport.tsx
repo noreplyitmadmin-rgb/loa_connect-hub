@@ -29,7 +29,7 @@ export function DepartmentHealthReport({
   if (departments.length === 0) {
     return (
       <div className="space-y-8">
-        <div className="rounded-2xl border border-default/70 bg-surface p-8 shadow-sm text-center">
+        <div className="rounded-2xl bg-surface p-8 shadow-sm text-center">
           <p className="text-tertiary text-sm">No departments found.</p>
         </div>
       </div>
@@ -44,7 +44,7 @@ export function DepartmentHealthReport({
         </div>
 
       {/* Date Range Notice */}
-      <div className="flex items-center gap-2 rounded-xl border border-default/70 bg-surface px-4 py-3 text-xs text-tertiary">
+      <div className="flex items-center gap-2 rounded-xl bg-surface px-4 py-3 text-xs text-tertiary">
         <svg className="w-4 h-4 shrink-0 text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
         </svg>

@@ -27,16 +27,34 @@ interface Department {
 
 const PAGE_SIZES = [10, 25, 50]
 
-const VALID_ROLES = ["STUDENT", "FACULTY", "DEAN", "ADMIN", "GUEST"]
-const STUDENT_BLOCKED = new Set(["ADMIN", "DEAN", "FACULTY"])
-const FACULTY_DEAN = new Set(["FACULTY", "DEAN"])
+const USER_TYPES = ["STUDENT", "FACULTY"]
+const GRANTS = ["ADMIN", "DEAN"]
 
-const roleColors: Record<string, string> = {
-  ADMIN: "bg-purple-100 text-purple-700",
-  DEAN: "bg-amber-100 text-amber-700",
+const typeColors: Record<string, string> = {
   FACULTY: "bg-emerald-100 text-emerald-700",
   STUDENT: "bg-blue-100 text-blue-700",
-  GUEST: "bg-surface text-secondary",
+}
+const grantColors: Record<string, string> = {
+  ADMIN: "bg-purple-100 text-purple-700",
+  DEAN: "bg-amber-100 text-amber-700",
+}
+
+function getUserType(role: string): string {
+  if (hasRole(role, "FACULTY")) return "FACULTY"
+  if (hasRole(role, "STUDENT")) return "STUDENT"
+  return "FACULTY"
+}
+
+function getGrant(role: string): string {
+  for (const g of GRANTS) {
+    if (hasRole(role, g)) return g
+  }
+  return ""
+}
+
+function buildRoleStr(userType: string | null, grant: string): string {
+  if (!userType) return grant || ""
+  return grant ? `${userType}|${grant}` : userType
 }
 
 export default function AdminUsersPage() {
@@ -58,14 +76,16 @@ export default function AdminUsersPage() {
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editDept, setEditDept] = useState("")
-  const [editRoles, setEditRoles] = useState<string[]>([])
+  const [editUserType, setEditUserType] = useState("")
+  const [editGrant, setEditGrant] = useState("")
   const [editSaving, setEditSaving] = useState(false)
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false)
   const [createName, setCreateName] = useState("")
   const [createEmail, setCreateEmail] = useState("")
-  const [createRoles, setCreateRoles] = useState<string[]>([])
+  const [createUserType, setCreateUserType] = useState("")
+  const [createGrant, setCreateGrant] = useState("")
   const [createDept, setCreateDept] = useState("")
   const [createError, setCreateError] = useState("")
   const [createSaving, setCreateSaving] = useState(false)
@@ -130,7 +150,8 @@ export default function AdminUsersPage() {
     setEditName(u.name)
     setEditEmail(u.email)
     setEditDept(u.departmentId || "")
-    setEditRoles(VALID_ROLES.filter((r) => hasRole(u.role, r)))
+    setEditUserType(getUserType(u.role))
+    setEditGrant(getGrant(u.role))
   }
 
   const handleEditSave = async () => {
@@ -141,7 +162,7 @@ export default function AdminUsersPage() {
       if (editName !== editUser.name) body.name = editName
       if (editEmail !== editUser.email) body.email = editEmail
       if ((editDept || null) !== editUser.departmentId) body.departmentId = editDept || null
-      const editRolesStr = editRoles.join("|")
+      const editRolesStr = buildRoleStr(editUserType, editGrant)
       if (editRolesStr !== editUser.role) body.role = editRolesStr
 
       if (Object.keys(body).length <= 1) {
@@ -205,8 +226,17 @@ export default function AdminUsersPage() {
       setCreateError("Name and email are required")
       return
     }
-    if (createRoles.length === 0) {
-      setCreateError("At least one role is required")
+    if (!createUserType) {
+      setCreateError("Select a user type")
+      return
+    }
+    const email = createEmail.trim().toLowerCase()
+    if (createUserType === "FACULTY" && !email.endsWith("@lyceumalabang.edu.ph")) {
+      setCreateError("Faculty email must end with @lyceumalabang.edu.ph")
+      return
+    }
+    if (createUserType === "STUDENT" && !email.endsWith("@itmlyceumalabang.onmicrosoft.com")) {
+      setCreateError("Student email must end with @itmlyceumalabang.onmicrosoft.com")
       return
     }
     setCreateSaving(true)
@@ -216,8 +246,8 @@ export default function AdminUsersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: createName.trim(),
-          email: createEmail.trim(),
-          role: createRoles.join("|"),
+          email,
+          role: buildRoleStr(createUserType, createGrant),
           departmentId: createDept || null,
         }),
       })
@@ -227,7 +257,8 @@ export default function AdminUsersPage() {
         setShowCreate(false)
         setCreateName("")
         setCreateEmail("")
-        setCreateRoles([])
+        setCreateUserType("")
+        setCreateGrant("")
         setCreateDept("")
       } else {
         setCreateError(data.error || "Failed to create user")
@@ -336,89 +367,101 @@ export default function AdminUsersPage() {
         
       </div>
 
-      {/* Empty state */}
-      {paginated.length === 0 ? (
-        <p className="text-sm text-tertiary text-center py-8">No users found.</p>
-      ) : (
-        <>
-          {/* Desktop table */}
-          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
-                  <th className="p-2">User</th>
-                  <th className="p-2">Role</th>
-                  <th className="p-2">Department</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">Registered</th>
-                  <th className="p-2">Activated</th>
-                  <th className="p-2">Last Login</th>
-                  <th className="p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((u) => {
-                  const currentRoles = VALID_ROLES.filter((vr) => hasRole(u.role, vr))
-                  const hasStudent = currentRoles.includes("STUDENT")
-                  const hasNonStudent = currentRoles.some((r) => r !== "STUDENT" && r !== "GUEST" && STUDENT_BLOCKED.has(r))
-                  const isDefaultAdmin = u.email === "admin@lyceumalabang.ph"
+      <div className="card bg-surface overflow-hidden">
+        <div className="px-6 py-4 border-b border-default bg-surface"><h3 className="text-sm font-bold text-primary">Users Directory</h3></div>
 
-                  return (
-                    <tr key={u.id} className="border-b border-default hover:bg-surface-hover">
-                      <td className="p-2">
-                        <p className="text-primary font-medium">{u.name}</p>
-                        <p className="text-tertiary text-xs">{u.email}</p>
-                      </td>
-                      <td className="p-2 relative">
-                        <button
-                          onClick={() => !isDefaultAdmin && setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
-                          disabled={changingRole === u.id || isDefaultAdmin}
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full border-0 ${isDefaultAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${roleColors[u.role.split("|")[0]] || "bg-surface text-secondary"}`}
-                        >
-                          {u.role.split("|").join(", ")}
-                        </button>
-                        {roleMenuOpen === u.id && (
-                          <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-default rounded-lg shadow-lg p-2 min-w-[150px] space-y-1">
-                            {VALID_ROLES.map((r) => {
-                              const checked = hasRole(u.role, r)
-                              const isConflicting =
-                                (r === "STUDENT" && hasNonStudent) ||
-                                (STUDENT_BLOCKED.has(r) && hasStudent) ||
-                                (FACULTY_DEAN.has(r) && currentRoles.some((cr) => FACULTY_DEAN.has(cr) && cr !== r))
-                              return (
-                                <label
-                                  key={r}
-                                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${isConflicting ? "opacity-40 cursor-not-allowed" : "bg-surface-hover cursor-pointer"
-                                    }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={isConflicting}
-                                    onChange={() => {
-                                      if (isConflicting) return
-                                      const toggled = VALID_ROLES.filter((vr) =>
-                                        vr === r ? !checked : hasRole(u.role, vr)
-                                      )
-                                      // Enforce student exclusivity + faculty/dean mutual exclusivity
-                                      const finalRoles = r === "STUDENT" && !checked
-                                        ? toggled.filter((vr) => !STUDENT_BLOCKED.has(vr))
-                                        : STUDENT_BLOCKED.has(r) && !checked
-                                          ? toggled.filter((vr) => vr !== "STUDENT")
-                                          : FACULTY_DEAN.has(r) && !checked
-                                            ? toggled.filter((vr) => !FACULTY_DEAN.has(vr) || vr === r)
-                                            : toggled
-                                      handleRoleChange(u.id, finalRoles)
-                                    }}
-                                    className="rounded border-strong text-gold-600 focus:ring-gold-500"
-                                  />
-                                  {r}
-                                </label>
-                              )
-                            })}
+        {/* Empty state */}
+        {paginated.length === 0 ? (
+          <p className="text-sm text-tertiary text-center py-8">No users found.</p>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
+                    <th className="p-2">User</th>
+                    <th className="p-2">User Type / Grants</th>
+                    <th className="p-2">Department</th>
+                    <th className="p-2">Status</th>
+                    <th className="p-2">Registered</th>
+                    <th className="p-2">Activated</th>
+                    <th className="p-2">Last Login</th>
+                    <th className="p-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((u) => {
+                    const userType = getUserType(u.role)
+                    const grant = getGrant(u.role)
+                    const isDefaultAdmin = u.email === "admin@lyceumalabang.ph" || u.id === "a0000000-0000-0000-0000-000000000001"
+
+                    return (
+                      <tr key={u.id} className="border-b border-default hover:bg-surface-hover">
+                        <td className="p-2">
+                          <p className="text-primary font-medium">{u.name}</p>
+                          <p className="text-tertiary text-xs">{u.email}</p>
+                        </td>
+                        <td className="p-2 relative">
+                          <button
+                            onClick={() => !isDefaultAdmin && setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
+                            disabled={changingRole === u.id || isDefaultAdmin}
+                            className={`inline-flex items-center gap-1 text-xs font-semibold ${isDefaultAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                          >
+                            <span className={`px-2 py-0.5 rounded-full border-0 ${typeColors[userType] || "bg-surface text-secondary"}`}>
+                              {userType}
+                            </span>
+                            {grant && (
+                              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${grantColors[grant] || "bg-surface text-tertiary border border-default"}`}>
+                                {grant}
+                              </span>
+                            )}
+                          </button>
+                          {roleMenuOpen === u.id && (
+                            <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-default rounded-lg shadow-lg p-3 min-w-[180px] space-y-3">
+                              <div>
+                                <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">User Type</p>
+                                <div className="flex gap-2">
+                                  {USER_TYPES.map(t => (
+                                    <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name={`type-${u.id}`}
+                                        checked={userType === t}
+                                        onChange={() => {
+                                          handleRoleChange(u.id, [t])
+                                        }}
+                                        className="text-gold-600 focus:ring-gold-500"
+                                      />
+                                      {t}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              {userType === "FACULTY" && (
+                                <div>
+                                <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">Grant</p>
+                                <div className="flex gap-2">
+                                  {["", ...GRANTS].map(g => (
+                                    <label key={g || "default"} className="flex items-center gap-1 text-xs cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name={`grant-${u.id}`}
+                                        checked={grant === g}
+                                        onChange={() => {
+                                          handleRoleChange(u.id, g ? [userType, g] : [userType])
+                                        }}
+                                        className="text-gold-600 focus:ring-gold-500"
+                                      />
+                                      {g || "Default"}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             <button
                               onClick={() => setRoleMenuOpen(null)}
-                              className="w-full mt-1 text-[10px] font-semibold text-tertiary hover:text-secondary py-1"
+                              className="w-full text-[10px] font-semibold text-tertiary hover:text-secondary py-1"
                             >
                               Done
                             </button>
@@ -494,10 +537,9 @@ export default function AdminUsersPage() {
           {/* Mobile cards */}
           <div className="mobile-only space-y-3">
             {paginated.map((u) => {
-              const currentRoles = VALID_ROLES.filter((vr) => hasRole(u.role, vr))
-              const hasStudent = currentRoles.includes("STUDENT")
-              const hasNonStudent = currentRoles.some((r) => r !== "STUDENT" && r !== "GUEST" && STUDENT_BLOCKED.has(r))
-              const isDefaultAdmin = u.email === "admin@lyceumalabang.ph"
+              const userType = getUserType(u.role)
+              const grant = getGrant(u.role)
+              const isDefaultAdmin = u.email === "admin@lyceumalabang.ph" || u.id === "a0000000-0000-0000-0000-000000000001"
 
               return (
                 <div key={u.id} className="card p-4 bg-surface space-y-3">
@@ -514,57 +556,68 @@ export default function AdminUsersPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                    <div>
-                      <span className="text-tertiary">Role:</span>
-                      <div className="relative inline-block">
+                    <div className="col-span-2">
+                      <span className="text-tertiary">User Type / Grants:</span>
+                      <div className="relative inline-block ml-1">
                         <button
                           onClick={() => !isDefaultAdmin && setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
                           disabled={changingRole === u.id || isDefaultAdmin}
-                          className={`ml-1 text-xs font-semibold px-2 py-0.5 rounded-full ${isDefaultAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${roleColors[u.role.split("|")[0]] || "bg-surface text-secondary"}`}
+                          className={`inline-flex items-center gap-1 text-xs font-semibold ${isDefaultAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
                         >
-                          {u.role.split("|").join(", ")}
+                          <span className={`px-2 py-0.5 rounded-full border-0 ${typeColors[userType] || "bg-surface text-secondary"}`}>
+                            {userType}
+                          </span>
+                          {grant && (
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${grantColors[grant] || "bg-surface text-tertiary border border-default"}`}>
+                              {grant}
+                            </span>
+                          )}
                         </button>
                         {roleMenuOpen === u.id && (
-                          <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-default rounded-lg shadow-lg p-2 min-w-[150px] space-y-1">
-                            {VALID_ROLES.map((r) => {
-                              const checked = hasRole(u.role, r)
-                              const isConflicting =
-                                (r === "STUDENT" && hasNonStudent) ||
-                                (STUDENT_BLOCKED.has(r) && hasStudent) ||
-                                (FACULTY_DEAN.has(r) && currentRoles.some((cr) => FACULTY_DEAN.has(cr) && cr !== r))
-                              return (
-                                <label
-                                  key={r}
-                                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${isConflicting ? "opacity-40 cursor-not-allowed" : "bg-surface-hover cursor-pointer"
-                                    }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={isConflicting}
-                                    onChange={() => {
-                                      if (isConflicting) return
-                                      const toggled = VALID_ROLES.filter((vr) =>
-                                        vr === r ? !checked : hasRole(u.role, vr)
-                                      )
-                                      const finalRoles = r === "STUDENT" && !checked
-                                        ? toggled.filter((vr) => !STUDENT_BLOCKED.has(vr))
-                                        : STUDENT_BLOCKED.has(r) && !checked
-                                          ? toggled.filter((vr) => vr !== "STUDENT")
-                                          : FACULTY_DEAN.has(r) && !checked
-                                            ? toggled.filter((vr) => !FACULTY_DEAN.has(vr) || vr === r)
-                                            : toggled
-                                      handleRoleChange(u.id, finalRoles)
-                                    }}
-                                    className="rounded border-strong text-gold-600 focus:ring-gold-500"
-                                  />
-                                  {r}
-                                </label>
-                              )
-                            })}
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-default rounded-lg shadow-lg p-3 min-w-[180px] space-y-3">
+                            <div>
+                              <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">User Type</p>
+                              <div className="flex gap-2">
+                                {USER_TYPES.map(t => (
+                                  <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`type-${u.id}`}
+                                      checked={userType === t}
+                                      onChange={() => {
+                                        handleRoleChange(u.id, [t])
+                                      }}
+                                      className="text-gold-600 focus:ring-gold-500"
+                                    />
+                                    {t}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            {userType === "FACULTY" && (
+                              <div>
+                                <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">Grant</p>
+                                <div className="flex gap-2">
+                                  {["", ...GRANTS].map(g => (
+                                    <label key={g || "default"} className="flex items-center gap-1 text-xs cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name={`grant-${u.id}`}
+                                        checked={grant === g}
+                                        onChange={() => {
+                                          handleRoleChange(u.id, g ? [userType, g] : [userType])
+                                        }}
+                                        className="text-gold-600 focus:ring-gold-500"
+                                      />
+                                      {g || "Default"}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             <button
                               onClick={() => setRoleMenuOpen(null)}
-                              className="w-full mt-1 text-[10px] font-semibold text-tertiary hover:text-secondary py-1"
+                              className="w-full text-[10px] font-semibold text-tertiary hover:text-secondary py-1"
                             >
                               Done
                             </button>
@@ -673,6 +726,7 @@ export default function AdminUsersPage() {
           </div>
         </>
       )}
+      </div>
 
       {/* ── Edit User Modal ── */}
       {editUser && (
@@ -700,48 +754,44 @@ export default function AdminUsersPage() {
               ))}
             </select>
 
-            <label className="block text-xs font-medium text-secondary">Roles</label>
-            <div className="flex flex-wrap gap-3">
-              {VALID_ROLES.map((r) => {
-                const checked = editRoles.includes(r)
-                const hasStudent = editRoles.includes("STUDENT")
-                const hasNonStudent = editRoles.some((er) => STUDENT_BLOCKED.has(er))
-                const isConflicting =
-                  (r === "STUDENT" && hasNonStudent) ||
-                  (STUDENT_BLOCKED.has(r) && hasStudent) ||
-                  (FACULTY_DEAN.has(r) && editRoles.some((er) => FACULTY_DEAN.has(er) && er !== r))
-                const isDefaultAdminEdit = editUser?.email === "admin@lyceumalabang.ph"
-                return (
-                  <label
-                    key={r}
-                    className={`flex items-center gap-1.5 text-xs ${isConflicting || isDefaultAdminEdit ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                      }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={isConflicting || isDefaultAdminEdit}
-                      onChange={() => {
-                        if (isConflicting || isDefaultAdminEdit) return
-                        const next = checked
-                          ? editRoles.filter((er) => er !== r)
-                          : [...editRoles, r]
-                        const final = r === "STUDENT" && !checked
-                          ? next.filter((er) => !STUDENT_BLOCKED.has(er))
-                          : STUDENT_BLOCKED.has(r) && !checked
-                            ? next.filter((er) => er !== "STUDENT")
-                            : FACULTY_DEAN.has(r) && !checked
-                              ? next.filter((er) => !FACULTY_DEAN.has(er) || er === r)
-                              : next
-                        setEditRoles(final)
-                      }}
-                      className="rounded border-strong text-gold-600 focus:ring-gold-500"
-                    />
-                    {r}
-                  </label>
-                )
-              })}
+            <label className="block text-xs font-medium text-secondary">User Type</label>
+            <div className="flex gap-3">
+              {USER_TYPES.map(t => (
+                <label key={t} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="edit-user-type"
+                    checked={editUserType === t}
+                    onChange={() => {
+                      setEditUserType(t)
+                      setEditGrant("")
+                    }}
+                    className="text-gold-600 focus:ring-gold-500"
+                  />
+                  {t}
+                </label>
+              ))}
             </div>
+
+            {editUserType === "FACULTY" && (
+              <>
+                <label className="block text-xs font-medium text-secondary">Grant</label>
+                <div className="flex gap-3">
+                  {["", ...GRANTS].map(g => (
+                    <label key={g || "default"} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="edit-grant"
+                        checked={editGrant === g}
+                        onChange={() => setEditGrant(g)}
+                        className="text-gold-600 focus:ring-gold-500"
+                      />
+                      {g || "Default"}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <button
@@ -779,48 +829,52 @@ export default function AdminUsersPage() {
             <label className="block text-xs font-medium text-secondary">Email *</label>
             <input value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} className="input text-sm w-full" placeholder="email@example.com" type="email" />
 
-            <label className="block text-xs font-medium text-secondary">Roles *</label>
-            <div className="flex flex-wrap gap-3">
-              {VALID_ROLES.map((r) => {
-                const checked = createRoles.includes(r)
-                const hasStudent = createRoles.includes("STUDENT")
-                const hasNonStudent = createRoles.some((cr) => STUDENT_BLOCKED.has(cr))
-                const isConflicting =
-                  (r === "STUDENT" && hasNonStudent) ||
-                  (STUDENT_BLOCKED.has(r) && hasStudent) ||
-                  (FACULTY_DEAN.has(r) && createRoles.some((cr) => FACULTY_DEAN.has(cr) && cr !== r))
-                return (
-                  <label
-                    key={r}
-                    className={`flex items-center gap-1.5 text-xs ${isConflicting ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                      }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={isConflicting}
-                      onChange={() => {
-                        if (isConflicting) return
-                        const next = checked
-                          ? createRoles.filter((cr) => cr !== r)
-                          : [...createRoles, r]
-                        // Enforce student exclusivity + faculty/dean mutual exclusivity
-                        const final = r === "STUDENT" && !checked
-                          ? next.filter((cr) => !STUDENT_BLOCKED.has(cr))
-                          : STUDENT_BLOCKED.has(r) && !checked
-                            ? next.filter((cr) => cr !== "STUDENT")
-                            : FACULTY_DEAN.has(r) && !checked
-                              ? next.filter((cr) => !FACULTY_DEAN.has(cr) || cr === r)
-                              : next
-                        setCreateRoles(final)
-                      }}
-                      className="rounded border-strong text-gold-600 focus:ring-gold-500"
-                    />
-                    {r}
-                  </label>
-                )
-              })}
+            <label className="block text-xs font-medium text-secondary">User Type *</label>
+            <div className="flex gap-3">
+              {USER_TYPES.map(t => (
+                <label key={t} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="create-user-type"
+                    checked={createUserType === t}
+                    onChange={() => {
+                      setCreateUserType(t)
+                      setCreateGrant("")
+                      setCreateError("")
+                    }}
+                    className="text-gold-600 focus:ring-gold-500"
+                  />
+                  {t}
+                </label>
+              ))}
             </div>
+
+            {createUserType === "FACULTY" && (
+              <>
+                <label className="block text-xs font-medium text-secondary">Grant</label>
+                <div className="flex gap-3">
+                  {["", ...GRANTS].map(g => (
+                    <label key={g || "default"} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="create-grant"
+                        checked={createGrant === g}
+                        onChange={() => setCreateGrant(g)}
+                        className="text-gold-600 focus:ring-gold-500"
+                      />
+                      {g || "Default"}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {createUserType === "FACULTY" && (
+              <p className="text-[10px] text-tertiary">Email must end with <span className="font-mono font-semibold">@lyceumalabang.edu.ph</span></p>
+            )}
+            {createUserType === "STUDENT" && (
+              <p className="text-[10px] text-tertiary">Email must end with <span className="font-mono font-semibold">@itmlyceumalabang.onmicrosoft.com</span></p>
+            )}
 
             <label className="block text-xs font-medium text-secondary">Department</label>
             <select value={createDept} onChange={(e) => setCreateDept(e.target.value)} className="input text-sm w-full">

@@ -31,7 +31,7 @@ export default async function HealthReportPage(props: {
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12">
         <ReportHeader title="General Report" />
-        <div className="rounded-2xl border border-default/70 bg-surface p-8 shadow-sm text-center">
+        <div className="rounded-2xl bg-surface p-8 shadow-sm text-center">
           <p className="text-tertiary">{(err as Error).message}</p>
         </div>
       </div>
