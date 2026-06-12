@@ -28,6 +28,14 @@ export default function DeletedUsersPage() {
       .catch(() => setAccessState("locked"))
   }, [])
 
+  useEffect(() => {
+    fetch("/api/admin/users/deleted")
+      .then((res) => res.json())
+      .then((data) => setUsers(data.users || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
   if (accessState === "loading") {
     return (
       <div className="max-w-6xl mx-auto pb-12">
@@ -50,25 +58,13 @@ export default function DeletedUsersPage() {
     )
   }
 
-  const doFetch = async () => {
+  const fetchDeleted = async () => {
+    setLoading(true)
     const res = await fetch("/api/admin/users/deleted")
     const data = await res.json()
     setUsers(data.users || [])
-  }
-
-  const fetchDeleted = async () => {
-    setLoading(true)
-    await doFetch()
     setLoading(false)
   }
-
-  useEffect(() => {
-    fetch("/api/admin/users/deleted")
-      .then((res) => res.json())
-      .then((data) => setUsers(data.users || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
 
   const handleRestore = async (id: string) => {
     const res = await fetch(`/api/admin/users/${id}/restore`, { method: "POST" })

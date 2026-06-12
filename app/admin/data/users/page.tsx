@@ -44,7 +44,7 @@ export default function AdminUsersPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
+  const [roleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deptFilter, setDeptFilter] = useState("all")
   const [excludeStudents, setExcludeStudents] = useState(true)
@@ -259,7 +259,7 @@ export default function AdminUsersPage() {
       
       return true
     })
-  }, [users, roleFilter, deptFilter, statusFilter, debouncedSearch,excludeStudents])
+  }, [users, roleFilter, statusFilter, debouncedSearch,excludeStudents])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages - 1)

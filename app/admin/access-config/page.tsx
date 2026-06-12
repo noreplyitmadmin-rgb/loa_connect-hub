@@ -276,7 +276,7 @@ function UserPermissionsTab() {
   const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
   const [permissions, setPermissions] = useState<Permission[]>([])
-  const [catalog, setCatalog] = useState<Catalog | null>(null)
+  const [, setCatalog] = useState<Catalog | null>(null)
   const [allPaths, setAllPaths] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)

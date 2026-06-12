@@ -162,7 +162,7 @@ export default function Sidebar() {
       }
     }
     return items
-  }, [flatItems, dataVisible, reportsVisible, evaluationsVisible])
+  }, [flatItems, dataVisible, reportsVisible, evaluationsVisible, primaryRole])
 
   if (status === "loading" || !session || !allowedPages) {
     return (

@@ -25,7 +25,7 @@ async function checkUserPermission(userId: string, resource: string): Promise<bo
       .select('grants, denies, resource_path')
       .eq('user_id', userId);
     if (!data || data.length === 0) return null;
-    for (const row of data as any[]) {
+    for (const row of data as { grants: string[]; denies: string[]; resource_path: string }[]) {
       const rp: string = row.resource_path ?? '';
       if (resource !== rp && !resource.startsWith(rp + '/')) continue;
       const grants: string[] = row.grants ?? [];
@@ -33,7 +33,7 @@ async function checkUserPermission(userId: string, resource: string): Promise<bo
       if (denies.includes('access')) return false;
       if (grants.includes('access')) return true;
     }
-  } catch (_) {}
+  } catch { }
   return null;
 }
 
@@ -67,7 +67,7 @@ export async function proxy(request: NextRequest) {
 
   const rawRole = (token as Record<string, unknown>).role as string | undefined
   const group = getPrimaryRole(rawRole ?? "GUEST")
-  const userId = (token as any).id
+    const userId = (token as Record<string, unknown>).id as string
 
   const isAdmin = rawRole?.includes('ADMIN')
 

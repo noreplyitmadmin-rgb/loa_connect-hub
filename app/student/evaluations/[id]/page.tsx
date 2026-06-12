@@ -111,7 +111,7 @@ export default function FillEvaluationPage() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
   const [existingComment, setExistingComment] = useState<string | null>(null)
-  const [subjects, setSubjects] = useState<SubjectData[]>([])
+  const [subjects] = useState<SubjectData[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
@@ -218,28 +218,6 @@ export default function FillEvaluationPage() {
     },
     [categories, ratings, step, FEEDBACK_STEP, isSubmitted],
   )
-
-  async function handleSaveDraft() {
-    if (!evaluationId) return
-    try {
-      const ratingsArray = Object.entries(ratings).map(([itemId, rating]) => ({ itemId, rating }))
-      await fetch(`/api/evaluations/${evaluationId}/ratings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ratings: ratingsArray }),
-      })
-      if (comment) {
-        await fetch(`/api/evaluations/${evaluationId}/comments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comment }),
-        })
-      }
-      router.push("/student/evaluations")
-    } catch {
-      alert("Failed to save draft")
-    }
-  }
 
   async function handleSubmit() {
     if (!evaluationId) return

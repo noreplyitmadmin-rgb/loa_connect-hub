@@ -26,7 +26,6 @@ export default function AdminEvaluationPeriodsPage() {
   const [editEvalStartDate, setEditEvalStartDate] = useState("")
   const [editEvalEndDate, setEditEvalEndDate] = useState("")
 
-  const [activatingId, setActivatingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const { data: periodsData, isLoading: periodsLoading, error: periodsErr } = useApiGet<{ periods: PeriodData[] }>("/api/admin/evaluation-periods")
@@ -70,20 +69,6 @@ export default function AdminEvaluationPeriodsPage() {
       setError((err as Error).message)
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleActivate = async (id: string) => {
-    setActivatingId(id)
-    try {
-      const res = await fetch(`/api/evaluation-periods/${id}/activate`, { method: "POST" })
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
-      showSuccessMessage("Period activated!")
-      invalidate("/api/admin/evaluation-periods")
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setActivatingId(null)
     }
   }
 

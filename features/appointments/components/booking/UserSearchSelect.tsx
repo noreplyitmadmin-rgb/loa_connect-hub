@@ -90,7 +90,7 @@ export default function UserSearchSelect({
       const bSurname = getSurname(b.name)
       return aSurname.localeCompare(bSurname)
     })
-  }, [search, users, excludeIds])
+  }, [search, users, excludeIds, userRole])
 
   const handleSelect = (user: UserItem) => {
     onSelect(user)
