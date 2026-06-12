@@ -49,6 +49,7 @@ export default function Sidebar() {
   const { collapsed, toggle } = useSidebar()
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
   const [popoverGroup, setPopoverGroup] = useState<string | null>(null)
+  const [mobilePopoverGroup, setMobilePopoverGroup] = useState<string | null>(null)
   const [evalAvailable, setEvalAvailable] = useState<boolean | null>(null)
 
   const { data: accessData } = useApiGet<{ pages: string[] }>(
@@ -69,6 +70,10 @@ export default function Sidebar() {
     Promise.resolve().then(() => setPopoverGroup(null))
   }, [pathname])
 
+  useEffect(() => {
+    Promise.resolve().then(() => setMobilePopoverGroup(null))
+  }, [pathname])
+
   const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -81,6 +86,19 @@ export default function Sidebar() {
     document.addEventListener("mousedown", handler, true)
     return () => document.removeEventListener("mousedown", handler, true)
   }, [popoverGroup])
+
+  const mobilePopoverRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!mobilePopoverGroup) return
+    const handler = (e: MouseEvent) => {
+      if (mobilePopoverRef.current && !mobilePopoverRef.current.contains(e.target as Node)) {
+        setMobilePopoverGroup(null)
+      }
+    }
+    document.addEventListener("mousedown", handler, true)
+    return () => document.removeEventListener("mousedown", handler, true)
+  }, [mobilePopoverGroup])
 
   useEffect(() => {
     Promise.resolve().then(async () => {
@@ -218,29 +236,40 @@ export default function Sidebar() {
         <nav className="flex items-center justify-around h-14 px-1 max-w-lg mx-auto">
           {tabItems.map((item) => {
             const active = isActiveTab(item.href!)
-            return (
-              <Link
+            const isGroup = item.href?.startsWith("#")
+            return isGroup ? (
+              <button
                 key={item.href}
-                href={item.href === "#reports" ? "/admin/reports/health" : item.href === "#evaluations" ? "/student/evaluations" : item.href === "#data" ? "/admin/data/users" : item.href!}
+                type="button"
+                onClick={() => setMobilePopoverGroup(mobilePopoverGroup === item.href ? null : item.href ?? null)}
                 className={`relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 py-1 ios-tab-item ${
                   active ? "text-gold-600" : "text-tertiary"
                 }`}
               >
                 <div className="relative flex items-center justify-center w-6 h-6">
-                  <svg
-                    className="w-6 h-6 ios-tab-icon"
-                    viewBox="0 0 24 24"
-                    fill={active ? "currentColor" : "none"}
-                    fillOpacity={active ? "0.2" : "1"}
-                    stroke="currentColor"
-                    strokeWidth={active ? 2 : 1.5}
-                  >
+                  <svg className="w-6 h-6 ios-tab-icon" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} fillOpacity={active ? "0.2" : "1"} stroke="currentColor" strokeWidth={active ? 2 : 1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={item.icon!} />
                   </svg>
-                  {item.badge && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border-1.5 border-white dark:border-black" />
-                  )}
-                  {item.href === "/student/evaluations" && evalAvailable === false && primaryRole === "STUDENT" && (
+                </div>
+                <span className={`flex items-center gap-1 text-[10px] leading-none transition-all duration-300 ${
+                  active ? "font-semibold scale-100" : "font-medium scale-95 opacity-70"
+                }`}>
+                  {item.label}
+                </span>
+              </button>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href!}
+                className={`relative flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 py-1 ios-tab-item ${
+                  active ? "text-gold-600" : "text-tertiary"
+                }`}
+              >
+                <div className="relative flex items-center justify-center w-6 h-6">
+                  <svg className="w-6 h-6 ios-tab-icon" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} fillOpacity={active ? "0.2" : "1"} stroke="currentColor" strokeWidth={active ? 2 : 1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon!} />
+                  </svg>
+                  {(item.href === "/student/evaluations") && evalAvailable === false && primaryRole === "STUDENT" && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-slate-400 rounded-full border-1.5 border-white dark:border-black" />
                   )}
                 </div>
@@ -263,6 +292,36 @@ export default function Sidebar() {
             )
           })}
         </nav>
+
+        {mobilePopoverGroup && (
+          <div
+            ref={mobilePopoverRef}
+            className="fixed bottom-16 inset-x-4 z-50 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl py-2"
+          >
+            <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-tertiary">
+              {mobilePopoverGroup === "#data" ? "Data Management" : mobilePopoverGroup === "#reports" ? "Reports" : "Evaluations"}
+            </p>
+            {(mobilePopoverGroup === "#data" ? dataChildren : mobilePopoverGroup === "#reports" ? reportChildren : evaluationChildren)
+              .filter((c) => (c.href === dashHref || (allowedPages && allowedPages.includes(c.href!))) && !hiddenHrefs.has(c.href!))
+              .map((child) => (
+                <Link
+                  key={child.href}
+                  href={child.href!}
+                  onClick={() => setMobilePopoverGroup(null)}
+                  className={`flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors ${
+                    pathname === child.href
+                      ? "bg-gold-600/10 text-gold-400"
+                      : "text-tertiary hover:bg-slate-800/50 hover:text-white"
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
+                  </svg>
+                  <span>{child.label}</span>
+                </Link>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* DESKTOP: Sidebar */}
