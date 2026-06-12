@@ -15,15 +15,7 @@ export default async function AdminEvaluationsHubPage() {
         <p className="text-sm text-tertiary mt-1">Faculty evaluation management</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Link
-          href="/admin/evaluations/periods"
-          className="block bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-200 hover:shadow-sm transition-all"
-        >
-          <h3 className="text-sm font-bold text-primary">Evaluation Periods</h3>
-          <p className="text-xs text-tertiary mt-1">Create and manage evaluation cycles</p>
-        </Link>
-
+      <div className="grid gap-4 md:grid-cols-1">
         <Link
           href="/admin/evaluations/results"
           className="block bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-200 hover:shadow-sm transition-all"
