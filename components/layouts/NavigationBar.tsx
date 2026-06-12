@@ -48,10 +48,18 @@ export default function NavigationBar(_props: { title?: string }) {
     })
   }, [])
 
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/activate" ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/change-password") ||
+    pathname.startsWith("/setup-password")
+
   useEffect(() => {
+    if (isAuthPage) return
     if (dark) document.documentElement.classList.add("dark")
     else document.documentElement.classList.remove("dark")
-  }, [dark])
+  }, [dark, isAuthPage])
 
   const toggleTheme = useCallback(() => {
     setDark((prev) => {
@@ -68,8 +76,6 @@ export default function NavigationBar(_props: { title?: string }) {
   }, [])
 
   if (!pathname) return null
-
-  const isAuthPage =
     pathname === "/login" ||
     pathname === "/activate" ||
     pathname === "/forgot-password" ||
