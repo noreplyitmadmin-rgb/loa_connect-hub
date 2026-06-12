@@ -155,6 +155,26 @@
 
   color-scheme: dark;
 
+/* ── Light Override (for login page etc.) ── */
+.light-override {
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2f2f7;
+  --color-surface-hover: #e8e8ed;
+  --color-surface-secondary: #f9f9fb;
+  --color-surface-tertiary: #efeff4;
+  --color-border: #d1d1d6;
+  --color-border-strong: #c6c6c8;
+  --color-border-default: #d1d1d6;
+  --color-text: #1c1c1e;
+  --color-text-secondary: #3a3a3c;
+  --color-text-muted: #8e8e93;
+  --color-text-primary: #1c1c1e;
+  --color-text-tertiary: #8e8e93;
+  --color-tab-bar: rgba(255, 255, 255, 0.94);
+  --color-nav-bar: rgba(255, 255, 255, 0.88);
+  color-scheme: light;
+}
+
   /* ── Background overrides ── */
   .bg-white,
   .bg-slate-50,

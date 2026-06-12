@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
+import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST(request: NextRequest) {
   const authErr = await requireAdmin(request)
   if (authErr) return authErr
+
+  const session = await auth()
 
   try {
     const { student_id, name, email, faculty_subject_id, section_id, semesterId } = await request.json()
@@ -13,12 +17,14 @@ export async function POST(request: NextRequest) {
     }
 
     let resolvedStudentId = student_id
+    let createdNewUser = false
+    let normalEmail = ""
 
     if (!resolvedStudentId) {
       if (!name || !email) {
         return NextResponse.json({ error: "Either student_id or name+email is required" }, { status: 400 })
       }
-      const normalEmail = email.toLowerCase().trim()
+      normalEmail = email.toLowerCase().trim()
 
       const { data: existingUser } = await supabase
         .from("users")
@@ -41,6 +47,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: createErr.message }, { status: 500 })
         }
         resolvedStudentId = newUser.id
+        createdNewUser = true
 
         const { error: roleErr } = await supabase
           .from("userrole")
@@ -70,6 +77,15 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "CREATE_ENROLLMENT",
+      details: createdNewUser
+        ? `Created student ${name} (${normalEmail}) and enrolled in faculty-subject ${faculty_subject_id}`
+        : `Enrolled student ${resolvedStudentId} in faculty-subject ${faculty_subject_id}`,
+    })
 
     return NextResponse.json({ data }, { status: 201 })
   } catch {

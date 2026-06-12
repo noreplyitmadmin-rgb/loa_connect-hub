@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
+import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function PATCH(
   request: NextRequest,
@@ -8,6 +10,8 @@ export async function PATCH(
 ) {
   const authErr = await requireAdmin(request)
   if (authErr) return authErr
+
+  const session = await auth()
 
   const { id } = await params
 
@@ -42,6 +46,13 @@ export async function PATCH(
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "UPDATE_SECTION",
+      details: `Updated section ${existing.name} (${existing.program}): ${Object.keys(updateData).join(", ")}`,
+    })
 
     return NextResponse.json(data)
   } catch {

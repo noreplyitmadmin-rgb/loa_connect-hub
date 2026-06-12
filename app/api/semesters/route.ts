@@ -2,10 +2,10 @@ import { NextResponse } from "next/server"
 import { getSemesters, createSemester } from "@/features/admin-data/semesters.service"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function GET() {
   try {
-    // Return all semesters ordered by creation date regardless of active status
     const semesters = await getSemesters({})
     return NextResponse.json({ data: semesters }, { status: 200 })
   } catch (error) {
@@ -30,6 +30,14 @@ export async function POST(request: Request) {
     }
 
     const semester = await createSemester({ title })
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "CREATE_SEMESTER",
+      details: `Created semester: ${title}`,
+    })
+
     return NextResponse.json({ data: semester }, { status: 201 })
   } catch (error) {
     console.error("Error creating semester", error)

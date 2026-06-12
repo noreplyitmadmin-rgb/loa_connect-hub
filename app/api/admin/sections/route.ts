@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
+import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST(request: NextRequest) {
   const authErr = await requireAdmin(request)
   if (authErr) return authErr
+
+  const session = await auth()
 
   try {
     const { name, program } = await request.json()
@@ -24,6 +28,13 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "CREATE_SECTION",
+      details: `Created section ${data.name} (${data.program})`,
+    })
 
     return NextResponse.json(data, { status: 201 })
   } catch {

@@ -89,6 +89,8 @@ export default function AdminUsersPage() {
   const [createDept, setCreateDept] = useState("")
   const [createError, setCreateError] = useState("")
   const [createSaving, setCreateSaving] = useState(false)
+  const [createSendInvite, setCreateSendInvite] = useState(true)
+  const [createResult, setCreateResult] = useState<string | null>(null)
 
   const { data: adminData, isLoading } = useApiGet<{ users: User[]; departments: Department[] }>("/api/admin/users")
 
@@ -260,6 +262,25 @@ export default function AdminUsersPage() {
         setCreateUserType("")
         setCreateGrant("")
         setCreateDept("")
+        if (createSendInvite) {
+          try {
+            const inviteRes = await fetch("/api/auth/activate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email }),
+            })
+            if (inviteRes.ok) {
+              setCreateResult("User created and invite sent.")
+            } else {
+              const inviteData = await inviteRes.json().catch(() => ({}))
+              setCreateResult(`User created but invite failed: ${inviteData.error || "Unknown error"}`)
+            }
+          } catch {
+            setCreateResult("User created but invite failed to send.")
+          }
+        } else {
+          setCreateResult("User created.")
+        }
       } else {
         setCreateError(data.error || "Failed to create user")
       }
@@ -696,6 +717,18 @@ export default function AdminUsersPage() {
       )}
       </div>
 
+      {/* Result notification */}
+      {createResult && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 flex items-center justify-between">
+          <span>{createResult}</span>
+          <button onClick={() => setCreateResult(null)} className="ml-3 text-current opacity-60 hover:opacity-100">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* ── Edit User Modal ── */}
       {editUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={() => !editSaving && setEditUser(null)}>
@@ -852,11 +885,21 @@ export default function AdminUsersPage() {
               ))}
             </select>
 
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createSendInvite}
+                onChange={(e) => setCreateSendInvite(e.target.checked)}
+                className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+              />
+              Send invite email to this user
+            </label>
+
             {createError && <p className="text-xs text-red-600">{createError}</p>}
 
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
               <button
-                onClick={() => { setShowCreate(false); setCreateError("") }}
+                onClick={() => { setShowCreate(false); setCreateError(""); setCreateResult(null) }}
                 disabled={createSaving}
                 className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg border border-default bg-surface-hover disabled:opacity-50 w-full sm:w-auto"
               >

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
+import { auth } from "@/lib/auth"
 import { requireAdminOrDean } from "@/lib/route-guard"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdminOrDean(request)
@@ -33,6 +35,8 @@ export async function POST(request: NextRequest) {
   const authErr = await requireAdminOrDean(request)
   if (authErr) return authErr
 
+  const session = await auth()
+
   const body = await request.json()
   const { departmentId, name, code } = body
 
@@ -63,6 +67,13 @@ export async function POST(request: NextRequest) {
     ...data,
     department: deptData || null
   }
+
+  const currentUserId = (session!.user as Record<string, unknown>).id as string
+  await logAuditEvent({
+    userId: currentUserId,
+    action: "CREATE_DEPARTMENT_COURSE",
+    details: `Created course ${code} — ${name} for department ${departmentId}`,
+  })
 
   return NextResponse.json(responseData)
 }

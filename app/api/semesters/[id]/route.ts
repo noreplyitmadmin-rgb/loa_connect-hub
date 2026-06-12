@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { getSemester, updateSemester, deleteSemester, activateSemester } from "@/features/admin-data/semesters.service"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
+import { logAuditEvent } from "@/lib/services/audit"
 
-// Helper function to ensure authentication
 async function requireAuth() {
   const session = await auth()
   if (!session?.user) {
@@ -12,24 +12,21 @@ async function requireAuth() {
   return null
 }
 
-// Helper function to ensure ADMIN role
-async function requireAdminRole() {
+async function getSessionOrDeny() {
   const session = await auth()
   const role = (session?.user as Record<string, unknown>)?.role as string
   if (!role || !hasRole(role, "ADMIN")) {
-    return NextResponse.json({ error: "Forbidden: Administrator role required for this action." }, { status: 403 })
+    return { session: null, error: NextResponse.json({ error: "Forbidden: Administrator role required for this action." }, { status: 403 }) }
   }
-  return null
+  return { session, error: null }
 }
 
-// GET handler: Get a single semester by ID
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   
-  // Authentication check (must be logged in to view details)
   const authErr = await requireAuth()
   if (authErr) return authErr
   
@@ -45,15 +42,13 @@ export async function GET(
   }
 }
 
-// PATCH handler: Update a semester
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   
-  // Authorization check
-  const forbidden = await requireAdminRole()
+  const { session, error: forbidden } = await getSessionOrDeny()
   if (forbidden) return forbidden
 
   try {
@@ -71,6 +66,14 @@ export async function PATCH(
     }
 
     const updatedSemester = await updateSemester(id, updates)
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "UPDATE_SEMESTER",
+      details: `Updated semester ${id}: ${Object.keys(updates).join(", ")}`,
+    })
+
     return NextResponse.json({ data: updatedSemester }, { status: 200 })
   } catch (error) {
     console.error("Error updating semester", error)
@@ -78,19 +81,26 @@ export async function PATCH(
   }
 }
 
-// DELETE handler: Delete a semester
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   
-  // Authorization check
-  const forbidden = await requireAdminRole()
+  const { session, error: forbidden } = await getSessionOrDeny()
   if (forbidden) return forbidden
 
   try {
+    const semester = await getSemester(id)
     await deleteSemester(id)
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "DELETE_SEMESTER",
+      details: semester ? `Deleted semester: ${semester.title}` : `Deleted semester ${id}`,
+    })
+
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
     console.error("Error deleting semester", error)
@@ -98,19 +108,25 @@ export async function DELETE(
   }
 }
 
-// POST handler: Activate a semester (optional/cleaner route)
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   
-  // Authorization check
-  const forbidden = await requireAdminRole()
+  const { session, error: forbidden } = await getSessionOrDeny()
   if (forbidden) return forbidden
   
   try {
     const activatedSemester = await activateSemester(id)
+
+    const currentUserId = (session!.user as Record<string, unknown>).id as string
+    await logAuditEvent({
+      userId: currentUserId,
+      action: "ACTIVATE_SEMESTER",
+      details: `Activated semester ${id}`,
+    })
+
     return NextResponse.json({ data: activatedSemester }, { status: 200 })
   } catch (error) {
     console.error("Error activating semester", error)

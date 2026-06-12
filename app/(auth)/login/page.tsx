@@ -23,7 +23,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="min-h-dvh flex flex-col light-override">
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
@@ -31,12 +31,12 @@ function LoginForm() {
             <img
               src="/logo-blk.png"
               alt="Lyceum of Alabang"
-              className="h-12 object-contain"
+              className="h-16 sm:h-20 object-contain"
             />
           </div>
 
           <h1 className="text-[34px] font-bold text-primary text-center tracking-tight leading-tight">Sign In</h1>
-          <p className="text-base text-tertiary text-center mt-1">Academic LOA Connect Hub</p>
+          <p className="text-base text-tertiary text-center mt-1">LOA Connect Hub</p>
 
           {error && (
             <div className="mt-6 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
