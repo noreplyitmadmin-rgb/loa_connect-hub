@@ -45,7 +45,7 @@ export default async function StudentHistoryPage() {
       enriched.push({
         id: ev.id,
         facultyName: nameMap.get(ev.evaluateeId) || ev.evaluateeId,
-        submittedAt: (ev.submittedAt as Date).toISOString(),
+        submittedAt: typeof ev.submittedAt === "string" ? ev.submittedAt : (ev.submittedAt as Date)?.toISOString() || "",
       })
     }
   }
