@@ -61,22 +61,24 @@ function AdminAccessConfigPageInner() {
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-default">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => {
-              router.push(tab.key === "rbac" ? "/admin/access-config" : `/admin/access-config?tab=${tab.key}`)
-            }}
-            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === tab.key
-                ? "border-gold-600 text-gold-600"
-                : "border-transparent text-tertiary hover:text-secondary"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1 border-b border-default min-w-max">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => {
+                router.push(tab.key === "rbac" ? "/admin/access-config" : `/admin/access-config?tab=${tab.key}`)
+              }}
+              className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? "border-gold-600 text-gold-600"
+                  : "border-transparent text-tertiary hover:text-secondary"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeTab === "rbac" ? <RBACTab /> : <UserPermissionsTab />}
@@ -362,8 +364,8 @@ function UserPermissionsTab() {
   }
 
   return (
-    <div className="flex gap-6">
-      <aside className="w-72 shrink-0">
+    <div className="flex flex-col lg:flex-row gap-6">
+      <aside className="w-full lg:w-72 shrink-0">
         <div className="card p-4 space-y-3">
           <div>
             <label className="text-xs font-semibold text-secondary">Filter paths</label>
