@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     if (!periodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
     const result = await evaluationResultRepository.findByFaculty(periodId, userId)
-    if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (!result || !result.isResultsVisible) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
     return NextResponse.json({ result })
   } catch {
     return NextResponse.json({ error: "Failed to fetch evaluation result" }, { status: 500 })

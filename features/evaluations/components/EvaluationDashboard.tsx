@@ -52,6 +52,7 @@ interface StudentRow {
 interface EvaluationDashboardProps {
   apiBase: string
   showDepartmentFilter?: boolean
+  showVisibilityToggles?: boolean
   title: string
   subtitle: string
 }
@@ -117,6 +118,7 @@ function SummaryCard({ value, label, color }: { value: string | number; label: s
 export default function EvaluationDashboard({
   apiBase,
   showDepartmentFilter = false,
+  showVisibilityToggles = false,
   title,
   subtitle,
 }: EvaluationDashboardProps) {
@@ -130,6 +132,8 @@ export default function EvaluationDashboard({
   const [studentData, setStudentData] = useState<Record<string, StudentRow[]>>({})
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [facultyNames, setFacultyNames] = useState<Record<string, string>>({})
+  const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({})
+  const [toggling, setToggling] = useState(false)
   const [page, setPage] = useState(0)
 
   useEffect(() => {
@@ -166,6 +170,7 @@ export default function EvaluationDashboard({
         .then((data) => {
           setResults(data.results || [])
           setFacultyNames(data.facultyNames || {})
+          setVisibilityMap(data.visibilityMap || {})
           setLoading(false)
         })
     })
@@ -186,6 +191,43 @@ export default function EvaluationDashboard({
     }
     setLoadingStudents(false)
   }, [selectedPeriod, selectedFaculty, studentData])
+
+  const toggleVisibility = useCallback(async (facultyId: string, visible: boolean) => {
+    if (!selectedPeriod || toggling) return
+    setToggling(true)
+    const prev = visibilityMap[facultyId]
+    setVisibilityMap((m) => ({ ...m, [facultyId]: visible }))
+    try {
+      await fetch("/api/admin/evaluation-results/visibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ semesterId: selectedPeriod, facultyIds: [facultyId], visible }),
+      })
+    } catch {
+      setVisibilityMap((m) => ({ ...m, [facultyId]: prev }))
+    }
+    setToggling(false)
+  }, [selectedPeriod, toggling, visibilityMap])
+
+  const bulkSetVisibility = useCallback(async (visible: boolean) => {
+    if (!selectedPeriod || results.length === 0 || toggling) return
+    setToggling(true)
+    const facultyIds = results.map((r) => r.facultyId)
+    const prev = { ...visibilityMap }
+    const update: Record<string, boolean> = {}
+    for (const id of facultyIds) update[id] = visible
+    setVisibilityMap((m) => ({ ...m, ...update }))
+    try {
+      await fetch("/api/admin/evaluation-results/visibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ semesterId: selectedPeriod, facultyIds, visible }),
+      })
+    } catch {
+      setVisibilityMap(prev)
+    }
+    setToggling(false)
+  }, [selectedPeriod, results, toggling, visibilityMap])
 
   const downloadPDF = useCallback(async () => {
     const doc = new jsPDF("landscape")
@@ -281,6 +323,26 @@ export default function EvaluationDashboard({
             </select>
           </div>
           <div className="flex items-center gap-2">
+            {showVisibilityToggles && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => bulkSetVisibility(true)}
+                  disabled={results.length === 0 || toggling}
+                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm disabled:opacity-50"
+                >
+                  Publish All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => bulkSetVisibility(false)}
+                  disabled={results.length === 0 || toggling}
+                  className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm disabled:opacity-50"
+                >
+                  Hide All
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={downloadPDF}
@@ -357,6 +419,7 @@ export default function EvaluationDashboard({
                     <th className="p-3 text-center whitespace-nowrap">General</th>
                     <th className="p-3 text-center whitespace-nowrap">Respondents</th>
                     <th className="p-3 text-center">Remark</th>
+                    {showVisibilityToggles && <th className="p-3 text-center whitespace-nowrap">Visible</th>}
                     <th className="p-3 text-center w-10"></th>
                   </tr>
                 </thead>
@@ -373,6 +436,27 @@ export default function EvaluationDashboard({
                         <td className="p-3 text-center font-bold text-primary">{r.generalRating !== null ? r.generalRating.toFixed(2) : "—"}</td>
                         <td className="p-3 text-center text-secondary">{r.totalRespondents}</td>
                         <td className="p-3 text-center">{r.remarks && <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getRemarkColor(r.remarks)}`}>{r.remarks}</span>}</td>
+                        {showVisibilityToggles && (
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleVisibility(r.facultyId, !visibilityMap[r.facultyId]) }}
+                              disabled={toggling}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                                visibilityMap[r.facultyId] ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" : "bg-surface-tertiary text-tertiary hover:bg-amber-100 hover:text-amber-600"
+                              } disabled:opacity-50`}
+                              title={visibilityMap[r.facultyId] ? "Visible to faculty — click to hide" : "Hidden from faculty — click to show"}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                {visibilityMap[r.facultyId] ? (
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                ) : (
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                                )}
+                              </svg>
+                            </button>
+                          </td>
+                        )}
                         <td className="p-3 text-center">
                           <svg className={`w-4 h-4 mx-auto text-tertiary transition-transform ${isSelected ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

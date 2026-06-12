@@ -7,6 +7,7 @@ export default function AdminEvaluationResultsPage() {
     <EvaluationDashboard
       apiBase="/api/admin/evaluation-results"
       showDepartmentFilter
+      showVisibilityToggles
       title="Evaluation Results"
       subtitle="View faculty evaluation results across departments"
     />

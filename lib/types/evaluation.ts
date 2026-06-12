@@ -187,6 +187,7 @@ export interface EvaluationResultData {
   generalRating: number | null
   remarks: string | null
   computedAt: Date
+  isResultsVisible: boolean
 }
 
 // ── DTO Types ─────────────────────────────────────────────
@@ -320,4 +321,6 @@ export interface IEvaluationResultRepository {
   findByFaculty(semesterId: string, facultyId: string): Promise<EvaluationResultData | null>
   compute(semesterId: string, facultyId?: string): Promise<void>
   computeAll(semesterId: string): Promise<void>
+  setVisibility(semesterId: string, facultyIds: string[], visible: boolean): Promise<void>
+  getVisibilityMap(semesterId: string): Promise<Map<string, boolean>>
 }

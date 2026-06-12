@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
 import { supabase } from "@/lib/db"
+import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 const CATEGORY_NAMES: Record<string, string> = {
   "Professional Manner": "professionalManner",
@@ -124,7 +125,13 @@ export async function GET(request: NextRequest) {
       results.push(row)
     }
 
-    return NextResponse.json({ results, facultyNames })
+    const visibilityMap: Record<string, boolean> = {}
+    const vis = await evaluationResultRepository.getVisibilityMap(semesterId)
+    for (const r of results) {
+      visibilityMap[r.facultyId as string] = vis.get(r.facultyId as string) ?? false
+    }
+
+    return NextResponse.json({ results, facultyNames, visibilityMap })
   } catch (e) {
     console.error("Admin evaluation results error:", e)
     return NextResponse.json({ error: "Failed to fetch evaluation results" }, { status: 500 })

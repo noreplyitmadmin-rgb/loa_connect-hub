@@ -132,6 +132,48 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
   async computeAll(semesterId) {
     await this.compute(semesterId)
   },
+
+  async setVisibility(semesterId, facultyIds, visible) {
+    const { data: existing } = await supabase
+      .from("evaluation_results")
+      .select("facultyId")
+      .eq("semesterId", semesterId)
+      .in("facultyId", facultyIds)
+
+    const existingSet = new Set((existing || []).map((r) => r.facultyId))
+    const toUpdate = facultyIds.filter((id) => existingSet.has(id))
+    const toInsert = facultyIds.filter((id) => !existingSet.has(id))
+
+    if (toUpdate.length > 0) {
+      const { error } = await supabase
+        .from("evaluation_results")
+        .update({ is_results_visible: visible })
+        .eq("semesterId", semesterId)
+        .in("facultyId", toUpdate)
+      if (error) throw error
+    }
+
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from("evaluation_results")
+        .insert(toInsert.map((facultyId) => ({
+          semesterId,
+          facultyId,
+          is_results_visible: visible,
+          totalRespondents: 0,
+        })))
+      if (error) throw error
+    }
+  },
+
+  async getVisibilityMap(semesterId) {
+    const { data, error } = await supabase
+      .from("evaluation_results")
+      .select("facultyId, is_results_visible")
+      .eq("semesterId", semesterId)
+    if (error) throw error
+    return new Map((data || []).map((r) => [r.facultyId, r.is_results_visible]))
+  },
 }
 
 const nameToColumn: Record<string, keyof StudentBreakdownItem> = {

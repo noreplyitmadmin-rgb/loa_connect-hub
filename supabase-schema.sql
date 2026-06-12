@@ -1351,3 +1351,20 @@ DO $$ BEGIN
     ALTER TABLE sections ADD COLUMN "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE;
   END IF;
 END $$;
+
+-- =========================================================
+-- Migration 23: Add is_results_visible to evaluation_results
+-- =========================================================
+--
+-- Controls faculty-facing visibility of evaluation results.
+-- Admin sets this flag; faculty can only see their result when TRUE.
+-- =========================================================
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluation_results' AND column_name = 'is_results_visible'
+  ) THEN
+    ALTER TABLE evaluation_results ADD COLUMN is_results_visible BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END $$;
