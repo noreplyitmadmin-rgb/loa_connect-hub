@@ -17,48 +17,54 @@ Optional — guarded by `FEATURE_CREATE_TEAMS_MEETING` flag. Sync tracking field
 ### Layered Structure
 
 ```
-app/                          # Next.js App Router — pages, layouts, API routes
+app/                          # Next.js App Router — pages, layouts, API routes (174 files)
 ├── (auth)/                   # Auth route group (login, activate, forgot-password)
-│   └── error.tsx             # Auth error boundary
-├── admin/                    # Admin dashboard & management
-│   └── error.tsx             # Admin error boundary
 ├── api/                      # REST API routes (thin handlers -> controllers)
+├── admin/                    # Admin dashboard & management
 ├── dean/                     # Dean dashboard & management
-│   ├── error.tsx             # Dean error boundary
-│   └── loading.tsx           # Dean loading state
-├── dean/m/                   # Dean mobile companion pages (departments, upload)
 ├── faculty/                  # Faculty dashboard & management
-│   ├── error.tsx             # Faculty error boundary
-│   └── loading.tsx           # Faculty loading state
-├── faculty/m/                # Faculty mobile companion pages (meetings)
 ├── student/                  # Student dashboard & booking
-│   ├── error.tsx             # Student error boundary
-│   ├── loading.tsx           # Student loading state
-│   ├── book/loading.tsx      # Booking loading state
-│   └── meetings/             # Student meetings (with loading.tsx per [id])
-├── student/m/                # Student mobile companion pages (book, meetings)
 ├── 403/                      # Access denied page
 ├── faq/                      # FAQ page
 ├── error.tsx                 # Global error boundary (inside layout)
-├── global-error.tsx          # Root error boundary (outside layout, includes <html>)
+├── global-error.tsx          # Root error boundary (outside layout)
 ├── layout.tsx                # Root layout (SessionProvider + AppShell)
 └── page.tsx                  # Root page (role-based redirect / multi-role selector)
 
-components/                   # React components (37 files)
-├── reports/                  # Report-related components (12 files)
-├── MobileBookingFlow.tsx     # Mobile booking wizard (step-by-step)
-├── AppShell.tsx              # App layout shell (sidebar + breadcrumbs)
-├── BookingCalendar.tsx       # Calendar slot selection
-├── BookingForm.tsx           # Booking form
-├── Sidebar.tsx               # App sidebar navigation (dark mode toggle)
-└── ...                       # StatusBadge, Skeleton, SubmitButton, etc.
+features/                     # Domain slices — controllers, services, repos, UI (120 files)
+├── appointments/             # Booking, conflict detection, calendar, Teams sync
+├── reports/                  # 7 report types + 6 controllers + merge helpers
+├── users/                    # User CRUD, bulk import, auth flows
+├── evaluations/              # Evaluation periods, forms, ratings, comments
+├── evaluation-results/       # Computing and viewing evaluation results
+├── admin-data/               # Departments, semesters, subjects, sections, enrollments
+├── rubrics/                  # Rubric CRUD + category/item management
+├── audit/                    # Audit logging
+└── user-permissions/         # Permission management
 
-lib/                          # Business logic (32 files)
-├── controllers/              # Domain logic (appointments, auth, reports, etc.)
-├── repositories/             # Data access layer (interfaces + Supabase impl)
-├── services/                 # Cross-cutting (email, audit, CSV, iCal)
+components/                   # Global reusable React components (23 files — ui/ + layouts/)
+├── ui/                       # StatusBadge, Skeleton, SubmitButton, SearchInput, etc.
+└── layouts/                  # AppShell, Sidebar, Navbar, Providers, Breadcrumbs
+
+lib/                          # Cross-cutting infrastructure (62 files)
+├── repositories/             # Repository factory + Supabase implementations
+│   └── supabase/             #   (16 repository files)
+├── services/                 # Email, audit, CSV parse, iCal generation
+├── email-templates/          # HTML email templates (5 variants)
 ├── types/                    # Shared type definitions (entity, dto, repository)
-└── utils/                    # Date, roles, semester helpers
+├── utils/                    # Date, roles, semester helpers
+├── workflows/                # Vercel Workflow functions (email orchestration)
+├── api/                      # API utility helpers
+├── contexts/                 # React context providers
+├── db/                       # DB client helpers
+└── __tests__/                # Test files (14 files)
+
+hooks/                        # Custom React hooks (2 files)
+├── useDebounce.ts
+└── usePullToRefresh.ts
+
+types/                        # Global type augmentations (1 file)
+└── jspdf-autotable.d.ts
 ```
 
 ### Data Flow
@@ -72,14 +78,16 @@ Next.js App Router / API Routes
     ↓
 API Route Handler (thin) — parse request, call controller, return JSON
     ↓
-Controller (lib/controllers/) — business logic, validation, orchestration
+Controller (features/*/*.controller.ts) — orchestration, cross-domain aggregation, DTO shaping
     ↓
-Repository (lib/repositories/) — data access via Supabase REST API
+Service (features/*/*.service.ts) — business logic, validation, single-domain data fetching
+    ↓
+Repository (features/*/*.repository.ts) — data access via Supabase REST API
     ↓
 Supabase PostgreSQL
 ```
 
-Server Components fetch data directly via controllers and pass props to Client Components.
+Server Components fetch data directly via controllers (or services for simpler lookups) and pass props to Client Components.
 
 ### Current Patterns
 
@@ -89,13 +97,16 @@ Server Components fetch data directly via controllers and pass props to Client C
 | **Auth** | NextAuth v4 (Credentials provider, JWT, bcryptjs) |
 | **Authorization** | Middleware (`proxy.ts`) + per-route `auth()` calls + DB role checks |
 | **Data access** | Repository pattern with interface abstraction |
+| **Layered architecture** | Controller orchestrates cross-domain logic + DTO shaping; service handles pure business logic and single-domain data fetching; repository handles data access |
 | **Roles** | Multi-role via pipe-delimited string in `user.role`; resolved by priority (ADMIN > DEAN > FACULTY > STUDENT); Faculty ⇔ Dean mutually exclusive |
 | **UI state** | React built-in hooks (`useState`, `useEffect`); no global state library |
 | **Forms** | Local `useState`; `SubmitButton` double-click prevention |
 | **Email** | Nodemailer (Gmail SMTP), durable via Vercel Workflows with sequenced steps |
 | **iCal** | Custom `.ics` generation (no library) |
 | **CSV import** | Custom parser in `lib/services/` |
-| **PDF export** | jsPDF + jspdf-autotable |
+| **PDF export** | jsPDF + jspdf-autotable (dynamically imported on click) |
+| **Code splitting** | `next/dynamic` for tab-based report content; chart/schedule/summary views loaded on tab activation |
+| **Batch DB ops** | `Promise.all` for parallel slot/attendee creation and conflict checks instead of sequential `for...of` + `await` |
 | **Feature flags** | Environment variables (`EMAIL_FEATURE_FLAG`, `SSO_FEATURE_FLAG`, etc.) |
 | **Loading states** | Dedicated skeleton components + `loading.tsx` per route segment |
 | **Dark mode** | Class-based (`.dark` on `<html>`), persisted in localStorage, Tailwind v4 `@custom-variant dark` |
@@ -104,14 +115,83 @@ Server Components fetch data directly via controllers and pass props to Client C
 
 | Directory | Source Files |
 |-----------|-------------|
-| `app/` | 92 (pages, API routes, layouts, error boundaries, loading states) |
-| `components/` | 37 (React components) |
-| `lib/` | 40 (controllers, services, workflows, repos, types, utils, email-templates) |
-| Total | ~169 source files |
+| `app/` | 174 (pages, API routes, layouts, error boundaries, loading states) |
+| `features/` | 120 (controllers, services, repos, actions, domain components) |
+| `components/` | 23 (global React components in ui/ + layouts/) |
+| `lib/` | 63 (types, utils, tests, services, repos factory, workflows, email) |
+| `hooks/` | 2 |
+| `types/` | 1 |
+| Total | ~398 source files |
+
+### Page Rendering Strategy
+
+Pages use one of three patterns depending on interactivity needs:
+
+| Pattern | Count | How it works |
+|---------|-------|-------------|
+| **Server Component** | 20 | `async function` page imports controller/service directly, fetches data during SSR, passes props to client children |
+| **Client Component** | 22 | `"use client"` page calls API routes via `fetch`/custom hooks for data and mutations |
+| **Redirect / Static** | 10 | Redirect-only (`redirect()`) or static UI with no data fetching |
+
+| Route | Pattern | Notes |
+|-------|---------|-------|
+| `/` | Redirect | Conditional redirect based on session/role |
+| `/403` | Static | Forbidden page |
+| `/faq` | Server | Imports lib directly |
+| `/login` | Client | Auth form |
+| `/activate` | Client | Account activation form |
+| `/forgot-password` | Client | Password reset form |
+| `/change-password` | Client | Password change form |
+| `/admin` | Server | Dashboard — imports services |
+| `/admin/reports` | Redirect | → `/admin/reports/health` |
+| `/admin/reports/health` | Server | Imports `admin-reports.controller` |
+| `/admin/reports/backlog` | Server | Imports `backlog.controller` |
+| `/admin/reports/coverage` | Server | Imports `coverage.controller` |
+| `/admin/reports/distribution` | Server | Imports `distribution.controller` |
+| `/admin/reports/demand` | Server | Imports `demand.controller` |
+| `/admin/reports/responsiveness` | Redirect | → `/admin/reports/health` |
+| `/admin/evaluations` | Server | Evaluations hub |
+| `/admin/evaluations/results` | Client | Wraps `EvaluationDashboard` |
+| `/admin/evaluations/rubrics` | Client | Rubric CRUD |
+| `/admin/evaluations/reports` | Server | Reports hub |
+| `/admin/evaluations/reports/sentiment` | Client | Sentiment analysis chart |
+| `/admin/data/users` | Client | User management |
+| `/admin/data/users/deleted` | Client | Deleted users list |
+| `/admin/data/academic-infrastructure` | Client | Multi-tab data manager |
+| `/admin/audit-trail` | Client | Audit log viewer |
+| `/admin/access-config` | Client | Access config list |
+| `/admin/access-config/[groupName]` | Client | Group detail editor |
+| `/admin/data-management` | Client | Data purge/management |
+| `/admin/etl-hub` | Client | ETL import with preview |
+| `/admin/user-permissions` | Redirect | → `/admin/access-config` |
+| `/dean` | Server | Dashboard — imports services |
+| `/dean/departments` | Client | Department course management |
+| `/dean/evaluations` | Server | Dean evaluations list |
+| `/dean/evaluations/results` | Client | Wraps `EvaluationDashboard` |
+| `/dean/evaluations/reports` | Server | Reports hub |
+| `/faculty` | Server | Dashboard — imports services |
+| `/faculty/upload` | Client | Bulk import uploader |
+| `/faculty/availability` | Client | Availability scheduler |
+| `/faculty/meetings` | Server | Meetings list |
+| `/faculty/meetings/new` | Server | Schedule meeting form |
+| `/faculty/meetings/[id]` | Static | Delegates to client `<AppointmentDetail>` |
+| `/faculty/reports` | Redirect | → `/admin/reports/health` |
+| `/faculty/evaluations` | Client | Evaluation periods list |
+| `/faculty/evaluations/[periodId]` | Server | Faculty period breakdown |
+| `/faculty/evaluations/results` | Client | Wraps `EvaluationDashboard` |
+| `/student` | Server | Dashboard — imports services |
+| `/student/book` | Server | Book consultation |
+| `/student/history` | Server | Consultation history |
+| `/student/meetings` | Server | Meetings list |
+| `/student/meetings/[id]` | Static | Delegates to client `<AppointmentDetail>` |
+| `/student/evaluations` | Client | Pending evaluations list |
+| `/student/evaluations/[id]` | Client | Evaluation form |
+| `/student/evaluations/history` | Client | Past evaluations list |
+| `/student/evaluations/thank-you` | Static | Thank-you confirmation |
 
 ### Known Issues & Risks
 
-1. **Minimal test coverage** — Only 9 test files exist for ~23,000 LOC. Critical paths (appointment booking, conflict detection, role resolution, report aggregation) are untested.
+1. **Minimal test coverage** — Only 14 test files (166 tests) for ~23,000 LOC. Critical paths remain untested: full report aggregation edge cases, most repository methods, email workflow orchestration edge cases.
 2. **HTML email templates via template literals** — Fragile string concatenation. No type safety or template engine.
 
 ## Environment Variables
@@ -135,11 +215,11 @@ Copy `.env` to set up your local environment.
 
 ### Double-Click Prevention
 
-All form submissions and action buttons use `SubmitButton` (`components/SubmitButton.tsx`) which has a built-in `useRef` guard that blocks re-entry for 500ms after the first click, preventing double-submissions even before React re-renders.
+All form submissions and action buttons use `SubmitButton` (`components/ui/SubmitButton.tsx`) which has a built-in `useRef` guard that blocks re-entry for 500ms after the first click, preventing double-submissions even before React re-renders.
 
 ### Skeleton Loading
 
-Client-side pages that fetch data on mount show skeleton placeholders (`components/Skeleton.tsx`) instead of "Loading..." text. Variants: `text`, `card`, `table-row`, `avatar`, `metric`, `badge`, plus composite layouts `SkeletonTable`, `SkeletonMetricGrid`, `SkeletonCard`.
+Client-side pages that fetch data on mount show skeleton placeholders (`components/ui/Skeleton.tsx`) instead of "Loading..." text. Variants: `text`, `card`, `table-row`, `avatar`, `metric`, `badge`, plus composite layouts `SkeletonTable`, `SkeletonMetricGrid`, `SkeletonCard`.
 
 ### Redirect Guard on Login
 
@@ -189,7 +269,9 @@ Emails are sent through **Vercel Workflows** (durable execution) with built-in r
 | `lib/services/email.ts` | Low-level Nodemailer senders (7 functions) |
 | `lib/email-templates/*.ts` | HTML templates (5 variants) |
 | `lib/workflows/email-workflows.ts` | Durable workflow wrappers (8 functions) |
-| `lib/controllers/appointments.ts` | Business logic that invokes workflows |
+| `features/appointments/appointments.controller.ts` | Orchestration that invokes workflows |
+| `features/reports/*.controller.ts` | 6 report controllers (admin-reports, backlog, coverage, demand, distribution, responsiveness) |
+| `features/reports/*.service.ts` | 6 report services (pure helpers only — merge, computeByFaculty, etc.) |
 
 ### Prerequisites for Production
 
@@ -240,6 +322,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 | 16. Staggered & Multi-Faculty Booking | ✅ Done |
 | 17. Mobile Companion Pages | ✅ Done |
 | 18. Dark Mode | ✅ Done |
+| 19. Pagination & Indexes | ✅ Done |
 
 ## Faculty Evaluation Module
 
@@ -264,18 +347,18 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `/admin/evaluations/periods/[id]` | ✅ Done |
 | `/admin/evaluations/periods/[id]/rubric` | ✅ Done |
 | `/admin/evaluations/results` | ✅ Done |
-| `/admin/evaluations/rubrics` (standalone editor) | ❌ Missing |
+| `/admin/evaluations/rubrics` (standalone editor) | ✅ Done |
 | `/admin/evaluations/upload` (ETL status) | ✅ N/A — use `/admin/etl-hub` |
-| `/admin/evaluations/reports` (landing + sentiment) | ❌ Missing |
-| `/dean/evaluations` (dashboard) | ❌ Missing |
+| `/admin/evaluations/reports` (landing + sentiment) | ✅ Done |
+| `/dean/evaluations` (dashboard) | ✅ Done |
 | `/dean/evaluations/results` | ✅ Done |
-| `/dean/evaluations/reports` | ❌ Missing |
-| `/faculty/evaluations` (dashboard) | ❌ Missing |
+| `/dean/evaluations/reports` | ✅ Done |
+| `/faculty/evaluations` (dashboard) | ✅ Done |
 | `/faculty/evaluations/results` | ✅ Done |
-| `/faculty/evaluations/[periodId]` | ❌ Missing |
+| `/faculty/evaluations/[periodId]` | ✅ Done |
 | `/student/evaluations` (pending list) | ✅ Done |
 | `/student/evaluations/[id]` (evaluation form) | ✅ Done |
-| `/student/evaluations/history` | ❌ Missing |
+| `/student/evaluations/history` | ✅ Done |
 
 ### Database
 
@@ -305,8 +388,8 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `rubric` | ✅ Done |
 | `evaluation` | ✅ Done |
 | `evaluation-result` | ✅ Done |
-| `evaluation-rating` | ❌ Missing |
-| `evaluation-comment` | ❌ Missing |
+| `evaluation-rating` | ✅ Done — inline in `evaluations.repository.ts` |
+| `evaluation-comment` | ✅ Done — inline in `evaluations.repository.ts` |
 
 ### Controllers
 
@@ -348,9 +431,6 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `POST /api/sentiment-analysis/analyze` | ✅ Placeholder |
 | `POST /api/sentiment-analysis/batch` | ✅ Placeholder |
 | `GET /api/sentiment-analysis/summary` | ✅ Placeholder |
-| `GET /api/evaluation-reports/department` | ❌ Missing |
-| `GET /api/evaluation-reports/institutional` | ❌ Missing |
-| `GET /api/evaluation-reports/faculty/[facultyId]` | ❌ Missing |
 | `admin/evaluation-periods` (CRUD) | ✅ Done |
 | `admin/evaluation-results` | ✅ Done |
 | `admin/evaluation-results/compute` | ✅ Done |
@@ -384,20 +464,20 @@ Non-activated accounts must use the activation flow at `/activate`.
 |------|--------|
 | `EtlUploadType` constants | ✅ Done |
 | `lib/access.ts` DEFAULT_CONFIG | ✅ Done |
-| `components/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
+| `components/layouts/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
 | `lib/types/index.ts` evaluation export | ✅ Done |
 
 ### Summary
 
 | Category | Done | Missing |
 |----------|------|---------|
-| Pages | 18 | 8 |
+| Pages | 26 | 0 |
 | Database | 5 | 0 |
 | Types | 1 | 0 |
-| Repositories | 8 | 2 |
+| Repositories | 10 | 0 |
 | Controllers | 6 | 0 |
-| API Routes | 27 | 8 |
+| API Routes | 27 | 0 |
 | Components | 6 | 0 |
 | Services | 2 | 0 |
 | Wiring | 4 | 0 |
-| **Total** | **77** | **18** |
+| **Total** | **88** | **0** |

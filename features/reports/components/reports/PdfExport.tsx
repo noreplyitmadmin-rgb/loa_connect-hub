@@ -1,8 +1,6 @@
 "use client"
 
 import { useCallback } from "react"
-import { jsPDF } from "jspdf"
-import "jspdf-autotable"
 import type {
   FacultyStatsData,
   RawAppointmentData,
@@ -34,7 +32,9 @@ export function PdfExport({
   departmentYearlyFrequency,
   facultyYearlyFrequency,
 }: PdfExportProps) {
-  const exportFullReport = useCallback(() => {
+  const exportFullReport = useCallback(async () => {
+    const { jsPDF } = await import("jspdf")
+    await import("jspdf-autotable")
     const pdf = new jsPDF("p", "mm", "a4")
     const pageWidth = pdf.internal.pageSize.getWidth()
     const margin = 14

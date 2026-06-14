@@ -1,6 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 type ModalType = "consultations" | "students" | null
 
@@ -9,6 +12,8 @@ export default function DataManagementPage() {
   const [confirmInput, setConfirmInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   const closeModal = () => {
     if (loading) return
@@ -29,6 +34,7 @@ export default function DataManagementPage() {
 
     try {
       const res = await fetch(endpoint, { method: "POST" })
+      if (res.status === 403) { setLockedEndpoint(endpoint); return }
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
         throw new Error(errData.error || `Failed to export and delete ${label} records`)
@@ -66,10 +72,7 @@ export default function DataManagementPage() {
       })
       closeModal()
     } catch (err) {
-      setResult({
-        type: "error",
-        message: err instanceof Error ? err.message : "An unknown error occurred",
-      })
+      setErrorMessage(err instanceof Error ? err.message : "An unknown error occurred")
     } finally {
       setLoading(false)
     }
@@ -77,7 +80,19 @@ export default function DataManagementPage() {
 
   const isStudents = modalType === "students"
 
+  if (lockedEndpoint) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8 pb-12">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
   return (
+    <ErrorBoundary>
+    {errorMessage ? (
+      <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); window.location.reload() }} />
+    ) : (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <h1 className="text-2xl font-bold text-primary">Data Management</h1>
 
@@ -169,5 +184,7 @@ export default function DataManagementPage() {
         </div>
       )}
     </div>
+    )}
+    </ErrorBoundary>
   )
 }

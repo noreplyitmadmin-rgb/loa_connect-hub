@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
-import Providers from "@/components/Providers"
-import AppShell from "@/components/AppShell"
+import Providers from "@/components/layouts/Providers"
+import AppShell from "@/components/layouts/AppShell"
 
 export const metadata: Metadata = {
   title: "LOA Connect Hub",

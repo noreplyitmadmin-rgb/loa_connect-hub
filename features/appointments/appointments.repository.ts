@@ -7,6 +7,9 @@ import { appointmentSelect } from "@/lib/db/common"
 import type { DbRecord } from "@/lib/db/common"
 import { auditLogRepository } from "@/features/audit/audit.repository"
 
+const DEFAULT_PAGE = 1
+const DEFAULT_LIMIT = 50
+
 // Helper to log appointment operations
 async function logAppointmentAction(email: string | null, action: string, details?: string) {
   try {
@@ -28,42 +31,79 @@ export const appointmentRepository: IAppointmentRepository = {
     await logAppointmentAction(input.createdByEmail, "CREATE_APPOINTMENT", `Created consultation: ${appt.title || "Untitled"} on ${appt.date}`)
     return appt
   },
-  async listByStudent(studentId) {
-    const { data, error } = await supabase
+  async listByStudent(studentId, pagination) {
+    const page = Math.max(1, pagination?.page ?? DEFAULT_PAGE)
+    const limit = Math.min(100, Math.max(1, pagination?.limit ?? DEFAULT_LIMIT))
+    const { data, error, count } = await supabase
       .from("appointments")
-      .select(appointmentSelect)
+      .select(appointmentSelect, { count: "exact" })
       .eq("studentId", studentId)
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })
+      .range((page - 1) * limit, page * limit - 1)
     if (error) throw error
-    return data as unknown as AppointmentData[]
+    return {
+      data: (data || []) as unknown as AppointmentData[],
+      total: count ?? 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count ?? 0) / limit),
+    }
   },
-  async listByFaculty(facultyId) {
-    const { data, error } = await supabase
+  async listByFaculty(facultyId, pagination) {
+    const page = Math.max(1, pagination?.page ?? DEFAULT_PAGE)
+    const limit = Math.min(100, Math.max(1, pagination?.limit ?? DEFAULT_LIMIT))
+    const { data, error, count } = await supabase
       .from("appointments")
-      .select(appointmentSelect)
+      .select(appointmentSelect, { count: "exact" })
       .eq("facultyId", facultyId)
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })
+      .range((page - 1) * limit, page * limit - 1)
     if (error) throw error
-    return data as unknown as AppointmentData[]
+    return {
+      data: (data || []) as unknown as AppointmentData[],
+      total: count ?? 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count ?? 0) / limit),
+    }
   },
-  async listByParticipant(userId) {
-    const { data, error } = await supabase
+  async listByParticipant(userId, pagination) {
+    const page = Math.max(1, pagination?.page ?? DEFAULT_PAGE)
+    const limit = Math.min(100, Math.max(1, pagination?.limit ?? DEFAULT_LIMIT))
+    const { data, error, count } = await supabase
       .from("appointment_attendees")
-      .select(`appointment:appointments!inner(${appointmentSelect.trim()})`)
+      .select(`appointment:appointments!inner(${appointmentSelect.trim()})`, { count: "exact" })
       .eq("userId", userId)
+      .range((page - 1) * limit, page * limit - 1)
     if (error) throw error
-    return ((data || []) as unknown as DbRecord[]).map((record: DbRecord) => record.appointment) as unknown as AppointmentData[]
+    const records = ((data || []) as unknown as DbRecord[]).map((record: DbRecord) => record.appointment) as unknown as AppointmentData[]
+    return {
+      data: records,
+      total: count ?? 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count ?? 0) / limit),
+    }
   },
-  async listAll() {
-    const { data, error } = await supabase
+  async listAll(pagination) {
+    const page = Math.max(1, pagination?.page ?? DEFAULT_PAGE)
+    const limit = Math.min(100, Math.max(1, pagination?.limit ?? DEFAULT_LIMIT))
+    const { data, error, count } = await supabase
       .from("appointments")
-      .select(appointmentSelect)
+      .select(appointmentSelect, { count: "exact" })
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })
+      .range((page - 1) * limit, page * limit - 1)
     if (error) throw error
-    return data as unknown as AppointmentData[]
+    return {
+      data: (data || []) as unknown as AppointmentData[],
+      total: count ?? 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count ?? 0) / limit),
+    }
   },
   async listPendingSync() {
     const { data, error } = await supabase

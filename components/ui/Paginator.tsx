@@ -11,8 +11,10 @@ export function usePagination<T>(items: T[], defaultPageSize: number = 25) {
   const paginatedItems = items.slice(safePage * pageSize, (safePage + 1) * pageSize)
 
   useEffect(() => {
-    if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
-  }, [items.length, pageSize])
+    Promise.resolve().then(() => {
+      if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
+    })
+  }, [items.length, pageSize, page, totalPages])
 
   return {
     page: safePage,

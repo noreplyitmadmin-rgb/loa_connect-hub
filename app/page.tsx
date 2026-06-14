@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { getPrimaryRole, getRoleList } from "@/lib/utils/roles"
-import MultiRoleDashboard from "@/components/MultiRoleDashboard"
+import MultiRoleDashboard from "@/features/users/components/MultiRoleDashboard"
 
 export default async function Home() {
   const session = await auth()

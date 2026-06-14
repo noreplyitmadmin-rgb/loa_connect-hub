@@ -27,7 +27,8 @@ vi.mock("@/lib/supabase", () => ({ supabase: mockSupabase.supabase }))
 import { POST } from "@/app/api/admin/reset-data/route"
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
+  mockSupabase.supabase.from.mockReturnValue({ delete: mockSupabase.deleteFn })
 })
 
 describe("POST /api/admin/reset-data", () => {

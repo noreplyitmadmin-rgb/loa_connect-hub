@@ -5,6 +5,10 @@ import { usePagination, Paginator } from "@/components/ui/Paginator"
 import BulkStudentImport from "@/features/users/components/bulk-import/BulkStudentImport"
 import BulkFacultyImport from "@/features/users/components/bulk-import/BulkFacultyImport"
 import Skeleton, { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import type { DepartmentData, SemesterData } from "@/lib/types"
 
 interface MappedFaculty {
   id: string
@@ -25,7 +29,8 @@ function ViewMappings() {
   const [facultyData, setFacultyData] = useState<MappedFaculty[] | null>(null)
   const [studentData, setStudentData] = useState<MappedStudent[] | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [facultySectionFilter, setFacultySectionFilter] = useState("")
   const [studentSectionFilter, setStudentSectionFilter] = useState("")
   const [viewingClass, setViewingClass] = useState<MappedFaculty | null>(null)
@@ -33,20 +38,22 @@ function ViewMappings() {
   const fetchData = useCallback(async (isRefresh?: boolean) => {
     if (isRefresh) {
       setLoading(true)
-      setError("")
+      setErrorMessage("")
     }
     try {
       const [facultyRes, studentRes] = await Promise.all([
         fetch("/api/data/evaluation-mappings?type=faculty"),
         fetch("/api/data/evaluation-mappings?type=student"),
       ])
+      if (facultyRes.status === 403) { setLockedEndpoint("/api/data/evaluation-mappings?type=faculty"); return }
+      if (studentRes.status === 403) { setLockedEndpoint("/api/data/evaluation-mappings?type=student"); return }
       if (!facultyRes.ok) throw new Error("Failed to load faculty mappings")
       if (!studentRes.ok) throw new Error("Failed to load student enrollments")
       const [facultyJson, studentJson] = await Promise.all([facultyRes.json(), studentRes.json()])
       setFacultyData(facultyJson.data)
       setStudentData(studentJson.data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error")
+      setErrorMessage(err instanceof Error ? err.message : "Unknown error")
     } finally {
       setLoading(false)
     }
@@ -101,9 +108,11 @@ function ViewMappings() {
         </button>
       </div>
 
-      {error && <p className="text-xs font-medium text-red-600 mb-3">{error}</p>}
-
-      {loading && !facultyData ? (
+      {lockedEndpoint ? (
+        <LockedTab endpoint={lockedEndpoint} />
+      ) : errorMessage ? (
+        <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); fetchData(true) }} />
+      ) : loading && !facultyData ? (
         <div className="space-y-4">
           <SkeletonMetricGrid count={4} />
           <div className="flex gap-1 border-b border-default pb-2">
@@ -380,24 +389,12 @@ function ViewMappings() {
   )
 }
 
-interface Department {
-  id: string
-  name: string
-  code: string
-}
-
-interface SemesterData {
-  id: string
-  title: string
-  evalStartDate: string
-  evalEndDate: string
-  isActive: boolean
-  createdAt: Date
-}
 
 export default function EtlHubPage() {
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
   const [importTab, setImportTab] = useState<"student" | "faculty">("student")
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [departments, setDepartments] = useState<DepartmentData[]>([])
   const [deptId, setDeptId] = useState("")
   const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [resetMessage, setResetMessage] = useState("")
@@ -410,9 +407,13 @@ export default function EtlHubPage() {
     Promise.resolve().then(() => {
       setDeptLoading(true)
       fetch("/api/admin/departments")
-        .then((r) => r.json())
+        .then((r) => {
+          if (r.status === 403) { setLockedEndpoint("/api/admin/departments"); return null }
+          return r.json()
+        })
         .then((data) => {
-          const list: Department[] = Array.isArray(data) ? data : (data?.data as Department[] ?? []);
+          if (data === null) return;
+          const list: DepartmentData[] = Array.isArray(data) ? data : (data?.data as DepartmentData[] ?? []);
           setDepartments(list);
         })
         .catch(() => { })
@@ -424,8 +425,12 @@ export default function EtlHubPage() {
     Promise.resolve().then(() => {
       setSemLoading(true)
       fetch("/api/semesters")
-        .then((r) => r.json())
+        .then((r) => {
+          if (r.status === 403) { setLockedEndpoint("/api/semesters"); return null }
+          return r.json()
+        })
         .then((data) => {
+          if (data === null) return;
           const list: SemesterData[] = Array.isArray(data) ? data : (data?.data as SemesterData[] ?? []);
           setSemesters(list);
           const active = list.find((s) => s.isActive);
@@ -443,22 +448,33 @@ export default function EtlHubPage() {
     setResetMessage("")
     try {
       const res = await fetch("/api/admin/reset-data", { method: "POST" })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/reset-data"); return }
       const data = await res.json()
       if (res.ok) {
         setResetState("success")
         setResetMessage("All data has been reset successfully.")
         window.dispatchEvent(new CustomEvent("app:refresh"))
       } else {
-        setResetState("error")
-        setResetMessage(data.error ?? "Reset failed.")
+        setErrorMessage(data.error ?? "Reset failed.")
       }
     } catch {
-      setResetState("error")
-      setResetMessage("Network error — could not reach the server.")
+      setErrorMessage("Network error — could not reach the server.")
     }
   }
 
+  if (lockedEndpoint) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8 pb-12">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
   return (
+    <ErrorBoundary>
+    {errorMessage ? (
+      <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); window.location.reload() }} />
+    ) : (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-primary">ETL Hub</h1>
@@ -561,5 +577,7 @@ export default function EtlHubPage() {
         </div>
       </div>
     </div>
+    )}
+    </ErrorBoundary>
   )
 }

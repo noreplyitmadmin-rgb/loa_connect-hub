@@ -1,11 +1,7 @@
 import { appointmentRepository, userRepository } from "@/lib/repositories/factory"
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
-import { generateICal } from "@/lib/services/ical"
-import { sendAppointmentCreatedWorkflow, sendConsultationApprovedWorkflow, sendConsultationInviteWorkflow, sendMeetingInviteWithAcknowledgementWorkflow, sendConsultationInviteWithAcknowledgementWorkflow, sendStatusUpdateWorkflow } from "@/lib/workflows/email-workflows"
 import { hasRole } from "@/lib/utils/roles"
-import { getAppointmentUrl, getRecipientType } from "@/lib/utils/appointment-url"
-import type { AppointmentData } from "@/lib/types"
-import type { EmailRecipient } from "@/lib/workflows/email-workflows"
+import type { AppointmentData, PaginationParams, PagedResult } from "@/lib/types"
 
 type DbRecord = Record<string, unknown>
 
@@ -30,79 +26,84 @@ interface CreateData {
   status?: string
 }
 
-function getMinutesDifference(startTime: string, endTime: string): number {
+// ─── Pure helpers ───────────────────────────────
+
+export function getMinutesDifference(startTime: string, endTime: string): number {
   const [sh, sm] = startTime.split(":").map(Number)
   const [eh, em] = endTime.split(":").map(Number)
   return eh * 60 + em - (sh * 60 + sm)
 }
 
-function isValidTime(time: string): boolean {
+export function isValidTime(time: string): boolean {
   if (!time) return false
   const [, mins] = time.split(":").map(Number)
   return [0, 15, 30, 45].includes(mins)
 }
 
-export async function requestAppointment(input: {
-  createdByUserId: string
-  studentId: string | null
-  facultyId: string
-  sessionGroupId?: string
+// ─── Validation helpers ─────────────────────────
+
+export function resolveTimeSlots(input: {
   date?: string
   startTime?: string
   endTime?: string
   timeSlots?: TimeSlot[]
-  title?: string
-  description?: string
-  attendeeIds?: string[]
-  attendeeOptions?: { userId: string; isMandatory: boolean }[]
-  teamsLink?: string
-  slotLinks?: Record<string, string>
-  meetingType?: "CONSULTATION"
-}) {
-
-  // 1. Determine the timeslots
-  const timeSlots = input.timeSlots || (input.date && input.startTime && input.endTime
-    ? [{ date: input.date, startTime: input.startTime, endTime: input.endTime }]
-    : [])
-
+}): TimeSlot[] {
+  const timeSlots = input.timeSlots || (
+    input.date && input.startTime && input.endTime
+      ? [{ date: input.date, startTime: input.startTime, endTime: input.endTime }]
+      : []
+  )
   if (!timeSlots || timeSlots.length === 0) {
     throw new Error("At least one timeslot (date, startTime, endTime) is required")
   }
+  return timeSlots
+}
 
-  // 2. Initial Validations
-  validateDurationAndBoundaries(timeSlots)
-  checkForOverlapWithinSameAppointment(timeSlots)
-
-  // 3. Resolve Creator
-  const creator = await userRepository.findById(input.createdByUserId)
-  if (!creator) throw new Error("Creator not found")
-
-  // 4. Determine meetingType & Enforce Conflicts
-  let meetingType = input.meetingType
-
-  if (hasRole(creator.role, "STUDENT")) {
-    meetingType = "CONSULTATION"
-  } else if (!meetingType) {
-    meetingType = "CONSULTATION"
+export function validateTimeSlots(timeSlots: TimeSlot[]): void {
+  for (const slot of timeSlots) {
+    if (!isValidTime(slot.startTime) || !isValidTime(slot.endTime)) {
+      throw new Error("Time must be on a 15-minute boundary")
+    }
+    const duration = getMinutesDifference(slot.startTime, slot.endTime)
+    if (duration < MIN_TIMESLOT_DURATION_MINUTES || duration > MAX_TIMESLOT_DURATION_MINUTES) {
+      throw new Error("Invalid duration")
+    }
   }
 
-  // 6. Collect all involved user IDs
-  const attendeeIds = [...new Set([
-    input.studentId,
-    input.facultyId,
-    ...(input.attendeeIds || []),
-    ...(input.attendeeOptions?.map(a => a.userId) || []),
-  ])].filter(Boolean) as string[]
+  for (let i = 0; i < timeSlots.length; i++) {
+    for (let j = i + 1; j < timeSlots.length; j++) {
+      if (
+        timeSlots[i].date === timeSlots[j].date &&
+        timeSlots[i].startTime < timeSlots[j].endTime &&
+        timeSlots[i].endTime > timeSlots[j].startTime
+      ) {
+        throw new Error("Timeslots cannot overlap within the same appointment")
+      }
+    }
+  }
+}
 
-  console.log("DEBUG: Meeting Type:", meetingType);
-  console.log("DEBUG: Direct Student ID:", input.studentId);
-  console.log("DEBUG: Attendee IDs:", attendeeIds);
+export async function resolveCreator(creatorId: string) {
+  const creator = await userRepository.findById(creatorId)
+  if (!creator) throw new Error("Creator not found")
+  return creator
+}
 
-  // 7. Conflict checking — rules vary by creator role
-  const conflicts: { userId: string; userName: string; message: string; appointments: { appointmentId: string; title: string; date: string; startTime: string; endTime: string }[] }[] = []
+export function resolveMeetingType(creatorRole: string, inputMeetingType?: "CONSULTATION"): "CONSULTATION" {
+  if (hasRole(creatorRole, "STUDENT")) return "CONSULTATION"
+  return inputMeetingType || "CONSULTATION"
+}
 
+export async function checkForConflicts(
+  creatorRole: string,
+  createdByUserId: string,
+  facultyId: string,
+  timeSlots: TimeSlot[],
+  sessionGroupId: string | undefined,
+  allAttendeeIds: string[],
+): Promise<void> {
   const mapConflicts = (slots: DbRecord[]) =>
-    slots.map((s: DbRecord) => ({
+    slots.map((s) => ({
       appointmentId: ((s.appointment as DbRecord)?.id as string) || (s.appointmentId as string) || "",
       title: ((s.appointment as DbRecord)?.title as string) || null,
       meetingType: ((s.appointment as DbRecord)?.meetingType as string) || "MEETING",
@@ -111,138 +112,176 @@ export async function requestAppointment(input: {
       endTime: s.endTime as string,
     }))
 
-  // Students cannot invite other students as attendees
-  if (hasRole(creator.role, "STUDENT")) {
-    for (const uid of attendeeIds) {
-      if (uid === input.createdByUserId) continue
-      const user = await userRepository.findById(uid)
-      if (user && hasRole(user.role, "STUDENT")) {
+  // Students cannot invite other students
+  if (hasRole(creatorRole, "STUDENT")) {
+    const otherIds = allAttendeeIds.filter((uid) => uid !== createdByUserId)
+    if (otherIds.length > 0) {
+      const users = await Promise.all(otherIds.map((uid) => userRepository.findById(uid)))
+      const studentAttendee = users.find((user) => user && hasRole(user.role, "STUDENT"))
+      if (studentAttendee) {
         throw new Error("Students cannot invite other students to appointments")
       }
     }
   }
 
-  if (hasRole(creator.role, "STUDENT")) {
-    // Student checks own consultation conflicts (PENDING or APPROVED) → block
-    for (const slot of timeSlots) {
-      const conflictingSlots = await appointmentRepository.listStudentConflictingSlots(
-        input.createdByUserId,
-        slot.date,
-        slot.startTime,
-        slot.endTime,
-        input.sessionGroupId
-      )
-      if (conflictingSlots.length > 0) {
-        const err = Object.assign(
-          new Error("You already have an appointment that overlaps with this time"),
-          { conflicts: [{
-            userId: input.createdByUserId,
+  if (hasRole(creatorRole, "STUDENT")) {
+    const [studentConflicts, facultyConflicts] = await Promise.all([
+      Promise.all(
+        timeSlots.map((slot) =>
+          appointmentRepository.listStudentConflictingSlots(
+            createdByUserId,
+            slot.date,
+            slot.startTime,
+            slot.endTime,
+            sessionGroupId,
+          )
+        )
+      ),
+      Promise.all(
+        timeSlots.map((slot) =>
+          appointmentRepository.listConflictingSlots(
+            [facultyId],
+            slot.date,
+            slot.startTime,
+            slot.endTime,
+          )
+        )
+      ),
+    ])
+
+    const allStudentConflicts = studentConflicts.flat()
+    if (allStudentConflicts.length > 0) {
+      const err = Object.assign(
+        new Error("You already have an appointment that overlaps with this time"),
+        {
+          conflicts: [{
+            userId: createdByUserId,
             userName: "You",
             message: "You already have an appointment that overlaps with this time",
-            appointments: mapConflicts(conflictingSlots as unknown as DbRecord[]),
-          }] }
-        )
-        throw err
-      }
+            appointments: mapConflicts(allStudentConflicts as unknown as DbRecord[]),
+          }],
+        },
+      )
+      throw err
     }
 
-    // Student checks primary faculty's conflict (APPROVED only) → block
-    for (const slot of timeSlots) {
-      const conflictingSlots = await appointmentRepository.listConflictingSlots(
-        [input.facultyId],
-        slot.date,
-        slot.startTime,
-        slot.endTime
-      )
-      const dbSlots = (conflictingSlots || []) as unknown as DbRecord[]
-      const actualConflicts = dbSlots.filter((s: DbRecord) => {
-        const apt = s.appointment as DbRecord | undefined
-        return apt &&
-          apt.sessionGroupId !== input.sessionGroupId &&
-          apt.status === "APPROVED"
-      })
-      if (actualConflicts.length > 0) {
-        const faculty = await userRepository.findById(input.facultyId)
-        const err = Object.assign(
-          new Error(`${faculty?.name || "Faculty"} is already booked at this time`),
-          { conflicts: [{
-            userId: input.facultyId,
+    const allFacultySlots = facultyConflicts.flat() as unknown as DbRecord[]
+    const actualFacultyConflicts = allFacultySlots.filter((s) => {
+      const apt = s.appointment as DbRecord | undefined
+      return apt && apt.sessionGroupId !== sessionGroupId && apt.status === "APPROVED"
+    })
+    if (actualFacultyConflicts.length > 0) {
+      const faculty = await userRepository.findById(facultyId)
+      const err = Object.assign(
+        new Error(`${faculty?.name || "Faculty"} is already booked at this time`),
+        {
+          conflicts: [{
+            userId: facultyId,
             userName: faculty?.name || "Faculty",
             message: `${faculty?.name || "Faculty"} is already booked at this time`,
-            appointments: mapConflicts(actualConflicts),
-          }] }
-        )
-        throw err
-      }
+            appointments: mapConflicts(actualFacultyConflicts),
+          }],
+        },
+      )
+      throw err
     }
-  } else if (hasRole(creator.role, "FACULTY") || hasRole(creator.role, "DEAN")) {
-    // Faculty/Dean checks own meeting conflicts (PENDING or APPROVED) → block
-    for (const slot of timeSlots) {
-      const conflictingSlots = await appointmentRepository.listConflictingSlots(
-        [input.createdByUserId],
-        slot.date,
-        slot.startTime,
-        slot.endTime
+  } else if (hasRole(creatorRole, "FACULTY") || hasRole(creatorRole, "DEAN")) {
+    const conflictResults = await Promise.all(
+      timeSlots.map((slot) =>
+        appointmentRepository.listConflictingSlots(
+          [createdByUserId],
+          slot.date,
+          slot.startTime,
+          slot.endTime,
+        )
       )
-      const dbSlots = (conflictingSlots || []) as unknown as DbRecord[]
-      const actualConflicts = dbSlots.filter((s: DbRecord) => {
-        const apt = s.appointment as DbRecord | undefined
-        return apt &&
-          apt.sessionGroupId !== input.sessionGroupId &&
-          apt.status === "APPROVED"
-      })
-      if (actualConflicts.length > 0) {
-        const faculty = await userRepository.findById(input.facultyId)
-        const err = Object.assign(
-          new Error(`${faculty?.name || "Faculty"} is already booked at this time`),
-          { conflicts: [{
-            userId: input.facultyId,
+    )
+
+    const allSlots = conflictResults.flat() as unknown as DbRecord[]
+    const actualConflicts = allSlots.filter((s) => {
+      const apt = s.appointment as DbRecord | undefined
+      return apt && apt.sessionGroupId !== sessionGroupId && apt.status === "APPROVED"
+    })
+    if (actualConflicts.length > 0) {
+      const faculty = await userRepository.findById(facultyId)
+      const err = Object.assign(
+        new Error(`${faculty?.name || "Faculty"} is already booked at this time`),
+        {
+          conflicts: [{
+            userId: facultyId,
             userName: faculty?.name || "Faculty",
             message: `${faculty?.name || "Faculty"} is already booked at this time`,
             appointments: mapConflicts(actualConflicts),
-          }] }
-        )
-        throw err
-      }
+          }],
+        },
+      )
+      throw err
     }
   }
+}
 
-  // C. Consultation-specific Student check
+export function validateConsultationRules(
+  creatorRole: string,
+  creatorId: string,
+  meetingType: string | undefined,
+  inputStudentId: string | null,
+): string | null {
   if (meetingType === "CONSULTATION") {
-    // 1. Verify that the person requesting the meeting is a Student
-    if (!hasRole(creator.role, "STUDENT")) {
-      // Optional: If you want to allow Faculty to book FOR students, 
-      // remove this check and keep the loop below.
-      throw new Error("Consultations can only be created by students");
+    if (!hasRole(creatorRole, "STUDENT")) {
+      throw new Error("Consultations can only be created by students")
     }
-
-    // 2. Verify that the student ID is either missing (use creator) or matches creator
-    // This prevents a Student from accidentally booking under someone else's ID
-    if (input.studentId && input.studentId !== creator.id) {
-      throw new Error("Consultation studentId must match the creator");
+    if (inputStudentId && inputStudentId !== creatorId) {
+      throw new Error("Consultation studentId must match the creator")
     }
+    return inputStudentId || creatorId
   }
+  return inputStudentId
+}
 
-  // 8. Faculty/Dean meetings require at least one attendee
-  if (!hasRole(creator.role, "STUDENT") && (!input.attendeeOptions || input.attendeeOptions.length === 0)) {
+export function validateAttendees(
+  creatorRole: string,
+  attendeeOptions?: { userId: string; isMandatory: boolean }[],
+): void {
+  if (!hasRole(creatorRole, "STUDENT") && (!attendeeOptions || attendeeOptions.length === 0)) {
     throw new Error("Meetings must have at least one attendee")
   }
+}
 
-  // 9. Create Appointment
-  const firstSlot = timeSlots[0]
-  const createdByEmail = creator.email ?? input.studentId ?? "unknown@system.com"
+export function collectAttendeeIds(
+  studentId: string | null,
+  facultyId: string,
+  attendeeIds?: string[],
+  attendeeOptions?: { userId: string; isMandatory: boolean }[],
+): string[] {
+  return [...new Set([
+    studentId,
+    facultyId,
+    ...(attendeeIds || []),
+    ...(attendeeOptions?.map(a => a.userId) || []),
+  ])].filter(Boolean) as string[]
+}
 
-  // ✅ FIX: Determine the studentId before calling create
-  // If it's a Consultation, we force the studentId to be the creator
-  let requiredStudentId = input.studentId;
-  if (meetingType === "CONSULTATION" && !requiredStudentId) {
-      requiredStudentId = input.createdByUserId; 
-  }
+// ─── DB operations ──────────────────────────────
 
+export function prepareCreateData(
+  creator: { id: string; email?: string | null; role: string },
+  input: {
+    studentId: string | null
+    facultyId: string
+    meetingType?: "CONSULTATION"
+    sessionGroupId?: string
+    title?: string
+    description?: string
+    teamsLink?: string
+  },
+  meetingType: "CONSULTATION",
+  firstSlot: TimeSlot,
+  resolvedStudentId: string | null,
+): CreateData {
   const createData: CreateData = {
-    studentId: requiredStudentId,
+    studentId: resolvedStudentId,
     facultyId: input.facultyId,
-    createdByEmail,
+    createdByEmail: creator.email ?? resolvedStudentId ?? "unknown@system.com",
     meetingType,
     sessionGroupId: input.sessionGroupId ?? null,
     date: firstSlot.date,
@@ -255,81 +294,184 @@ export async function requestAppointment(input: {
   if (!hasRole(creator.role, "STUDENT")) {
     createData.status = "APPROVED"
   }
-
-  const appointment = await appointmentRepository.create(createData)
-
-  // Add time slots and attach any per-slot teams links provided by creator
-  for (const slot of timeSlots) {
-    const createdSlot = await appointmentRepository.addTimeSlot(appointment.id, slot.date, slot.startTime, slot.endTime)
-    if (input.slotLinks) {
-      const key = `${slot.date}-${slot.startTime}-${slot.endTime}`
-      const link = input.slotLinks[key]
-      if (link && typeof link === "string") {
-        try {
-          await appointmentRepository.updateTimeSlot(createdSlot.id, { teamsLink: link.trim() })
-        } catch (err) {
-          console.error("Failed to save slot teams link:", err)
-        }
-      }
-    }
-  }
-
-  if (input.attendeeOptions && input.attendeeOptions.length > 0) {
-    for (const opt of input.attendeeOptions) {
-      if (opt.userId !== input.facultyId) {
-        await appointmentRepository.addAttendee(appointment.id, opt.userId, opt.isMandatory)
-      }
-    }
-  } else if (input.attendeeIds && input.attendeeIds.length > 0) {
-    for (const attendeeId of input.attendeeIds) {
-      if (attendeeId !== input.facultyId) {
-        await appointmentRepository.addAttendee(appointment.id, attendeeId)
-      }
-    }
-  }
-
-  try {
-
-    // 9. Fetch full data & trigger emails
-    const fullAppointment = await appointmentRepository.findById(appointment.id)
-    if (fullAppointment) {
-      sendAppointmentCreatedWorkflow(fullAppointment as unknown as Record<string, unknown>, input.createdByUserId).catch((err) => {
-        console.error("Failed to send appointment creation email:", err)
-      })
-    }
-
-    return { appointment: fullAppointment, conflicts }
-  } catch (err) { throw err }
-
-
-
-  // --- Helper Functions ---
-  function validateDurationAndBoundaries(slots: TimeSlot[]) {
-    for (const slot of slots) {
-      if (!isValidTime(slot.startTime) || !isValidTime(slot.endTime)) {
-        throw new Error(`Time must be on a 15-minute boundary`)
-      }
-      const duration = getMinutesDifference(slot.startTime, slot.endTime)
-      if (duration < MIN_TIMESLOT_DURATION_MINUTES || duration > MAX_TIMESLOT_DURATION_MINUTES) {
-        throw new Error(`Invalid duration`)
-      }
-    }
-  }
-
-  function checkForOverlapWithinSameAppointment(slots: TimeSlot[]) {
-    for (let i = 0; i < slots.length; i++) {
-      for (let j = i + 1; j < slots.length; j++) {
-        if (slots[i].date === slots[j].date &&
-          slots[i].startTime < slots[j].endTime &&
-          slots[i].endTime > slots[j].startTime) {
-          throw new Error("Timeslots cannot overlap within the same appointment")
-        }
-      }
-    }
-  }
+  return createData
 }
 
-// ─── Email helpers ────────────────────────────
+export async function createAppointmentWithSlotsAndAttendees(
+  createData: CreateData,
+  timeSlots: TimeSlot[],
+  slotLinks: Record<string, string> | undefined,
+  attendeeOptions: { userId: string; isMandatory: boolean }[] | undefined,
+  attendeeIds: string[] | undefined,
+  facultyId: string,
+) {
+  const appointment = await appointmentRepository.create(createData)
+
+  const createdSlots = await Promise.all(
+    timeSlots.map((slot) =>
+      appointmentRepository.addTimeSlot(appointment.id, slot.date, slot.startTime, slot.endTime)
+    )
+  )
+
+  if (slotLinks) {
+    await Promise.all(
+      createdSlots.map((createdSlot, i) => {
+        const slot = timeSlots[i]
+        const key = `${slot.date}-${slot.startTime}-${slot.endTime}`
+        const link = slotLinks[key]
+        if (link && typeof link === "string") {
+          return appointmentRepository.updateTimeSlot(createdSlot.id, { teamsLink: link.trim() }).catch((err) => {
+            console.error("Failed to save slot teams link:", err)
+          })
+        }
+        return Promise.resolve()
+      })
+    )
+  }
+
+  const attendeePayloads = attendeeOptions
+    ? attendeeOptions.filter((opt) => opt.userId !== facultyId).map((opt) => ({ userId: opt.userId, isMandatory: opt.isMandatory }))
+    : (attendeeIds || []).filter((id) => id !== facultyId).map((userId) => ({ userId, isMandatory: true }))
+
+  if (attendeePayloads.length > 0) {
+    await Promise.all(
+      attendeePayloads.map(({ userId, isMandatory }) =>
+        appointmentRepository.addAttendee(appointment.id, userId, isMandatory)
+      )
+    )
+  }
+
+  return appointment
+}
+
+// ─── Business-logic service functions ─────────
+
+export async function acceptAppointment(id: string, facultyId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
+  if (appointment.status !== "PENDING") throw new Error("Appointment is not pending")
+  return appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
+}
+
+export const approveAppointment = acceptAppointment
+
+export async function declineAppointment(id: string, facultyId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
+  if (appointment.status !== "PENDING") throw new Error("Appointment is not pending")
+  return appointmentRepository.update(id, { status: "REJECTED" })
+}
+
+export const rejectAppointment = declineAppointment
+
+export async function completeAppointment(id: string, facultyId: string, actionTaken?: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
+  if (appointment.status !== "APPROVED") throw new Error("Appointment is not approved")
+  if (!actionTaken || actionTaken.trim().length < 100) {
+    throw new Error("Actions taken must be at least 100 characters")
+  }
+  return appointmentRepository.update(id, { status: "COMPLETED", actionTaken })
+}
+
+export async function cancelAppointment(id: string, userId: string, userEmail?: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+
+  const isCreator = userEmail && appointment.createdByEmail === userEmail
+  const isFaculty = appointment.facultyId === userId
+  if (!isCreator && !isFaculty) throw new Error("Unauthorized — only the creator or faculty can cancel")
+  if (isFaculty && !isCreator && appointment.status !== "APPROVED") {
+    throw new Error("Only approved appointments can be cancelled by faculty")
+  }
+
+  if (appointment.teamsSyncStatus === "WRITTEN") {
+    // TODO: Phase 7 — attempt Teams meeting deletion
+  }
+
+  return appointmentRepository.update(id, { status: "CANCELLED" })
+}
+
+export async function studentResendInvitation(id: string, userId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.studentId !== userId) throw new Error("Unauthorized — only the student can resend")
+  if (appointment.status !== "REJECTED" && appointment.status !== "CANCELLED") {
+    throw new Error("Can only resend invitation for rejected or cancelled appointments")
+  }
+
+  return appointmentRepository.update(id, {
+    status: "PENDING",
+    teamsLink: null,
+    teamsSyncStatus: "UNWRITTEN",
+    teamsSyncRetries: 0,
+    teamsSyncError: null,
+    teamsSyncLastAttempt: null,
+  })
+}
+
+export async function attendeeAcceptAppointment(id: string, userId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  const attendee = await appointmentRepository.updateAttendeeStatus(id, userId, "ACCEPTED")
+  return { appointment, attendee }
+}
+
+export async function attendeeDeclineAppointment(id: string, userId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  const attendee = await appointmentRepository.updateAttendeeStatus(id, userId, "DECLINED")
+  return { appointment, attendee }
+}
+
+export async function updateTeamsLink(id: string, facultyId: string, teamsLink: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
+  return appointmentRepository.update(id, { teamsLink })
+}
+
+export async function retryTeamsSync(id: string, facultyId: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
+  if (appointment.status !== "APPROVED") throw new Error("Only approved appointments can be synced")
+  return appointmentRepository.update(id, {
+    teamsSyncStatus: "UNWRITTEN",
+    teamsSyncRetries: 0,
+    teamsSyncError: null,
+    teamsSyncLastAttempt: null,
+  })
+}
+
+// ─── Passthroughs ────────────────────────────────
+
+export async function getFacultyBookedAppointments(facultyId: string, startDate: string, endDate: string) {
+  return appointmentRepository.listFacultyAppointmentsByDateRange(facultyId, startDate, endDate, "APPROVED")
+}
+
+export async function listStudentAppointments(studentId: string, pagination?: PaginationParams): Promise<PagedResult<AppointmentData>> {
+  return appointmentRepository.listByStudent(studentId, pagination)
+}
+
+export async function listFacultyAppointments(facultyId: string, pagination?: PaginationParams): Promise<PagedResult<AppointmentData>> {
+  return appointmentRepository.listByFaculty(facultyId, pagination)
+}
+
+export async function getAllAppointments(pagination?: PaginationParams): Promise<PagedResult<AppointmentData>> {
+  return appointmentRepository.listAll(pagination)
+}
+
+export async function getAppointmentById(id: string) {
+  const appointment = await appointmentRepository.findById(id)
+  if (!appointment) throw new Error("Appointment not found")
+  return appointment
+}
+
+// ─── Type ───────────────────────────────────────
 
 export interface ApptWithJoins extends AppointmentData {
   student?: { id: string; name: string; email: string; role: string }
@@ -342,698 +484,4 @@ export interface ApptWithJoins extends AppointmentData {
     user?: { id: string; name: string; email: string; role: string }
   }>
   timeSlots?: Array<{ id: string; date: string; startTime: string; endTime: string; teamsLink?: string }>
-}
-
-export async function sendAppointmentCreatedEmail(appointment: ApptWithJoins, creatorId: string) {
-  if (!appointment) return
-
-  // ── Determine primary recipient (the TO) ──
-  let primaryUser = appointment.faculty?.id ? appointment.faculty : appointment.attendees?.[0]?.user
-  if (!primaryUser?.id || !primaryUser?.email) return
-  if (primaryUser.id === creatorId && appointment.attendees && appointment.attendees.length > 0) {
-    const other = appointment.attendees.find(a => a.user?.id && a.user.id !== creatorId && a.user.email)
-    if (other?.user) {
-      primaryUser = other.user
-    }
-  }
-  if (primaryUser.id === creatorId) return
-
-  // ── Build full recipient list with per-person viewUrls ──
-  const allRecipients: EmailRecipient[] = []
-
-  const addRecipient = (u: { email: string; name: string }) => {
-    const rtype = getRecipientType(u.email, appointment)
-    allRecipients.push({
-      email: u.email,
-      name: u.name,
-      viewUrl: getAppointmentUrl(appointment.id!, rtype),
-    })
-  }
-
-  addRecipient(primaryUser)
-  if (appointment.attendees) {
-    for (const attendee of appointment.attendees) {
-      const user = attendee?.user
-      if (!user || !user.id || !user.email) continue
-      if (user.id === primaryUser.id) continue
-      addRecipient(user)
-    }
-  }
-
-  // ── Resolve creator user for notifications ──
-  const creatorUser = appointment.faculty?.id === creatorId
-    ? appointment.faculty
-    : appointment.attendees?.find(a => a.user?.id === creatorId)?.user ?? null
-
-  const organizerName = appointment.student?.id === creatorId
-    ? appointment.student?.name
-    : appointment.faculty?.id === creatorId
-      ? appointment.faculty?.name
-      : appointment.student?.name || appointment.faculty?.name || "Organizer"
-
-  const organizerEmail = appointment.student?.id === creatorId
-    ? appointment.student?.email
-    : appointment.faculty?.id === creatorId
-      ? appointment.faculty?.email
-      : appointment.student?.email || appointment.faculty?.email || ""
-
-  const eventSummary = appointment.title
-    ? `${appointment.meetingType === "CONSULTATION" ? "Consultation" : "Meeting"}: ${appointment.title}`
-    : appointment.meetingType === "CONSULTATION"
-      ? "Consultation"
-      : "Meeting"
-
-  const descriptionLines = [
-    appointment.title ? `Title: ${appointment.title}` : null,
-    appointment.description || null,
-    `Organizer: ${organizerName}`,
-  ].filter(Boolean).join("\n")
-
-  const allParticipants = allRecipients.map(r => ({ name: r.name, email: r.email }))
-
-  const icalString = generateICal({
-    uid: `appt-${appointment.id}@LOA Connect Hub`,
-    summary: eventSummary,
-    description: descriptionLines,
-    date: appointment.date,
-    startTime: appointment.startTime,
-    endTime: appointment.endTime,
-    location: "Microsoft Teams",
-    organizer: { name: organizerName, email: organizerEmail },
-    attendees: allParticipants,
-  })
-
-  const participantNames = allParticipants.map(r => r.name)
-
-  // ── Build acknowledgement recipient (creator gets separate confirmation) ──
-  const studentCreator = appointment.student?.email ? appointment.student : null
-  const isConsultation = appointment.meetingType === "CONSULTATION"
-
-  const creatorForAck = isConsultation
-    ? studentCreator
-    : creatorUser
-
-  const ackVariant = isConsultation ? "request" as const : "booking" as const
-  const ackTitle = isConsultation
-    ? (appointment.title || "Consultation Request")
-    : (appointment.title || "Meeting")
-
-  const shouldSendAck = creatorForAck && creatorForAck.email !== primaryUser.email
-  const acknowledgementRecipient: EmailRecipient | null = shouldSendAck
-    ? {
-        email: creatorForAck!.email,
-        name: creatorForAck!.name,
-        viewUrl: getAppointmentUrl(appointment.id!, "student"),
-      }
-    : null
-
-  const acknowledgementData = shouldSendAck
-    ? {
-        meetingTitle: ackTitle,
-        attendeeNames: allParticipants.map(p => p.name),
-        date: appointment.date,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        viewUrl: acknowledgementRecipient!.viewUrl,
-        variant: ackVariant,
-      }
-    : null
-
-  // ── Send emails ──
-  if (isConsultation) {
-    await sendConsultationInviteWithAcknowledgementWorkflow(
-      allRecipients,
-      {
-        studentName: appointment.student?.name || "Student",
-        studentEmail: appointment.student?.email || "",
-        facultyName: appointment.faculty?.name || "Faculty",
-        facultyEmail: appointment.faculty?.email || "",
-        date: appointment.date,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        title: appointment.title,
-        description: appointment.description,
-      },
-      icalString,
-      acknowledgementRecipient,
-      acknowledgementData,
-    )
-  } else {
-    await sendMeetingInviteWithAcknowledgementWorkflow(
-      allRecipients,
-      {
-        organizerName,
-        title: appointment.title || "Appointment",
-        description: appointment.description,
-        date: appointment.date,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        participantNames,
-      },
-      icalString,
-      acknowledgementRecipient,
-      acknowledgementData,
-    )
-  }
-}
-
-
-export async function acceptAppointment(id: string, facultyId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-  if (appointment.status !== "PENDING") throw new Error("Appointment is not pending")
-
-  // Set status + mark for Teams sync (orchestrator picks up UNWRITTEN records)
-  const result = await appointmentRepository.update(id, { status: "APPROVED", teamsSyncStatus: "UNWRITTEN" })
-
-  const appt = result as unknown as ApptWithJoins
-  const hasStudent = appt.student?.email
-
-  if (hasStudent) {
-    // Student-booking: existing flow with .ics + Teams link
-    sendConsultationApprovedWorkflow(result as unknown as Record<string, unknown>).catch((err) => {
-      console.error("Failed to send consultation approved email:", err)
-    })
-  } else {
-    // Self-booking (faculty is both creator and accepter): notify attendees
-    const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
-    const attendeeNames = (appt.attendees || []).map(a => a.user?.name || "Attendee").filter(Boolean)
-
-    const recipients: EmailRecipient[] = []
-    const addRecipient = (u: { email: string; name: string }) => {
-      const rtype = getRecipientType(u.email, appt)
-      recipients.push({
-        email: u.email,
-        name: u.name,
-        viewUrl: getAppointmentUrl(id, rtype),
-      })
-    }
-    if (faculty.email) addRecipient(faculty)
-    for (const att of (appt.attendees || [])) {
-      if (att.user?.email && att.user.email !== faculty.email) addRecipient(att.user)
-    }
-
-    sendStatusUpdateWorkflow(
-      recipients,
-      {
-        variant: "accepted",
-        actorName: faculty.name,
-        meetingTitle: appt.title || "Meeting",
-        date: appt.date,
-        startTime: appt.startTime,
-        endTime: appt.endTime,
-        description: appt.description,
-        attendeeNames,
-        isCreator: true,
-        meetingType: "INTERNAL",
-      }
-    ).catch((err) => {
-      console.error("Failed to send self-booking acceptance notification:", err)
-    })
-  }
-
-  return result
-}
-
-// Backward-compat alias
-export const approveAppointment = acceptAppointment
-
-export async function declineAppointment(id: string, facultyId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-  if (appointment.status !== "PENDING") throw new Error("Appointment is not pending")
-
-  return appointmentRepository.update(id, { status: "REJECTED" })
-}
-
-// Backward-compat alias
-export const rejectAppointment = declineAppointment
-
-export async function attendeeAcceptAppointment(id: string, userId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-
-  const attendee = await appointmentRepository.updateAttendeeStatus(id, userId, "ACCEPTED")
-
-  // Fire-and-forget confirmation to the attendee
-  // (email logic can be added later)
-
-  return { appointment, attendee }
-}
-
-export async function attendeeDeclineAppointment(id: string, userId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-
-  const attendee = await appointmentRepository.updateAttendeeStatus(id, userId, "DECLINED")
-
-  return { appointment, attendee }
-}
-
-export async function completeAppointment(id: string, facultyId: string, actionTaken?: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-  if (appointment.status !== "APPROVED") throw new Error("Appointment is not approved")
-
-  if (!actionTaken || actionTaken.trim().length < 100) {
-    throw new Error("Actions taken must be at least 100 characters")
-  }
-
-  const result = await appointmentRepository.update(id, { status: "COMPLETED", actionTaken })
-
-  // Fire-and-forget completion notification
-  const appt = appointment as unknown as ApptWithJoins
-
-  const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
-  const student = appt.student
-  const attendees = (appt.attendees || []).map(a => a.user).filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
-
-  const recipients: EmailRecipient[] = []
-  const addRecipient = (u: { email: string; name: string }) => {
-    const rtype = getRecipientType(u.email, appt)
-    recipients.push({
-      email: u.email,
-      name: u.name,
-      viewUrl: getAppointmentUrl(id, rtype),
-    })
-  }
-  if (student?.email) addRecipient(student)
-  if (faculty.email) addRecipient(faculty)
-  for (const a of attendees) {
-    if (!recipients.find(r => r.email === a.email)) addRecipient(a)
-  }
-
-  const allNames = [...new Set(recipients.map(r => r.name))]
-
-  sendStatusUpdateWorkflow(
-    recipients,
-    {
-      variant: "completed",
-      actorName: faculty.name,
-      meetingTitle: appt.title || "Meeting",
-      date: appt.date,
-      startTime: appt.startTime,
-      endTime: appt.endTime,
-      description: appt.description,
-      extraInfo: actionTaken,
-      attendeeNames: allNames,
-      isCreator: !student?.email,
-      meetingType: student?.email ? "CONSULTATION" : "INTERNAL",
-    }
-  ).catch((err) => {
-    console.error("Failed to send completion notification:", err)
-  })
-
-  return result
-}
-
-export async function cancelAppointment(id: string, userId: string, userEmail?: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-
-  // Only the creator or the consulting faculty can cancel
-  const isCreator = userEmail && appointment.createdByEmail === userEmail
-  const isFaculty = appointment.facultyId === userId
-  if (!isCreator && !isFaculty) throw new Error("Unauthorized — only the creator or faculty can cancel")
-
-  // Faculty can only cancel approved appointments
-  if (isFaculty && !isCreator && appointment.status !== "APPROVED") {
-    throw new Error("Only approved appointments can be cancelled by faculty")
-  }
-
-  // If synced to Teams, attempt cleanup (best-effort, does not block cancellation)
-  if (appointment.teamsSyncStatus === "WRITTEN") {
-    // TODO: Phase 7 — attempt Teams meeting deletion
-    // If deletion fails, log error but proceed with cancellation
-  }
-
-  const result = await appointmentRepository.update(id, { status: "CANCELLED" })
-
-  // Fire-and-forget cancellation notification
-  const [actor] = await Promise.all([
-    userRepository.findById(userId),
-  ])
-  const actorName = actor?.name || (isFaculty ? "Faculty" : "Creator")
-
-  const appt = result as unknown as ApptWithJoins
-
-  const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
-  const student = appt.student
-  const attendees = (appt.attendees || []).map(a => a.user).filter((u): u is { id: string; name: string; email: string; role: string } => !!u?.email)
-
-  // Collect all participants with per-person viewUrls
-  const recipients: EmailRecipient[] = []
-  const addRecipient = (u: { email: string; name: string }) => {
-    const rtype = getRecipientType(u.email, appt)
-    recipients.push({
-      email: u.email,
-      name: u.name,
-      viewUrl: getAppointmentUrl(id, rtype),
-    })
-  }
-  if (student?.email) addRecipient(student)
-  if (faculty.email) addRecipient(faculty)
-  for (const a of attendees) {
-    if (!recipients.find(r => r.email === a.email)) addRecipient(a)
-  }
-
-  if (recipients.length > 0) {
-    const allNames = [...new Set(recipients.map(r => r.name))]
-
-    sendStatusUpdateWorkflow(
-      recipients,
-      {
-        variant: "cancelled",
-        actorName,
-        meetingTitle: appt.title || "Meeting",
-        date: appt.date,
-        startTime: appt.startTime,
-        endTime: appt.endTime,
-        description: appt.description,
-        attendeeNames: allNames,
-        isCreator: false,
-        meetingType: student?.email ? "CONSULTATION" : "INTERNAL",
-      }
-    ).catch((err) => {
-      console.error("Failed to send cancellation notification:", err)
-    })
-  }
-
-  return result
-}
-
-export async function studentResendInvitation(id: string, userId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.studentId !== userId) throw new Error("Unauthorized — only the student can resend")
-  if (appointment.status !== "REJECTED" && appointment.status !== "CANCELLED") {
-    throw new Error("Can only resend invitation for rejected or cancelled appointments")
-  }
-
-  const updated = await appointmentRepository.update(id, {
-    status: "PENDING",
-    teamsLink: null,
-    teamsSyncStatus: "UNWRITTEN",
-    teamsSyncRetries: 0,
-    teamsSyncError: null,
-    teamsSyncLastAttempt: null,
-  })
-
-  // Fire-and-forget: re-send the invitation email to the faculty
-  const [faculty, student] = await Promise.all([
-    userRepository.findById(appointment.facultyId),
-    userRepository.findById(appointment.studentId),
-  ])
-
-  if (faculty && student) {
-    const viewUrl = getAppointmentUrl(id, "faculty")
-    sendConsultationInviteWorkflow(
-      { email: faculty.email, name: faculty.name },
-      {
-        studentName: student.name,
-        studentEmail: student.email,
-        facultyName: faculty.name,
-        facultyEmail: faculty.email,
-        date: appointment.date,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        title: appointment.title,
-        description: appointment.description,
-        viewUrl,
-      }
-    ).catch((err) => {
-      console.error("Failed to resend invitation email:", err)
-    })
-  }
-
-  return updated
-}
-
-export async function updateTeamsLink(id: string, facultyId: string, teamsLink: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-
-  return appointmentRepository.update(id, { teamsLink })
-}
-
-export async function retryTeamsSync(id: string, facultyId: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-  if (appointment.status !== "APPROVED") throw new Error("Only approved appointments can be synced")
-
-  return appointmentRepository.update(id, { teamsSyncStatus: "UNWRITTEN", teamsSyncRetries: 0, teamsSyncError: null, teamsSyncLastAttempt: null })
-}
-
-export async function getFacultyBookedAppointments(facultyId: string, startDate: string, endDate: string) {
-  return appointmentRepository.listFacultyAppointmentsByDateRange(facultyId, startDate, endDate, "APPROVED")
-}
-
-export async function listStudentAppointments(studentId: string) {
-  return appointmentRepository.listByStudent(studentId)
-}
-
-export async function listFacultyAppointments(facultyId: string) {
-  return appointmentRepository.listByFaculty(facultyId)
-}
-
-export async function getAllAppointments() {
-  return appointmentRepository.listAll()
-}
-
-export async function getAppointmentById(id: string) {
-  const appointment = await appointmentRepository.findById(id)
-  if (!appointment) throw new Error("Appointment not found")
-  return appointment
-}
-
-export async function getAppointmentDetail(id: string) {
-  const appointment: ApptWithJoins | null = await appointmentRepository.findById(id) as unknown as ApptWithJoins
-  if (!appointment) throw new Error("Appointment not found")
-
-  // Use embedded time slots from the query join (avoids extra fetch)
-  let timeSlots: DbRecord[] = appointment.timeSlots || []
-  // If the join didn't return them (e.g. older data), fetch separately
-  if (timeSlots.length === 0) {
-    try {
-      timeSlots = await appointmentRepository.listTimeSlots(id) as unknown as DbRecord[]
-    } catch {
-      // appointment_time_slots table may not exist yet
-    }
-  }
-  let files: DbRecord[] = []
-  try {
-    files = await appointmentRepository.listFiles(id) as unknown as DbRecord[]
-  } catch {
-    // appointment_files table may not exist yet (migration not run)
-  }
-
-  // ── Derive organizer from createdByEmail ───────────────────────
-  let organizer: { id: string; name: string; email: string; role?: string } | null = null
-  if (appointment.createdByEmail === (appointment.student as DbRecord)?.email as string) {
-    const stu = appointment.student as DbRecord
-    organizer = { id: stu.id as string, name: stu.name as string, email: stu.email as string, role: stu.role as string }
-  } else if (appointment.createdByEmail === (appointment.faculty as DbRecord)?.email as string) {
-    const fac = appointment.faculty as DbRecord
-    organizer = { id: fac.id as string, name: fac.name as string, email: fac.email as string, role: fac.role as string }
-  } else {
-    const matched = (appointment.attendees || []).find((a: DbRecord) => (a.user as DbRecord)?.email === appointment.createdByEmail)
-    if (matched?.user) {
-      const u = matched.user as DbRecord
-      organizer = { id: u.id as string, name: u.name as string, email: u.email as string, role: u.role as string }
-    }
-  }
-  if (!organizer) {
-    // Fallback: use the student as organizer
-    const stu = appointment.student as DbRecord
-    organizer = stu
-      ? { id: stu.id as string, name: stu.name as string, email: stu.email as string, role: stu.role as string }
-      : { id: "", name: "Unknown", email: appointment.createdByEmail }
-  }
-
-  // ── Filter attendees: exclude organizer and primary faculty ────
-  const filtered = (appointment.attendees || []).filter((a: DbRecord) => {
-    if (!a.user) return false
-    if ((a.user as DbRecord).id === (appointment.faculty as DbRecord)?.id) return false
-    if ((a.user as DbRecord).id === organizer!.id) return false
-    return true
-  })
-
-  const mappedAttendees = filtered.map((a: DbRecord) => ({
-    id: a.id as string,
-    userId: a.userId as string,
-    status: (a.status as string) === "INVITED" ? "PENDING" as const : (a.status as "ACCEPTED" | "DECLINED"),
-    isMandatory: a.isMandatory as boolean,
-    user: { id: (a.user as DbRecord).id as string, name: (a.user as DbRecord).name as string, email: (a.user as DbRecord).email as string, role: (a.user as DbRecord).role as string },
-  }))
-
-  const mapUser = (u: unknown) => (u ? { id: (u as DbRecord).id as string, name: (u as DbRecord).name as string, email: (u as DbRecord).email as string, role: (u as DbRecord).role as string } : null)
-
-  return {
-    id: appointment.id,
-    status: appointment.status,
-    meetingType: appointment.meetingType,
-    date: appointment.date,
-    startTime: appointment.startTime,
-    endTime: appointment.endTime,
-    title: appointment.title,
-    description: appointment.description,
-    teamsLink: appointment.teamsLink,
-    teamsSyncStatus: appointment.teamsSyncStatus,
-    teamsSyncRetries: appointment.teamsSyncRetries,
-    teamsSyncError: appointment.teamsSyncError,
-    actionTaken: appointment.actionTaken || null,
-    teamsSyncLastAttempt: appointment.teamsSyncLastAttempt,
-    requestedAt: appointment.requestedAt,
-    updatedAt: appointment.updatedAt,
-    organizer,
-    student: mapUser(appointment.student),
-    faculty: mapUser(appointment.faculty),
-    attendees: mappedAttendees,
-    timeSlots: timeSlots.map((s: DbRecord) => ({
-      id: s.id as string,
-      date: s.date as string,
-      startTime: s.startTime as string,
-      endTime: s.endTime as string,
-      teamsLink: (s.teamsLink as string) || null,
-    })),
-    files: files.map((f: DbRecord) => ({
-      id: f.id,
-      fileName: f.fileName,
-      fileType: f.fileType,
-      fileData: f.fileData,
-      fileSize: f.fileSize,
-      createdAt: typeof f.createdAt === "string" ? f.createdAt : (f.createdAt as Date).toISOString(),
-    })),
-  }
-}
-
-// ─── Email helpers (fire-and-forget) ────────────────────────────
-
-export async function sendConsultationApprovedEmail(appointment: ApptWithJoins) {
-  const student = appointment.student || { name: "Student", email: "" }
-  const faculty = appointment.faculty || { name: "Faculty", email: "" }
-
-  const { generateICal } = await import("@/lib/services/ical")
-  const { sendApprovedWithTeamsLink } = await import("@/lib/services/email")
-
-  const teamsLink = appointment.teamsLink || null
-
-  // Collect all recipients with per-person viewUrls
-  const recipients: EmailRecipient[] = []
-
-  const addRecipient = (u: { email: string; name: string }) => {
-    const rtype = getRecipientType(u.email, appointment)
-    recipients.push({
-      email: u.email,
-      name: u.name,
-      viewUrl: getAppointmentUrl(appointment.id!, rtype),
-    })
-  }
-
-  if (student.email) addRecipient(student)
-  if (faculty.email && faculty.email !== student.email) addRecipient(faculty)
-  if (appointment.attendees) {
-    for (const att of appointment.attendees) {
-      const user = att.user
-      if (!user || !user.email || user.email === student.email || user.email === faculty.email) continue
-      addRecipient(user)
-    }
-  }
-
-  const allParticipants = recipients.map(r => ({ name: r.name, email: r.email }))
-
-  const icalString = generateICal({
-    uid: `appt-${appointment.id}@LOA Connect Hub`,
-    summary: `Consultation with ${faculty.name}`,
-    description: [
-      "Academic Consultation — Accepted",
-      appointment.title ? `— ${appointment.title}` : "",
-      `Student: ${student.name} (${student.email})`,
-      `Faculty: ${faculty.name} (${faculty.email})`,
-      teamsLink ? `Teams link: ${teamsLink}` : "",
-      appointment.description || "",
-    ].filter(Boolean).join("\n"),
-    date: appointment.date,
-    startTime: appointment.startTime,
-    endTime: appointment.endTime,
-    location: teamsLink || "Microsoft Teams",
-    organizer: { name: faculty.name, email: faculty.email },
-    attendees: allParticipants,
-  })
-
-  for (const r of recipients) {
-    await sendApprovedWithTeamsLink(
-      { email: r.email, name: r.name },
-      {
-        studentName: student.name,
-        studentEmail: student.email,
-        facultyName: faculty.name,
-        facultyEmail: faculty.email,
-        date: appointment.date,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        title: appointment.title,
-        description: appointment.description,
-        teamsLink,
-        viewUrl: r.viewUrl,
-      },
-      icalString,
-    )
-  }
-}
-
-export async function getMeetingsForUser(userId: string) {
-  const [organized, invited] = await Promise.all([
-    appointmentRepository.listByFaculty(userId),
-    appointmentRepository.listByParticipant(userId),
-  ])
-
-  const merged = [...organized, ...invited]
-  const seen = new Set<string>()
-  const unique = merged.filter((apt: AppointmentData) => {
-    if (seen.has(apt.id as string)) return false
-    seen.add(apt.id as string)
-    return true
-  })
-
-  // Format to match legacy MeetingData shape for the frontend UI compatibility
-  return (unique as unknown as DbRecord[]).map((appointment: DbRecord) => {
-    const participants = ((appointment.attendees as DbRecord[]) || []).map((att: DbRecord) => ({
-      id: att.id as string,
-      meetingId: appointment.id as string,
-      userId: att.userId as string,
-      status: (att.status === "ACCEPTED" ? "ACCEPTED" : att.status === "DECLINED" ? "DECLINED" : "PENDING") as "ACCEPTED" | "DECLINED" | "PENDING",
-      user: att.user as DbRecord,
-    }))
-
-    const stu = appointment.student as DbRecord | undefined
-    const fac = appointment.faculty as DbRecord | undefined
-    const organizer = stu?.email === appointment.createdByEmail
-      ? stu
-      : fac?.email === appointment.createdByEmail
-        ? fac
-        : stu || fac || null
-
-    return {
-      id: appointment.id as string,
-      title: appointment.title as string,
-      description: appointment.description as string,
-      date: appointment.date as string,
-      startTime: appointment.startTime as string,
-      endTime: appointment.endTime as string,
-      meetingType: (appointment.meetingType as string) || "MEETING",
-      organizerId: (organizer?.id as string) || (appointment.facultyId as string) || (appointment.studentId as string),
-      teamsEventId: null,
-      teamsLink: appointment.teamsLink as string,
-      status: appointment.status as string,
-      createdAt: new Date(appointment.requestedAt as string),
-      organizer,
-      participants,
-    }
-  })
 }

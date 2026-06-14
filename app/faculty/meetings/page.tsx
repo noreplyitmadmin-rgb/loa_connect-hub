@@ -1,12 +1,12 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { FacultyAppointmentTabs } from "@/components/FacultyAppointmentTabs"
-import SearchBar from "@/components/SearchBar"
-import { getMeetingsForUser } from "@/features/appointments/appointments.service"
+import { FacultyAppointmentTabs } from "@/features/appointments/components/FacultyAppointmentTabs"
+import SearchBar from "@/components/ui/SearchBar"
+import { getMeetingsForUser } from "@/features/appointments/appointments.controller"
 import { getWeekRange, getMonthRange } from "@/lib/utils/date"
 import { hasRole } from "@/lib/utils/roles"
-import SegmentedControl from "@/components/SegmentedControl"
+import SegmentedControl from "@/components/ui/SegmentedControl"
 
 interface ParticipantData {
   id: string

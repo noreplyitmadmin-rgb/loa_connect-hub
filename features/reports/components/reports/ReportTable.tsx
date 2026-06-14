@@ -8,6 +8,9 @@ interface ReportTableProps {
 }
 
 export function ReportTable({ stats }: ReportTableProps) {
+  const sorted = [...stats].sort((a, b) => b.total - a.total)
+  const { page, totalPages, pageSize, paginatedItems, setPage, setPageSize } = usePagination(sorted, 25)
+
   if (stats.length === 0) {
     return (
       <div className="rounded-2xl border border-default/70 bg-surface p-8 shadow-sm text-center">
@@ -15,9 +18,6 @@ export function ReportTable({ stats }: ReportTableProps) {
       </div>
     )
   }
-
-  const sorted = [...stats].sort((a, b) => b.total - a.total)
-  const { page, totalPages, pageSize, paginatedItems, setPage, setPageSize } = usePagination(sorted, 25)
 
   return (
     <div className="rounded-2xl border border-default/70 bg-surface shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">

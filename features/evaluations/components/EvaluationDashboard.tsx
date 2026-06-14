@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { jsPDF } from "jspdf"
-import autoTable from "jspdf-autotable"
 import { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import type { DepartmentData } from "@/lib/types"
 
 interface Result {
   id: string
@@ -27,12 +29,6 @@ interface Period {
   id: string
   name?: string
   title?: string
-}
-
-interface Department {
-  id: string
-  name: string
-  code: string
 }
 
 interface StudentRow {
@@ -124,7 +120,7 @@ export default function EvaluationDashboard({
 }: EvaluationDashboardProps) {
   const [periods, setPeriods] = useState<Period[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState("")
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [departments, setDepartments] = useState<DepartmentData[]>([])
   const [selectedDept, setSelectedDept] = useState("")
   const [results, setResults] = useState<Result[]>([])
   const [loading, setLoading] = useState(false)
@@ -135,44 +131,64 @@ export default function EvaluationDashboard({
   const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({})
   const [toggling, setToggling] = useState(false)
   const [page, setPage] = useState(0)
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   useEffect(() => {
-    fetch("/api/evaluation-periods")
-      .then((r) => r.json())
-      .then((data) => {
+    const endpoint = "/api/evaluation-periods"
+    const fetchData = async () => {
+      try {
+        const res = await fetch(endpoint)
+        if (res.status === 403) { setLockedEndpoint(endpoint); return }
+        const data = await res.json()
         const list = data.periods || []
         setPeriods(list)
         if (list.length > 0) setSelectedPeriod(list[0].id)
-      })
+      } catch {
+        setErrorMessage("Failed to load evaluation periods")
+      }
+    }
+    fetchData()
   }, [])
 
   useEffect(() => {
     if (!showDepartmentFilter) return
-    fetch("/api/admin/departments")
-      .then((r) => r.json())
-      .then((data) => {
+    const endpoint = "/api/admin/departments"
+    const fetchData = async () => {
+      try {
+        const res = await fetch(endpoint)
+        if (res.status === 403) { setLockedEndpoint(endpoint); return }
+        const data = await res.json()
         const list = Array.isArray(data) ? data : []
         setDepartments(list)
-      })
+      } catch {
+        setErrorMessage("Failed to load departments")
+      }
+    }
+    fetchData()
   }, [showDepartmentFilter])
 
   useEffect(() => {
     if (!selectedPeriod) return
-    Promise.resolve().then(() => {
+    Promise.resolve().then(async () => {
       setLoading(true)
       setSelectedFaculty(null)
       setStudentData({})
       setPage(0)
       const params = new URLSearchParams({ periodId: selectedPeriod })
       if (selectedDept) params.set("departmentId", selectedDept)
-      fetch(`${apiBase}?${params}&_=${Date.now()}`)
-        .then((r) => r.json())
-        .then((data) => {
-          setResults(data.results || [])
-          setFacultyNames(data.facultyNames || {})
-          setVisibilityMap(data.visibilityMap || {})
-          setLoading(false)
-        })
+      const endpoint = `${apiBase}?${params}&_=${Date.now()}`
+      try {
+        const res = await fetch(endpoint)
+        if (res.status === 403) { setLockedEndpoint(endpoint); setLoading(false); return }
+        const data = await res.json()
+        setResults(data.results || [])
+        setFacultyNames(data.facultyNames || {})
+        setVisibilityMap(data.visibilityMap || {})
+      } catch {
+        setErrorMessage("Failed to load evaluation results")
+      }
+      setLoading(false)
     })
   }, [selectedPeriod, selectedDept, apiBase])
 
@@ -184,6 +200,7 @@ export default function EvaluationDashboard({
     setLoadingStudents(true)
     try {
       const r = await fetch(`/api/dean/evaluation-results/details?periodId=${selectedPeriod}&facultyId=${facultyId}`)
+      if (r.status === 403) { setLockedEndpoint(`/api/dean/evaluation-results/details?periodId=${selectedPeriod}&facultyId=${facultyId}`); setLoadingStudents(false); return }
       const data = await r.json()
       setStudentData((prev) => ({ ...prev, [facultyId]: data.students || [] }))
     } catch {
@@ -198,11 +215,12 @@ export default function EvaluationDashboard({
     const prev = visibilityMap[facultyId]
     setVisibilityMap((m) => ({ ...m, [facultyId]: visible }))
     try {
-      await fetch("/api/admin/evaluation-results/visibility", {
+      const res = await fetch("/api/admin/evaluation-results/visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ semesterId: selectedPeriod, facultyIds: [facultyId], visible }),
       })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/evaluation-results/visibility"); setVisibilityMap((m) => ({ ...m, [facultyId]: prev })); return }
     } catch {
       setVisibilityMap((m) => ({ ...m, [facultyId]: prev }))
     }
@@ -218,11 +236,12 @@ export default function EvaluationDashboard({
     for (const id of facultyIds) update[id] = visible
     setVisibilityMap((m) => ({ ...m, ...update }))
     try {
-      await fetch("/api/admin/evaluation-results/visibility", {
+      const res = await fetch("/api/admin/evaluation-results/visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ semesterId: selectedPeriod, facultyIds, visible }),
       })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/evaluation-results/visibility"); setVisibilityMap(prev); return }
     } catch {
       setVisibilityMap(prev)
     }
@@ -230,6 +249,8 @@ export default function EvaluationDashboard({
   }, [selectedPeriod, results, toggling, visibilityMap])
 
   const downloadPDF = useCallback(async () => {
+    const { jsPDF } = await import("jspdf")
+    const { default: autoTable } = await import("jspdf-autotable")
     const doc = new jsPDF("landscape")
     const pageW = doc.internal.pageSize.getWidth()
     const periodName = periods.find((p) => p.id === selectedPeriod)?.name || periods.find((p) => p.id === selectedPeriod)?.title || selectedPeriod
@@ -285,6 +306,8 @@ export default function EvaluationDashboard({
   }, [selectedPeriod, studentData])
 
   const downloadFacultyPDF = useCallback(async (facultyResult: Result) => {
+    const { jsPDF } = await import("jspdf")
+    const { default: autoTable } = await import("jspdf-autotable")
     const students = await fetchStudentsForFaculty(facultyResult.facultyId)
     const doc = new jsPDF("landscape")
     const pageW = doc.internal.pageSize.getWidth()
@@ -378,7 +401,16 @@ export default function EvaluationDashboard({
   const selectedResult = results.find((r) => r.facultyId === selectedFaculty)
   const selectedStudents = selectedFaculty ? studentData[selectedFaculty] || [] : []
 
+  if (lockedEndpoint) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
   return (
+    <ErrorBoundary>
     <div className="pb-12">
       {/* Header */}
       <div className="max-w-[1400px] mx-auto px-6 pt-6">
@@ -386,6 +418,10 @@ export default function EvaluationDashboard({
         <p className="text-sm text-tertiary mt-1">{subtitle}</p>
       </div>
 
+      {errorMessage && <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); window.location.reload() }} />}
+
+      {!errorMessage && (
+      <>
       {/* Filter Card */}
       <div className="max-w-[1400px] mx-auto px-3 sm:px-6 pt-3 sm:pt-6">
         <div className="flex flex-wrap items-end gap-2 sm:gap-4 p-3 sm:p-5 bg-surface rounded-2xl shadow-sm">
@@ -416,44 +452,46 @@ export default function EvaluationDashboard({
               ))}
             </select>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto pt-1 sm:pt-0">
-            {showVisibilityToggles && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => bulkSetVisibility(true)}
-                  disabled={results.length === 0 || toggling}
-                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-emerald-500 text-white text-[11px] sm:text-sm font-semibold hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  Publish
-                </button>
-                <button
-                  type="button"
-                  onClick={() => bulkSetVisibility(false)}
-                  disabled={results.length === 0 || toggling}
-                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-amber-500 text-white text-[11px] sm:text-sm font-semibold hover:bg-amber-600 active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  Hide
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={downloadBulkCSV}
-              disabled={results.length === 0}
-              className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-emerald-600 text-white text-[11px] sm:text-sm font-semibold hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              CSV
-            </button>
-            <button
-              type="button"
-              onClick={downloadPDF}
-              disabled={results.length === 0}
-              className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-brand-500 text-white text-[11px] sm:text-sm font-semibold hover:bg-brand-600 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              PDF
-            </button>
-          </div>
+          {!loading && (
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto pt-1 sm:pt-0">
+              {showVisibilityToggles && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => bulkSetVisibility(true)}
+                    disabled={results.length === 0 || toggling}
+                    className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-emerald-500 text-white text-[11px] sm:text-sm font-semibold hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    Publish
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => bulkSetVisibility(false)}
+                    disabled={results.length === 0 || toggling}
+                    className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-amber-500 text-white text-[11px] sm:text-sm font-semibold hover:bg-amber-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    Hide
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={downloadBulkCSV}
+                disabled={results.length === 0}
+                className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-emerald-600 text-white text-[11px] sm:text-sm font-semibold hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={downloadPDF}
+                disabled={results.length === 0}
+                className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-brand-500 text-white text-[11px] sm:text-sm font-semibold hover:bg-brand-600 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                PDF
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -683,7 +721,10 @@ export default function EvaluationDashboard({
           )}
         </div>
       )}
+      </>
+      )}
     </div>
+    </ErrorBoundary>
   )
 }
 

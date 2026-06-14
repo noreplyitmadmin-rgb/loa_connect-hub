@@ -6,8 +6,7 @@ import SubmitButton from "@/components/ui/SubmitButton"
 import { usePagination, Paginator } from "@/components/ui/Paginator"
 import { SkeletonTable } from "@/components/ui/Skeleton"
 import LockedTab from "@/components/ui/LockedTab"
-
-// ── Shared Types ───────────────────────────────────────────────────────────
+import type { DepartmentData, UserData, SemesterData } from "@/lib/types"
 
 type MainTab = "semesters" | "departments" | "subjects" | "faculty_enroll"
 type InfraTab = "departments" | "courses"
@@ -29,10 +28,6 @@ interface FacultyMapping {
   section: { id: string; name: string; program: string }
 }
 
-interface Department {
-  id: string; name: string; code: string
-}
-
 interface Enrollment {
   id: string
   student: { id: string; name: string; email: string }
@@ -44,18 +39,6 @@ interface Enrollment {
 interface DepartmentCourse {
   id: string; departmentId: string; name: string; code: string; createdAt: string
   department: { name: string; code: string }
-}
-
-interface Department {
-  id: string; name: string; code: string; deanId: string | null; isDisabled: boolean
-}
-
-interface User {
-  id: string; name: string; email: string; role: string
-}
-
-interface SemesterData {
-  id: string; title: string; evalStartDate: string; evalEndDate: string | null; isActive: boolean; createdAt: string
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -221,8 +204,8 @@ function DepartmentsCoursesTab({ infraTab, setInfraTab }: {
   const [saving, setSaving] = useState(false)
 
   const { data: coursesData, isLoading: coursesLoading, error: coursesErr } = useApiGet<DepartmentCourse[]>("/api/admin/department-courses")
-  const { data: usersData, isLoading: usersLoading, error: usersErr } = useApiGet<{ users: User[] }>("/api/admin/users")
-  const { data: deptsData, isLoading: deptsLoading, error: deptsErr } = useApiGet<Department[]>("/api/admin/departments")
+  const { data: usersData, isLoading: usersLoading, error: usersErr } = useApiGet<{ users: UserData[] }>("/api/admin/users")
+  const { data: deptsData, isLoading: deptsLoading, error: deptsErr } = useApiGet<DepartmentData[]>("/api/admin/departments")
 
   const courses = coursesData ?? []
   const departments = deptsData ?? []
@@ -280,7 +263,7 @@ function DepartmentsCoursesTab({ infraTab, setInfraTab }: {
     finally { setSaving(false) }
   }
 
-  const handleToggleStatus = async (dept: Department) => {
+  const handleToggleStatus = async (dept: DepartmentData) => {
     setError("")
     try {
       const res = await fetch(`/api/admin/departments/${dept.id}`, {
@@ -294,7 +277,7 @@ function DepartmentsCoursesTab({ infraTab, setInfraTab }: {
     } catch (err) { setError((err as Error).message) }
   }
 
-  const startEditing = (dept: Department) => {
+  const startEditing = (dept: DepartmentData) => {
     setEditingDeptId(dept.id)
     setEditDeptName(dept.name)
     setEditDeptCode(dept.code)
@@ -1121,7 +1104,7 @@ function FacultyTab() {
       .catch(() => { })
   }, [])
 
-  const { data: allUsers } = useApiGet<{ users: { id: string; name: string; email: string; role: string; departmentId: string | null }[]; departments: Department[] }>("/api/admin/users")
+  const { data: allUsers } = useApiGet<{ users: { id: string; name: string; email: string; role: string; departmentId: string | null }[]; departments: DepartmentData[] }>("/api/admin/users")
   const { data: subjectsData } = useApiGet<{ data: Subject[] }>("/api/data/evaluation-mappings?type=subjects")
   const { data: sectionsData } = useApiGet<{ data: Section[] }>("/api/data/evaluation-mappings?type=sections")
 

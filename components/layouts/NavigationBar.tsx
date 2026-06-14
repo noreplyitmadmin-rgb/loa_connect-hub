@@ -76,11 +76,6 @@ export default function NavigationBar(_props: { title?: string }) {
   }, [])
 
   if (!pathname) return null
-    pathname === "/login" ||
-    pathname === "/activate" ||
-    pathname === "/forgot-password" ||
-    pathname.startsWith("/change-password") ||
-    pathname.startsWith("/setup-password")
 
   if (isAuthPage) return null
 

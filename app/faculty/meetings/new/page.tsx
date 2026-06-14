@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import StudentBooking from "@/components/StudentBooking"
+import StudentBooking from "@/features/appointments/components/StudentBooking"
 import { userRepository, availabilityRuleRepository, departmentRepository } from "@/lib/repositories/factory"
 import type { AvailabilityRuleData } from "@/lib/types"
 

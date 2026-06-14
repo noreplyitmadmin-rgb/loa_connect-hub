@@ -150,7 +150,7 @@ export default function ConsultationHistory({ studentName: _studentName, course,
                 <div className="relative">
                   <div className="absolute left-[17px] sm:left-[19px] top-2 bottom-0 w-px bg-slate-200 dark:bg-gray-700" />
 
-                  {items.map((item, i) => {
+                  {items.map((item, _i) => {
                     if (item.type === "evaluation") {
                       const ev = item.data as HistoryEvaluation
                       return (

@@ -30,7 +30,7 @@ function mockRequest(formData: Record<string, unknown>): NextRequest {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
 })
 
 describe("POST /api/import/preview", () => {

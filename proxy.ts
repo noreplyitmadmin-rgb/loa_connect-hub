@@ -15,23 +15,29 @@ function getPrimaryRole(roles: string): string {
   return "GUEST"
 }
 
+const PERM_CACHE_TTL = 60_000
+const permCache = new Map<string, { result: boolean | null; ts: number }>()
+
 /// Returns true (allow), false (deny), or null (no explicit entry — fall through).
 /// Matches exact resource_path or prefix (e.g. grant for /api/admin/departments
 /// also covers /api/admin/departments/123).
 async function checkUserPermission(userId: string, resource: string): Promise<boolean | null> {
+  const cached = permCache.get(userId)
+  if (cached && Date.now() - cached.ts < PERM_CACHE_TTL) return cached.result
+
   try {
     const { data } = await supabase
       .from('user_permissions')
       .select('grants, denies, resource_path')
       .eq('user_id', userId);
-    if (!data || data.length === 0) return null;
+    if (!data || data.length === 0) { permCache.set(userId, { result: null, ts: Date.now() }); return null; }
     for (const row of data as { grants: string[]; denies: string[]; resource_path: string }[]) {
       const rp: string = row.resource_path ?? '';
       if (resource !== rp && !resource.startsWith(rp + '/')) continue;
       const grants: string[] = row.grants ?? [];
       const denies: string[] = row.denies ?? [];
-      if (denies.includes('access')) return false;
-      if (grants.includes('access')) return true;
+      if (denies.includes('access')) { permCache.set(userId, { result: false, ts: Date.now() }); return false; }
+      if (grants.includes('access')) { permCache.set(userId, { result: true, ts: Date.now() }); return true; }
     }
   } catch { }
   return null;

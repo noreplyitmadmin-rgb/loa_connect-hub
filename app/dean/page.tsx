@@ -2,21 +2,9 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { listFacultyAppointments } from "@/features/appointments/appointments.service"
 import { userRepository, departmentRepository, reportsRepository } from "@/lib/repositories/factory"
-import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
+import { OnboardingWalkthrough } from "@/features/users/components/OnboardingWalkthrough"
 import { hasRole } from "@/lib/utils/roles"
-import FacultyDeanDashboard from "@/components/FacultyDeanDashboard"
-
-interface DashboardAppointment {
-  id: string
-  title: string | null
-  date: string
-  startTime: string
-  endTime: string
-  status: string
-  meetingType: string
-  teamsLink: string | null
-  student?: { name: string; email: string } | null
-}
+import FacultyDeanDashboard from "@/features/appointments/components/FacultyDeanDashboard"
 
 export default async function DeanDashboard() {
   const session = await auth()
@@ -29,7 +17,7 @@ export default async function DeanDashboard() {
   const department = await departmentRepository.findByDeanId(deanId)
 
   // Dean's own appointments (personal dashboard sections)
-  const appointments = (await listFacultyAppointments(deanId)) as DashboardAppointment[]
+  const { data: appointments } = await listFacultyAppointments(deanId)
 
   // Department-wide stats for the dean-only section
   let departmentStats: { facultyCount: number; total: number; pending: number; completed: number } | undefined

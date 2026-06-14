@@ -23,7 +23,7 @@ export interface ICalEvent {
 }
 
 /** Format a local date+time pair to iCal UTC: 20260523T060000Z */
-function toICalUtc(dateStr: string, timeStr: string): string {
+export function toICalUtc(dateStr: string, timeStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number)
   const [hh, mm] = timeStr.split(":").map(Number)
   const local = new Date(y, m - 1, d, hh, mm)
@@ -31,7 +31,7 @@ function toICalUtc(dateStr: string, timeStr: string): string {
 }
 
 /** Fold long lines per RFC 5545 (max 75 octets) */
-function foldLine(line: string): string {
+export function foldLine(line: string): string {
   if (line.length <= 75) return line
   let result = ""
   for (let i = 0; i < line.length; i += 75) {
@@ -40,7 +40,7 @@ function foldLine(line: string): string {
   return result
 }
 
-function escapeText(text: string): string {
+export function escapeText(text: string): string {
   return text
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")

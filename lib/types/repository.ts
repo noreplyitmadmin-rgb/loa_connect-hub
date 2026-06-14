@@ -1,3 +1,18 @@
+// ── Pagination ──────────────────────────────────────────
+
+export interface PaginationParams {
+  page?: number
+  limit?: number
+}
+
+export interface PagedResult<T> {
+  data: T[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 // ── User ────────────────────────────────────────────────
 
 export interface UserData {
@@ -137,10 +152,10 @@ export interface AppointmentFileData {
 
 export interface IAppointmentRepository {
   create(input: CreateAppointmentInput): Promise<AppointmentData>
-  listByStudent(studentId: string): Promise<AppointmentData[]>
-  listByFaculty(facultyId: string): Promise<AppointmentData[]>
-  listByParticipant(userId: string): Promise<AppointmentData[]>
-  listAll(): Promise<AppointmentData[]>
+  listByStudent(studentId: string, pagination?: PaginationParams): Promise<PagedResult<AppointmentData>>
+  listByFaculty(facultyId: string, pagination?: PaginationParams): Promise<PagedResult<AppointmentData>>
+  listByParticipant(userId: string, pagination?: PaginationParams): Promise<PagedResult<AppointmentData>>
+  listAll(pagination?: PaginationParams): Promise<PagedResult<AppointmentData>>
   listPendingSync(): Promise<AppointmentData[]>
   findById(id: string): Promise<AppointmentData | null>
   update(id: string, data: Partial<AppointmentData>): Promise<AppointmentData>

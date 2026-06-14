@@ -4,7 +4,7 @@ import { listStudentAppointments } from "@/features/appointments/appointments.se
 import { userRepository } from "@/lib/repositories/factory"
 import { getMyEvaluations } from "@/features/evaluations/evaluations.service"
 import { supabase } from "@/lib/db"
-import ConsultationHistory from "@/components/ConsultationHistory"
+import ConsultationHistory from "@/features/appointments/components/ConsultationHistory"
 import { hasRole } from "@/lib/utils/roles"
 
 interface HistoryAppointment {
@@ -40,7 +40,7 @@ export default async function StudentHistoryPage() {
 
   const userId = (session.user as Record<string, unknown>).id as string
   const dbUser = await userRepository.findById(userId)
-  const appointments = (await listStudentAppointments(userId)) as unknown as HistoryAppointment[]
+  const appointments = (await listStudentAppointments(userId)).data as unknown as HistoryAppointment[]
 
   const evaluations = (await getMyEvaluations(userId)).filter((e) => e.status === "SUBMITTED" && e.submittedAt)
 

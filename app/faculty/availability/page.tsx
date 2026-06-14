@@ -5,6 +5,9 @@ import { useEffect, useState, useRef } from "react"
 import { redirect } from "next/navigation"
 import { useApiGet } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -31,14 +34,25 @@ export default function AvailabilityPage() {
   const [startDate, setStartDate] = useState(todayStr())
   const [endDate, setEndDate] = useState("")
   const [pendingChanges, setPendingChanges] = useState<Map<number, Rule>>(new Map())
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
-  const { data: rulesData, isLoading } = useApiGet<{ rules: Rule[] }>(
+  const { data: rulesData, isLoading, error: rulesError } = useApiGet<{ rules: Rule[] }>(
     status === "authenticated" ? "/api/availability-rules" : null
   )
 
   useEffect(() => {
-    if (rulesData?.rules) setRules(rulesData.rules) // eslint-disable-line react-hooks/set-state-in-effect -- sync SWR data
-  }, [rulesData])
+    Promise.resolve().then(() => {
+      if (rulesData?.rules) setRules(rulesData.rules)
+      if (rulesError) {
+        if (rulesError.message?.includes("403") || rulesError.message?.includes("Forbidden")) {
+          setLockedEndpoint("/api/availability-rules")
+        } else {
+          setErrorMessage(rulesError.message || "Failed to load availability rules")
+        }
+      }
+    })
+  }, [rulesData, rulesError])
 
   useEffect(() => {
     if (status === "unauthenticated") redirect("/login")
@@ -157,9 +171,11 @@ export default function AvailabilityPage() {
           }),
         })
 
+        if (res.status === 403) { setLockedEndpoint("/api/availability-rules"); return }
         console.log("status", res.status)
       }
       const res = await fetch("/api/availability-rules")
+      if (res.status === 403) { setLockedEndpoint("/api/availability-rules"); return }
       const data = await res.json()
 
       setRules(data.rules || [])
@@ -167,6 +183,18 @@ export default function AvailabilityPage() {
     } finally {
       setIsSavingAll(false)
     }
+  }
+
+  if (lockedEndpoint) {
+    return <LockedTab endpoint={lockedEndpoint} />
+  }
+
+  if (errorMessage) {
+    return (
+      <ErrorBoundary>
+        <ErrorState message={errorMessage} />
+      </ErrorBoundary>
+    )
   }
 
   if (status === "loading" || loading) {
@@ -181,6 +209,7 @@ export default function AvailabilityPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
         <h1 className="text-2xl font-bold text-primary font-display">Availability Settings</h1>
@@ -323,5 +352,6 @@ export default function AvailabilityPage() {
         </button>
       </div>
     </div>
+    </ErrorBoundary>
   )
 }

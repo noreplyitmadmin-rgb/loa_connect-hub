@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { studentResendInvitation } from "@/features/appointments/appointments.service"
+import { studentResendInvitation } from "@/features/appointments/appointments.controller"
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()

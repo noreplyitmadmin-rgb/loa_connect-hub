@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import SubmitButton from "@/components/SubmitButton"
+import SubmitButton from "@/components/ui/SubmitButton"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 interface ImportRow {
   name: string
@@ -29,6 +32,8 @@ export default function FacultyUploadPage() {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
   const [allowedCourses, setAllowedCourses] = useState<AllowedCourse[]>([])
   const [deptName, setDeptName] = useState("")
 
@@ -36,10 +41,12 @@ export default function FacultyUploadPage() {
     const fetchCourses = async () => {
       try {
         const res = await fetch("/api/admin/department-courses")
+        if (res.status === 403) { setLockedEndpoint("/api/admin/department-courses"); return }
         if (!res.ok) return
         const allCourses: { code: string; name: string; departmentId: string; department: { name: string } }[] = await res.json()
         const userId = (session?.user as Record<string, unknown>)?.id as string
         const usersRes = await fetch("/api/admin/users")
+        if (usersRes.status === 403) { setLockedEndpoint("/api/admin/users"); return }
         if (!usersRes.ok) return
         const usersData = await usersRes.json()
         const myDept = (usersData.departments || []).find((d: Record<string, unknown>) => d.deanId === userId)
@@ -52,7 +59,7 @@ export default function FacultyUploadPage() {
             setAllowedCourses(allCourses.filter((c) => c.departmentId === user.departmentId))
           }
         }
-      } catch { /* ignore */ }
+      } catch { setErrorMessage("Failed to load courses data"); }
     }
     if (session) fetchCourses()
   }, [session])
@@ -72,17 +79,32 @@ export default function FacultyUploadPage() {
     setLoading(true)
     try {
       const res = await fetch("/api/import/students", { method: "POST", body: formData })
+      if (res.status === 403) { setLockedEndpoint("/api/import/students"); return }
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Upload failed"); return }
       setResult(data)
     } catch {
       setError("Network error")
+      setErrorMessage("Network error")
     } finally {
       setLoading(false)
     }
   }
 
+  if (lockedEndpoint) {
+    return <LockedTab endpoint={lockedEndpoint} />
+  }
+
+  if (errorMessage) {
+    return (
+      <ErrorBoundary>
+        <ErrorState message={errorMessage} />
+      </ErrorBoundary>
+    )
+  }
+
   return (
+    <ErrorBoundary>
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
         <h1 className="text-2xl font-bold text-primary">Import Students</h1>
@@ -216,5 +238,6 @@ export default function FacultyUploadPage() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   )
 }

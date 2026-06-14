@@ -12,6 +12,7 @@ export interface SingleBuilder {
 export type DbRecord = Record<string, unknown>
 
 export const USER_SELECT = "*, userrole(roleName)"
+export const USER_BRIEF = "id, name, email"
 
 export function toUserWithRole(item: Record<string, unknown>): UserData {
   const roleArr = (item.userrole as Array<{ roleName: string }>) || []
@@ -48,8 +49,8 @@ export function isMissingUserrole(err: QueryError): boolean {
 
 export const appointmentSelect = `
   *,
-  student:users!appointments_studentId_fkey(*),
-  faculty:users!appointments_facultyId_fkey(*),
-  attendees:appointment_attendees(*, user:users(*)),
+  student:users!appointments_studentId_fkey(${USER_BRIEF}),
+  faculty:users!appointments_facultyId_fkey(${USER_BRIEF}),
+  attendees:appointment_attendees(*, user:users(${USER_BRIEF})),
   timeSlots:appointment_time_slots(*)
 `

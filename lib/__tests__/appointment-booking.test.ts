@@ -19,20 +19,29 @@ vi.mock("@/lib/repositories/factory", () => ({
   appointmentRepository: mockAppointmentRepo,
 }))
 
+const mockSendCreated = vi.hoisted(() => vi.fn())
+const mockSendApproved = vi.hoisted(() => vi.fn())
+const mockSendInvite = vi.hoisted(() => vi.fn())
+const mockSendMeetingAck = vi.hoisted(() => vi.fn())
+const mockSendConsultAck = vi.hoisted(() => vi.fn())
+const mockSendStatus = vi.hoisted(() => vi.fn())
+
 vi.mock("@/lib/workflows/email-workflows", () => ({
-  sendAppointmentCreatedWorkflow: vi.fn().mockReturnValue({ catch: vi.fn() }),
-  sendConsultationApprovedWorkflow: vi.fn().mockReturnValue({ catch: vi.fn() }),
-  sendConsultationInviteWorkflow: vi.fn().mockReturnValue({ catch: vi.fn() }),
-  sendMeetingInviteWithAcknowledgementWorkflow: vi.fn().mockReturnValue({ catch: vi.fn() }),
-  sendConsultationInviteWithAcknowledgementWorkflow: vi.fn().mockReturnValue({ catch: vi.fn() }),
-  sendStatusUpdateWorkflow: vi.fn().mockReturnValue({ catch: vi.fn() }),
+  sendAppointmentCreatedWorkflow: mockSendCreated,
+  sendConsultationApprovedWorkflow: mockSendApproved,
+  sendConsultationInviteWorkflow: mockSendInvite,
+  sendMeetingInviteWithAcknowledgementWorkflow: mockSendMeetingAck,
+  sendConsultationInviteWithAcknowledgementWorkflow: mockSendConsultAck,
+  sendStatusUpdateWorkflow: mockSendStatus,
 }))
+
+const mockGenerateICal = vi.hoisted(() => vi.fn().mockReturnValue(""))
 
 vi.mock("@/lib/services/ical", () => ({
-  generateICal: vi.fn().mockReturnValue(""),
+  generateICal: mockGenerateICal,
 }))
 
-import { requestAppointment } from "@/features/appointments/appointments.service"
+import { requestAppointment } from "@/features/appointments/appointments.controller"
 import type { UserData, AppointmentData } from "@/lib/types"
 
 const BASE_INPUT = {
@@ -94,7 +103,13 @@ function mockAppointment(overrides: Partial<AppointmentData> = {}): AppointmentD
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
+  mockSendCreated.mockReturnValue({ catch: vi.fn() })
+  mockSendApproved.mockReturnValue({ catch: vi.fn() })
+  mockSendInvite.mockReturnValue({ catch: vi.fn() })
+  mockSendMeetingAck.mockReturnValue({ catch: vi.fn() })
+  mockSendConsultAck.mockReturnValue({ catch: vi.fn() })
+  mockSendStatus.mockReturnValue({ catch: vi.fn() })
 })
 
 describe("requestAppointment — validation", () => {

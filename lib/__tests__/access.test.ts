@@ -15,7 +15,7 @@ function mockSupabaseResponse(rows: { groupName: string; pages: string[] }[]) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   clearAccessConfigCache()
 })
 

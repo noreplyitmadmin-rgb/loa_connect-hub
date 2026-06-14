@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getAdminReportData } from "@/features/reports/admin-reports.service"
+import { getAdminReportData } from "@/features/reports/admin-reports.controller"
 import { DepartmentHealthReport } from "@/features/reports/components/reports/DepartmentHealthReport"
 import { ReportFiltersWithDept } from "@/features/reports/components/reports/ReportFiltersWithDept"
 import { ReportHeader } from "@/features/reports/components/reports/ReportHeader"

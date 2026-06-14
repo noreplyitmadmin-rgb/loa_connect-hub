@@ -3,8 +3,9 @@
 import { Suspense, useEffect, useState, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import Skeleton from "@/components/Skeleton"
-import SubmitButton from "@/components/SubmitButton"
+import Skeleton from "@/components/ui/Skeleton"
+import SubmitButton from "@/components/ui/SubmitButton"
+import LockedTab from "@/components/ui/LockedTab"
 
 interface GroupAccess {
   groupName: string
@@ -494,13 +495,7 @@ export default function AdminAccessConfigPage() {
   if (accessState === "locked") {
     return (
       <div className="max-w-6xl mx-auto pb-12">
-        <div className="card p-12 text-center space-y-4">
-          <div className="text-4xl text-tertiary">&#x1f512;</div>
-          <h1 className="text-xl font-bold text-primary">Access Restricted</h1>
-          <p className="text-sm text-tertiary max-w-md mx-auto">
-            You need the <strong>ADMIN role</strong> or an explicit user-permissions grant for <code className="px-1 py-0.5 rounded bg-surface-hover text-xs">/admin/access-config</code> to access this page.
-          </p>
-        </div>
+        <LockedTab endpoint="/admin/access-config" />
       </div>
     )
   }

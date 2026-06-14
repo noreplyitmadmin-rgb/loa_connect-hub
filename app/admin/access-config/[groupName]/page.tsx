@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import Skeleton from "@/components/Skeleton"
-import SubmitButton from "@/components/SubmitButton"
+import Skeleton from "@/components/ui/Skeleton"
+import SubmitButton from "@/components/ui/SubmitButton"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 interface GroupAccess {
   groupName: string
@@ -40,12 +43,22 @@ export default function EditAccessGroupPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   const [selectedPages, setSelectedPages] = useState<string[]>([])
 
   useEffect(() => {
     fetch("/api/admin/access-config")
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 403) {
+          return r.json().then((data) => {
+            setLockedEndpoint(data.endpoint || "/api/admin/access-config")
+            throw new Error("locked")
+          })
+        }
+        return r.json()
+      })
       .then((data) => {
         const g = (data.groups || []).find((grp: GroupAccess) => grp.groupName === groupName)
         if (g) {
@@ -90,7 +103,7 @@ export default function EditAccessGroupPage() {
         setTimeout(() => setSaved(false), 2000)
       } else {
         const data = await res.json()
-        alert(data.error || "Failed to save")
+        setErrorMessage(data.error || "Failed to save")
       }
     } finally {
       setSaving(false)
@@ -109,6 +122,14 @@ export default function EditAccessGroupPage() {
     )
   }
 
+  if (lockedEndpoint) {
+    return (
+      <div className="max-w-6xl mx-auto pb-12">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
   if (!group) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -118,9 +139,18 @@ export default function EditAccessGroupPage() {
     )
   }
 
+  if (errorMessage) {
+    return (
+      <div className="max-w-6xl mx-auto pb-12">
+        <ErrorState message={errorMessage} onRetry={() => setErrorMessage("")} />
+      </div>
+    )
+  }
+
   const badgeColor = badgeColors[group.groupName] || "bg-surface text-secondary"
 
   return (
+    <ErrorBoundary>
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
         <Link href="/admin/access-config" className="text-xs text-gold-600 hover:underline">&larr; Back to groups</Link>
@@ -202,5 +232,6 @@ export default function EditAccessGroupPage() {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   )
 }

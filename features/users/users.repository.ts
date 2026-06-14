@@ -25,7 +25,7 @@ export const userRepository: IUserRepository = {
     const trimmed = email.trim()
     try {
       return await singleQueryWithRoles(
-        supabase.from("users").select(USER_SELECT).ilike("email", trimmed + "%") as unknown as { single(): Promise<{ data: unknown; error: QueryError | null }> }
+        supabase.from("users").select(USER_SELECT).eq("email", trimmed) as unknown as { single(): Promise<{ data: unknown; error: QueryError | null }> }
       )
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {

@@ -1,10 +1,14 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import SubmitButton from "@/components/SubmitButton"
+import SubmitButton from "@/components/ui/SubmitButton"
 import { useApiGet, invalidate } from "@/lib/api/client"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import type { DepartmentData } from "@/lib/types"
 
 interface DepartmentCourse {
   id: string
@@ -14,33 +18,41 @@ interface DepartmentCourse {
   createdAt: string
 }
 
-interface Department {
-  id: string
-  name: string
-  code: string
-  deanId: string | null
-}
-
 export default function DeanDepartmentsPage() {
   const { data: session } = useSession() ?? {};
   const [error, setError] = useState("")
   const [newName, setNewName] = useState("")
   const [newCode, setNewCode] = useState("")
   const [saving, setSaving] = useState(false)
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   const userId = (session?.user as Record<string, unknown>)?.id as string
 
-  const { data: usersData, isLoading: usersLoading } = useApiGet<{ users: unknown[]; departments: Department[] }>(
+  const { data: usersData, isLoading: usersLoading, error: usersError } = useApiGet<{ users: unknown[]; departments: DepartmentData[] }>(
     session ? "/api/admin/users" : null
   )
 
-  const { data: allCourses, isLoading: coursesLoading } = useApiGet<DepartmentCourse[]>(
+  const { data: allCourses, isLoading: coursesLoading, error: coursesError } = useApiGet<DepartmentCourse[]>(
     session ? "/api/admin/department-courses" : null
   )
 
   const loading = usersLoading || coursesLoading
 
-  const department = usersData?.departments?.find((d: Department) => d.deanId === userId) ?? null
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      const api403 = [usersError, coursesError].find(
+        (e) => e?.message?.includes("403") || e?.message?.includes("Forbidden")
+      )
+      if (api403) {
+        setLockedEndpoint("/api/admin/users")
+      } else if (usersError || coursesError) {
+        setErrorMessage(usersError?.message || coursesError?.message || "Failed to load data")
+      }
+    })
+  }, [usersError, coursesError])
+
+  const department = usersData?.departments?.find((d: DepartmentData) => d.deanId === userId) ?? null
   const courses = department && allCourses ? allCourses.filter((c) => c.departmentId === department.id) : []
 
   const refresh = () => {
@@ -58,6 +70,7 @@ export default function DeanDepartmentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ departmentId: department.id, name: newName, code: newCode }),
       })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/department-courses"); return }
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || "Failed to add course")
@@ -76,6 +89,7 @@ export default function DeanDepartmentsPage() {
     if (!confirm("Remove this course?")) return
     try {
       const res = await fetch(`/api/admin/department-courses/${id}`, { method: "DELETE" })
+      if (res.status === 403) { setLockedEndpoint(`/api/admin/department-courses/${id}`); return }
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || "Failed to delete")
@@ -103,7 +117,20 @@ export default function DeanDepartmentsPage() {
     )
   }
 
+  if (lockedEndpoint) {
+    return <LockedTab endpoint={lockedEndpoint} />
+  }
+
+  if (errorMessage) {
+    return (
+      <ErrorBoundary>
+        <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); refresh() }} />
+      </ErrorBoundary>
+    )
+  }
+
   return (
+    <ErrorBoundary>
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
         <h1 className="text-2xl font-bold text-primary">My Department: {department.name}</h1>
@@ -200,5 +227,6 @@ export default function DeanDepartmentsPage() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
   )
 }

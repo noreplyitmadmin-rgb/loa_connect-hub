@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { requestAppointment, listStudentAppointments, listFacultyAppointments } from "@/features/appointments/appointments.service"
+import { requestAppointment } from "@/features/appointments/appointments.controller"
+import { listStudentAppointments, listFacultyAppointments } from "@/features/appointments/appointments.service"
 import { hasRole } from "@/lib/utils/roles"
 
 export async function GET(request: Request) {
@@ -16,8 +17,8 @@ export async function GET(request: Request) {
     const role = (session.user as Record<string, unknown>).role as string
     const userId = (session.user as Record<string, unknown>).id as string
     let appointments = hasRole(role, "FACULTY") || hasRole(role, "DEAN")
-      ? await listFacultyAppointments(userId)
-      : await listStudentAppointments(userId)
+      ? (await listFacultyAppointments(userId)).data
+      : (await listStudentAppointments(userId)).data
     
     // Filter by search query if provided
     if (q) {

@@ -5,6 +5,10 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useSidebar } from "@/lib/contexts/sidebar"
 import { usePageTitle } from "@/lib/contexts/page-title"
+import type { SubjectData } from "@/lib/types"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 interface RubricItem {
   id: string
@@ -18,12 +22,6 @@ interface RubricCategory {
   name: string
   displayOrder: number
   items: RubricItem[]
-}
-
-interface SubjectData {
-  id: string
-  code: string
-  title: string
 }
 
 function FacultyHeader({
@@ -113,6 +111,8 @@ export default function FillEvaluationPage() {
   const [existingComment, setExistingComment] = useState<string | null>(null)
   const [subjects] = useState<SubjectData[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   useEffect(() => {
     return () => setExclusive(false)
@@ -130,6 +130,7 @@ export default function FillEvaluationPage() {
     async function load() {
       try {
         const evalRes = await fetch(`/api/evaluations/${params.id}`)
+        if (evalRes.status === 403) { setLockedEndpoint(`/api/evaluations/${params.id}`); return }
         if (!evalRes.ok) { router.push("/student/evaluations"); return }
         const evalData = await evalRes.json()
         const ev = evalData.evaluation
@@ -144,6 +145,7 @@ export default function FillEvaluationPage() {
         setExclusive(!isSubmitted)
 
         const ratingsRes = await fetch(`/api/evaluations/${ev.id}/ratings`)
+        if (ratingsRes.status === 403) { setLockedEndpoint(`/api/evaluations/${ev.id}/ratings`); return }
         const ratingsData = await ratingsRes.json()
         if (ratingsData.ratings?.length > 0) {
           const map: Record<string, number> = {}
@@ -153,21 +155,23 @@ export default function FillEvaluationPage() {
 
         if (isSubmitted) {
           const commentRes = await fetch(`/api/evaluations/${ev.id}/comments`)
+          if (commentRes.status === 403) { setLockedEndpoint(`/api/evaluations/${ev.id}/comments`); return }
           const commentData = await commentRes.json()
           if (commentData.comment) setExistingComment(commentData.comment.comment || null)
         }
 
         const periodRes = await fetch("/api/evaluation-periods")
+        if (periodRes.status === 403) { setLockedEndpoint("/api/evaluation-periods"); return }
         const periodData = await periodRes.json()
         const activePeriod = (periodData.periods || []).find((p: { isActive: boolean }) => p.isActive)
         if (activePeriod) {
           const rubricRes = await fetch(`/api/evaluation-periods/${activePeriod.id}/rubric`)
+          if (rubricRes.status === 403) { setLockedEndpoint(`/api/evaluation-periods/${activePeriod.id}/rubric`); return }
           const rubricData = await rubricRes.json()
           setCategories(rubricData.rubric || [])
         }
       } catch {
-        alert("Failed to load evaluation")
-        router.push("/student/evaluations")
+        setErrorMessage("Failed to load evaluation")
       }
     }
     load()
@@ -224,22 +228,25 @@ export default function FillEvaluationPage() {
     setSubmitting(true)
     try {
       const ratingsArray = Object.entries(ratings).map(([itemId, rating]) => ({ itemId, rating }))
-      await fetch(`/api/evaluations/${evaluationId}/ratings`, {
+      const ratingsRes = await fetch(`/api/evaluations/${evaluationId}/ratings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ratings: ratingsArray }),
       })
+      if (ratingsRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
       if (comment) {
-        await fetch(`/api/evaluations/${evaluationId}/comments`, {
+        const commentRes = await fetch(`/api/evaluations/${evaluationId}/comments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ comment }),
         })
+        if (commentRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
       }
-      await fetch(`/api/evaluations/${evaluationId}/submit`, { method: "POST" })
+      const submitRes = await fetch(`/api/evaluations/${evaluationId}/submit`, { method: "POST" })
+      if (submitRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
       router.replace("/student/evaluations/thank-you")
     } catch {
-      alert("Failed to submit evaluation")
+      setErrorMessage("Failed to submit evaluation")
     } finally {
       setSubmitting(false)
     }
@@ -253,10 +260,19 @@ export default function FillEvaluationPage() {
     router.push("/student/evaluations")
   }
 
+  if (lockedEndpoint) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-20 sm:pt-22 pb-12">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
   // ── Results view (already submitted) ──
   if (isSubmitted) {
     const labelMap = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"]
     return (
+      <ErrorBoundary>
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <Link
           href="/student/evaluations"
@@ -279,6 +295,10 @@ export default function FillEvaluationPage() {
           )}
         </div>
 
+        {errorMessage ? (
+          <ErrorState message={errorMessage} onRetry={() => window.location.reload()} />
+        ) : (
+          <>
         <div className="space-y-5">
           {categories.map((category) => (
             <div key={category.id} className="bg-surface rounded-2xl overflow-hidden shadow-sm border border-default">
@@ -340,16 +360,21 @@ export default function FillEvaluationPage() {
             </svg>
           </button>
         )}
+        </>
+      )}
       </div>
+      </ErrorBoundary>
     )
   }
 
   // ── Fill mode (draft / new) ──
-  return (
-    <div className="min-h-dvh bg-surface-muted">
-      <FacultyHeader evaluateeName={evaluateeName} subjects={subjects} onExit={handleExit} isSubmitted={isSubmitted} />
 
-      <div className="pt-20 sm:pt-22 pb-12">
+  const fillContent = errorMessage ? (
+    <div className="pt-20 sm:pt-22 pb-12 max-w-5xl mx-auto px-4 sm:px-8">
+      <ErrorState message={errorMessage} onRetry={() => window.location.reload()} />
+    </div>
+  ) : (
+    <div className="pt-20 sm:pt-22 pb-12">
         {/* ── Mobile progress indicator (outside flex) ── */}
         <div className="md:hidden mx-auto max-w-5xl px-4 sm:px-8 mb-4">
           <div className="flex items-center justify-between mb-2">
@@ -698,8 +723,16 @@ export default function FillEvaluationPage() {
             </div>
           </div>
         </div>
+        </div>
       </div>
-      </div>
+    )
+
+  return (
+    <ErrorBoundary>
+    <div className="min-h-dvh bg-surface-muted">
+      <FacultyHeader evaluateeName={evaluateeName} subjects={subjects} onExit={handleExit} isSubmitted={isSubmitted} />
+      {fillContent}
     </div>
+    </ErrorBoundary>
   )
 }

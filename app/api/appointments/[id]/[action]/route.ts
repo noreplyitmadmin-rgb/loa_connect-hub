@@ -2,13 +2,15 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import {
   acceptAppointment,
-  declineAppointment,
   completeAppointment,
   cancelAppointment,
+  getAppointmentDetail,
+} from "@/features/appointments/appointments.controller"
+import {
+  declineAppointment,
   updateTeamsLink,
   attendeeAcceptAppointment,
   attendeeDeclineAppointment,
-  getAppointmentDetail,
 } from "@/features/appointments/appointments.service"
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; action: string }> }) {

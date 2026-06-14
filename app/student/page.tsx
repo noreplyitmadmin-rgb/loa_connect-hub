@@ -2,8 +2,8 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { listStudentAppointments } from "@/features/appointments/appointments.service"
 import { userRepository } from "@/lib/repositories/factory"
-import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
-import StudentDashboard from "@/components/StudentDashboard"
+import { OnboardingWalkthrough } from "@/features/users/components/OnboardingWalkthrough"
+import StudentDashboard from "@/features/users/components/StudentDashboard"
 import { hasRole } from "@/lib/utils/roles"
 
 interface StudentAppointment {
@@ -26,7 +26,7 @@ export default async function StudentDashboardPage() {
   const dbUser = await userRepository.findById(userId)
   const needsOnboarding = dbUser?.onboardingVersion === 0
 
-  const appointments = (await listStudentAppointments(userId)) as StudentAppointment[]
+  const appointments = (await listStudentAppointments(userId)).data as StudentAppointment[]
 
   return (
     <>

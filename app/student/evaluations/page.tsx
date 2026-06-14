@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Skeleton from "@/components/ui/Skeleton"
 import { SkeletonCard } from "@/components/ui/Skeleton"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 interface PendingItem {
   evaluateeId: string
@@ -28,11 +31,14 @@ export default function StudentEvaluationsPage() {
   const [loading, setLoading] = useState(true)
   const [navigatingId, setNavigatingId] = useState<string | null>(null)
   const [outOfRange, setOutOfRange] = useState(false)
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   useEffect(() => {
     Promise.resolve().then(async () => {
       try {
         const periodRes = await fetch("/api/evaluation-periods")
+        if (periodRes.status === 403) { setLockedEndpoint("/api/evaluation-periods"); setLoading(false); return }
         const periodData = await periodRes.json()
         const active = (periodData.periods || []).find((p: { isActive: boolean }) => p.isActive)
         if (active?.evalStartDate && active?.evalEndDate) {
@@ -48,9 +54,12 @@ export default function StudentEvaluationsPage() {
 
         if (active) {
           fetch(`/api/evaluation-periods/${active.id}/rubric`)
-            .then((r) => r.json())
+            .then((r) => {
+              if (r.status === 403) { setErrorMessage("Access denied to rubric endpoint"); return null }
+              return r.json()
+            })
             .then((rubricData) => {
-              if (rubricData.rubric) {
+              if (rubricData?.rubric) {
                 sessionStorage.setItem("eval_rubric_cache", JSON.stringify({ categories: rubricData.rubric, fetchedAt: Date.now() }))
               }
             })
@@ -61,11 +70,13 @@ export default function StudentEvaluationsPage() {
           fetch("/api/evaluations/pending"),
           fetch("/api/evaluations"),
         ])
+        if (pendingRes.status === 403) { setLockedEndpoint("/api/evaluations/pending"); setLoading(false); return }
+        if (evalRes.status === 403) { setLockedEndpoint("/api/evaluations"); setLoading(false); return }
         const [pendingData, evalData] = await Promise.all([pendingRes.json(), evalRes.json()])
         setPending(pendingData.pending || [])
         setEvaluations(evalData.evaluations || [])
       } catch {
-        alert("Failed to load evaluations")
+        setErrorMessage("Failed to load evaluations")
       } finally {
         setLoading(false)
       }
@@ -74,6 +85,14 @@ export default function StudentEvaluationsPage() {
 
   const total = pending.length + evaluations.length
   const completed = evaluations.length
+
+  if (lockedEndpoint) {
+    return (
+      <div className="pb-12 px-5 pt-8">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -86,6 +105,7 @@ export default function StudentEvaluationsPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6 sm:space-y-8 pb-12">
       <div className="animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
@@ -101,7 +121,11 @@ export default function StudentEvaluationsPage() {
         </div>
       </div>
 
-      {outOfRange && (
+      {errorMessage ? (
+        <ErrorState message={errorMessage} onRetry={() => window.location.reload()} />
+      ) : (
+        <>
+        {outOfRange && (
         <div className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
           <div className="card p-5 sm:p-6 bg-surface border-l-4 border-l-amber-400">
             <div className="flex items-start gap-4">
@@ -165,15 +189,16 @@ export default function StudentEvaluationsPage() {
             {pending.map((item) => (
               <button
                 key={item.evaluateeId}
-                onClick={async () => {
-                  setNavigatingId(item.evaluateeId)
-                  try {
-                    const res = await fetch("/api/evaluations", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ evaluateeId: item.evaluateeId }),
-                    })
-                    const data = await res.json()
+                  onClick={async () => {
+                    setNavigatingId(item.evaluateeId)
+                    try {
+                      const res = await fetch("/api/evaluations", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ evaluateeId: item.evaluateeId }),
+                      })
+                      if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
+                      const data = await res.json()
                     if (data.evaluation?.id) router.push(`/student/evaluations/${data.evaluation.id}`)
                   } catch {
                     setNavigatingId(null)
@@ -217,15 +242,16 @@ export default function StudentEvaluationsPage() {
             {evaluations.map((ev) => (
               <button
                 key={ev.id}
-                onClick={async () => {
-                  setNavigatingId(ev.id)
-                  try {
-                    const res = await fetch("/api/evaluations", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ evaluateeId: ev.evaluateeId }),
-                    })
-                    const data = await res.json()
+                  onClick={async () => {
+                    setNavigatingId(ev.id)
+                    try {
+                      const res = await fetch("/api/evaluations", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ evaluateeId: ev.evaluateeId }),
+                      })
+                      if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
+                      const data = await res.json()
                     if (data.evaluation?.id) router.push(`/student/evaluations/${data.evaluation.id}`)
                   } catch {
                     setNavigatingId(null)
@@ -276,6 +302,9 @@ export default function StudentEvaluationsPage() {
           </p>
         </div>
       )}
+        </>
+      )}
     </div>
+    </ErrorBoundary>
   )
 }

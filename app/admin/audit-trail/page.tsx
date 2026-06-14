@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import LockedTab from "@/components/ui/LockedTab"
+import ErrorState from "@/components/ui/ErrorState"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 interface AuditLog {
   id: string
@@ -38,7 +41,8 @@ function ActionBadge({ action }: { action: string }) {
 export default function AuditTrailPage() {
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState("")
+  const [lockedEndpoint, setLockedEndpoint] = useState("")
 
   const [actionFilter, setActionFilter] = useState("")
   const [emailFilter, setEmailFilter] = useState("")
@@ -52,7 +56,7 @@ export default function AuditTrailPage() {
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
-    setError(null)
+    setErrorMessage("")
     try {
       const params = new URLSearchParams()
       params.set("page", String(page))
@@ -63,11 +67,12 @@ export default function AuditTrailPage() {
       if (dateTo) params.set("to", new Date(dateTo + "T23:59:59").toISOString())
 
       const res = await fetch(`/api/admin/audit-logs?${params}`)
+      if (res.status === 403) { setLockedEndpoint(`/api/admin/audit-logs?${params}`); return }
       if (!res.ok) throw new Error("Failed to fetch audit logs")
       const json: ListResponse = await res.json()
       setData(json)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error")
+      setErrorMessage(err instanceof Error ? err.message : "Unknown error")
     } finally {
       setLoading(false)
     }
@@ -91,6 +96,7 @@ export default function AuditTrailPage() {
     setClearing(true)
     try {
       const res = await fetch("/api/admin/audit-logs", { method: "DELETE" })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/audit-logs"); return }
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
         throw new Error(errData.error || "Failed to clear audit logs")
@@ -99,13 +105,25 @@ export default function AuditTrailPage() {
       setPage(1)
       fetchLogs()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to clear audit logs")
+      setErrorMessage(err instanceof Error ? err.message : "Failed to clear audit logs")
     } finally {
       setClearing(false)
     }
   }
 
+  if (lockedEndpoint) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6 pb-12">
+        <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
   return (
+    <ErrorBoundary>
+    {errorMessage ? (
+      <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); fetchLogs() }} />
+    ) : (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-primary">Audit Trail</h1>
@@ -124,17 +142,6 @@ export default function AuditTrailPage() {
           </button>
         </div>
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-          <button onClick={() => setError(null)} className="ml-3 text-current opacity-60 hover:opacity-100">
-            <svg className="w-4 h-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">
@@ -286,5 +293,7 @@ export default function AuditTrailPage() {
         </div>
       )}
     </div>
+    )}
+    </ErrorBoundary>
   )
 }

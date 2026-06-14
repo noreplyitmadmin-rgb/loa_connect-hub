@@ -2,21 +2,9 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { listFacultyAppointments } from "@/features/appointments/appointments.service"
 import { userRepository } from "@/lib/repositories/factory"
-import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough"
+import { OnboardingWalkthrough } from "@/features/users/components/OnboardingWalkthrough"
 import { hasRole } from "@/lib/utils/roles"
-import FacultyDeanDashboard from "@/components/FacultyDeanDashboard"
-
-interface DashboardAppointment {
-  id: string
-  title: string | null
-  date: string
-  startTime: string
-  endTime: string
-  status: string
-  meetingType: string
-  teamsLink: string | null
-  student?: { name: string; email: string } | null
-}
+import FacultyDeanDashboard from "@/features/appointments/components/FacultyDeanDashboard"
 
 export default async function FacultyDashboard() {
   const session = await auth()
@@ -27,7 +15,7 @@ export default async function FacultyDashboard() {
   const facultyId = (session.user as Record<string, unknown>).id as string
   const dbUser = await userRepository.findById(facultyId)
   const needsOnboarding = dbUser?.onboardingVersion === 0 && hasRole(role, "FACULTY")
-  const appointments = (await listFacultyAppointments(facultyId)) as DashboardAppointment[]
+  const { data: appointments } = await listFacultyAppointments(facultyId)
 
   return (
     <>

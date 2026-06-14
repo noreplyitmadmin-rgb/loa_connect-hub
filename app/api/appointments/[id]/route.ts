@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { getAppointmentDetail } from "@/features/appointments/appointments.service"
+import { getAppointmentDetail } from "@/features/appointments/appointments.controller"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()

@@ -1,6 +1,6 @@
 "use client"
 
-import SubmitButton from "@/components/SubmitButton"
+import SubmitButton from "@/components/ui/SubmitButton"
 import { useState, FormEvent, useEffect, use } from "react"
 import Link from "next/link"
 import { redirect } from "next/navigation"

@@ -15,13 +15,27 @@ export default async function AdminEvaluationsHubPage() {
         <p className="text-sm text-tertiary mt-1">Faculty evaluation management</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-1">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link
           href="/admin/evaluations/results"
           className="block bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-200 hover:shadow-sm transition-all"
         >
           <h3 className="text-sm font-bold text-primary">Evaluation Results</h3>
           <p className="text-xs text-tertiary mt-1">View computed faculty evaluation results</p>
+        </Link>
+        <Link
+          href="/admin/evaluations/rubrics"
+          className="block bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-200 hover:shadow-sm transition-all"
+        >
+          <h3 className="text-sm font-bold text-primary">Rubric Editor</h3>
+          <p className="text-xs text-tertiary mt-1">Manage evaluation categories and items</p>
+        </Link>
+        <Link
+          href="/admin/evaluations/reports"
+          className="block bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-200 hover:shadow-sm transition-all"
+        >
+          <h3 className="text-sm font-bold text-primary">Reports</h3>
+          <p className="text-xs text-tertiary mt-1">Analytics and sentiment analysis</p>
         </Link>
       </div>
     </div>

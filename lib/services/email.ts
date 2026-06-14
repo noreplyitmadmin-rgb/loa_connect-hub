@@ -1,5 +1,10 @@
 import nodemailer from "nodemailer"
 import type Mail from "nodemailer/lib/mailer"
+import { consultationInviteHtml } from "@/lib/email-templates/consultation-invite"
+import { meetingInviteHtml } from "@/lib/email-templates/meeting-invite"
+import { consultationApprovedHtml } from "@/lib/email-templates/consultation-approved"
+import { bookingAcknowledgementHtml } from "@/lib/email-templates/booking-acknowledgement"
+import { statusNotificationHtml } from "@/lib/email-templates/status-notification"
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -93,7 +98,6 @@ export async function sendConsultationInvite(
   },
   icalString?: string
 ) {
-  const { consultationInviteHtml } = await import("@/lib/email-templates/consultation-invite")
   const html = consultationInviteHtml({
     recipientName: recipient.name,
     studentName: data.studentName,
@@ -148,7 +152,6 @@ export async function sendMeetingInviteWithICS(
   },
   icalString?: string
 ) {
-  const { meetingInviteHtml } = await import("@/lib/email-templates/meeting-invite")
   const html = meetingInviteHtml({
     recipientName: recipient.name,
     organizerName: data.organizerName,
@@ -204,7 +207,6 @@ export async function sendApprovedWithTeamsLink(
   },
   icalString?: string
 ) {
-  const { consultationApprovedHtml } = await import("@/lib/email-templates/consultation-approved")
   const html = consultationApprovedHtml({
     recipientName: recipient.name,
     studentName: data.studentName,
@@ -283,7 +285,6 @@ export async function sendBookingAcknowledgement(
     variant: "request" | "booking"
   }
 ) {
-  const { bookingAcknowledgementHtml } = await import("@/lib/email-templates/booking-acknowledgement")
   const html = bookingAcknowledgementHtml({
     recipientName: to.name,
     meetingTitle: data.meetingTitle,
@@ -335,7 +336,6 @@ export async function sendStatusUpdateEmail(
     meetingType: "CONSULTATION" | "INTERNAL"
   }
 ) {
-  const { statusNotificationHtml } = await import("@/lib/email-templates/status-notification")
   const html = statusNotificationHtml({
     recipientName: recipient.name,
     variant: data.variant,
