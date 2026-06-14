@@ -93,17 +93,42 @@ export async function sendForgotPasswordWorkflow(
 }
 
 import type { ApptWithJoins } from "@/features/appointments/appointments.service"
+import { getAppointmentUrl, getRecipientType } from "@/lib/utils/appointment-url"
 
 export async function sendAppointmentCreatedWorkflow(
   appointment: Record<string, unknown>,
-  creatorId: string
+  _creatorId: string
 ) {
   "use workflow"
 
-  const { sendAppointmentCreatedEmail } = await import(
-    "@/features/appointments/appointments.service"
-  )
-  await sendAppointmentCreatedEmail(appointment as unknown as ApptWithJoins, creatorId)
+  const appt = appointment as unknown as ApptWithJoins
+  const recipients: { email: string; name: string }[] = []
+  const addRecipient = (u: { email: string; name: string }) => {
+    recipients.push(u)
+  }
+  if (appt.student?.email) addRecipient(appt.student)
+  if (appt.faculty?.email) addRecipient(appt.faculty)
+  for (const att of (appt.attendees || [])) {
+    const u = att.user
+    if (u?.email) addRecipient(u)
+  }
+  for (const r of recipients) {
+    const rtype = getRecipientType(r.email, appt)
+    await sendMeetingInviteWithICS(
+      { email: r.email, name: r.name },
+      {
+        organizerName: appt.faculty?.name || "Faculty",
+        title: appt.title || "Meeting",
+        description: appt.description,
+        date: appt.date,
+        startTime: appt.startTime,
+        endTime: appt.endTime,
+        participantNames: recipients.map((x) => x.name),
+        viewUrl: getAppointmentUrl(appt.id!, rtype),
+      },
+      undefined,
+    )
+  }
 }
 
 export async function sendConsultationApprovedWorkflow(
@@ -111,10 +136,28 @@ export async function sendConsultationApprovedWorkflow(
 ) {
   "use workflow"
 
-  const { sendConsultationApprovedEmail } = await import(
-    "@/features/appointments/appointments.service"
+  const appt = appointment as unknown as ApptWithJoins
+  const student = appt.student
+  const faculty = appt.faculty || { id: "", name: "Faculty", email: "" }
+  if (!student?.email) return
+  const url = getAppointmentUrl(appt.id!, "student")
+  await sendApprovedWithTeamsLink(
+    { email: student.email, name: student.name },
+    {
+      studentName: student.name,
+      studentEmail: student.email,
+      facultyName: faculty.name,
+      facultyEmail: faculty.email,
+      date: appt.date,
+      startTime: appt.startTime,
+      endTime: appt.endTime,
+      title: appt.title,
+      description: appt.description,
+      teamsLink: null,
+      viewUrl: url,
+    },
+    undefined,
   )
-  await sendConsultationApprovedEmail(appointment as unknown as ApptWithJoins)
 }
 
 export async function sendMeetingInviteWithAcknowledgementWorkflow(
