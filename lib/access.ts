@@ -9,10 +9,10 @@ const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
     pages: ["/", "/admin", "/admin/data-management", "/admin/users", "/admin/users/deleted", "/admin/access-config", "/admin/user-permissions", "/admin/departments", "/admin/data/users", "/admin/data/academic-infrastructure", "/admin/reports", "/admin/reports/health", "/admin/reports/demand", "/admin/reports/responsiveness", "/admin/reports/backlog", "/admin/etl-hub", "/admin/evaluations", "/admin/evaluations/results", "/admin/audit-trail", "/faq"],
   },
   DEAN: {
-    pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/reports", "/dean/evaluations/results", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/faq"],
+    pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/reports", "/dean/evaluations", "/dean/evaluations/results", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/faq"],
   },
   FACULTY: {
-    pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations/results", "/faq"],
+    pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results", "/faq"],
   },
   STUDENT: {
     pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/faq"],
