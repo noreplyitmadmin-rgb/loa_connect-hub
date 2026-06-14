@@ -351,9 +351,6 @@ Non-activated accounts must use the activation flow at `/activate`.
 | `POST /api/sentiment-analysis/analyze` | ✅ Placeholder |
 | `POST /api/sentiment-analysis/batch` | ✅ Placeholder |
 | `GET /api/sentiment-analysis/summary` | ✅ Placeholder |
-| `GET /api/evaluation-reports/department` | ❌ Missing |
-| `GET /api/evaluation-reports/institutional` | ❌ Missing |
-| `GET /api/evaluation-reports/faculty/[facultyId]` | ❌ Missing |
 | `admin/evaluation-periods` (CRUD) | ✅ Done |
 | `admin/evaluation-results` | ✅ Done |
 | `admin/evaluation-results/compute` | ✅ Done |
@@ -397,10 +394,10 @@ Non-activated accounts must use the activation flow at `/activate`.
 | Pages | 26 | 0 |
 | Database | 5 | 0 |
 | Types | 1 | 0 |
-| Repositories | 8 | 2 |
+| Repositories | 10 | 0 |
 | Controllers | 6 | 0 |
-| API Routes | 27 | 3 |
+| API Routes | 27 | 0 |
 | Components | 6 | 0 |
 | Services | 2 | 0 |
 | Wiring | 4 | 0 |
-| **Total** | **85** | **10** |
+| **Total** | **88** | **0** |
