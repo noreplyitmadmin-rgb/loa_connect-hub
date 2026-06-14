@@ -6,8 +6,6 @@
 
 **Gaps:** Faculty Evaluation module pages are all built. Sentiment analysis (`lib/services/sentiment.ts` + 3 API routes) is still stubbed with placeholder implementations.
 
-**Architecture note:** `features/appointments/` has three clean layers: `appointments.controller.ts` (orchestration + DTO mapping), `appointments.service.ts` (validation + business logic), and `appointments.notifications.ts` (email side-effects). Other domains (reports, evaluations, admin-data) still mix orchestration into service files and would benefit from the same split.
-
 ---
 
 ## Testability
