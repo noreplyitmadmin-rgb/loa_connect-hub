@@ -1,12 +1,22 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import dynamic from "next/dynamic"
 import html2canvas from "html2canvas"
 import type { FacultyStatsData, RawAppointmentData, ConsultationSummaryData } from "@/lib/types"
-import { ReportCharts } from "@/features/reports/components/reports/ReportCharts"
-import { ReportsView } from "@/features/reports/components/reports/ReportsView"
-import { ConsultationSummaryView } from "@/features/reports/components/reports/ConsultationSummaryView"
-import { ScheduleView } from "@/features/reports/components/reports/ScheduleView"
+
+const ReportCharts = dynamic(() => import("@/features/reports/components/reports/ReportCharts").then((m) => ({ default: m.ReportCharts })), {
+  loading: () => <div className="h-48 bg-surface rounded-xl animate-pulse" />,
+})
+const ReportsView = dynamic(() => import("@/features/reports/components/reports/ReportsView").then((m) => ({ default: m.ReportsView })), {
+  loading: () => <div className="h-64 bg-surface rounded-xl animate-pulse" />,
+})
+const ConsultationSummaryView = dynamic(() => import("@/features/reports/components/reports/ConsultationSummaryView").then((m) => ({ default: m.ConsultationSummaryView })), {
+  loading: () => <div className="h-64 bg-surface rounded-xl animate-pulse" />,
+})
+const ScheduleView = dynamic(() => import("@/features/reports/components/reports/ScheduleView").then((m) => ({ default: m.ScheduleView })), {
+  loading: () => <div className="h-64 bg-surface rounded-xl animate-pulse" />,
+})
 
 type TabId = "performance" | "summary"
 
