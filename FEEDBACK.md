@@ -28,6 +28,6 @@
 
 ## Performance
 
-**Strengths:** Next.js App Router enables streaming and server components. Email workflows are fire-and-forget (non-blocking). Embedded joins reduce round-trips for related data.
+**Strengths:** Next.js App Router enables streaming and server components. Email workflows are fire-and-forget (non-blocking). Embedded joins reduce round-trips for related data. Permission checks in middleware are now cached with 60s TTL per user. `findByEmail` uses exact `.eq()` match instead of `ilike` prefix scan — correct semantics and index-friendly. `appointmentSelect` user joins use explicit column lists (`id, name, email`) instead of `*`, removing `passwordHash` from query results. jsPDF + jspdf-autotable are dynamically imported on click rather than bundled statically (~500KB saved from critical path). Email template modules use static top-level imports instead of per-call `await import()`.
 
-**Weaknesses:** Middleware performs a Supabase query (`checkUserPermission`) on every authenticated page request — adds 50-200ms latency per navigation with no caching. `ilike` with `%` prefix for email lookup (`findByEmail`) defeats index usage. `appointmentSelect` over-fetches (`select("*")` on user joins, includes `passwordHash` column). jsPDF + jspdf-autotable (~500KB gzipped client bundle) are not dynamically imported. Dynamic `await import()` for workflow runtime checks could be front-loaded. No code-splitting strategy for report-heavy pages. Sequential slot/attendee creation is both a scalability and performance concern.
+**Weaknesses:** No code-splitting strategy for report-heavy pages. Sequential slot/attendee creation is both a scalability and performance concern.

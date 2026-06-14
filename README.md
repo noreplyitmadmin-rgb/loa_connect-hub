@@ -54,11 +54,12 @@ components/                   # React components (37 files)
 └── ...                       # StatusBadge, Skeleton, SubmitButton, etc.
 
 lib/                          # Business logic (32 files)
-├── controllers/              # Domain logic (appointments, auth, reports, etc.)
+├── workflows/                # Vercel Workflow functions (email orchestration)
 ├── repositories/             # Data access layer (interfaces + Supabase impl)
 ├── services/                 # Cross-cutting (email, audit, CSV, iCal)
 ├── types/                    # Shared type definitions (entity, dto, repository)
-└── utils/                    # Date, roles, semester helpers
+├── utils/                    # Date, roles, semester helpers
+└── email-templates/          # HTML email templates (5 variants)
 ```
 
 ### Data Flow
@@ -70,16 +71,16 @@ proxy.ts (NextAuth Middleware) — JWT validation, mobile-UA redirect, role-base
     ↓
 Next.js App Router / API Routes
     ↓
-API Route Handler (thin) — parse request, call controller, return JSON
+API Route Handler (thin) — parse request, call service, return JSON
     ↓
-Controller (lib/controllers/) — business logic, validation, orchestration
+Service (features/*/*.service.ts) — business logic, validation, orchestration
     ↓
-Repository (lib/repositories/) — data access via Supabase REST API
+Repository (features/*/*.repository.ts) — data access via Supabase REST API
     ↓
 Supabase PostgreSQL
 ```
 
-Server Components fetch data directly via controllers and pass props to Client Components.
+Server Components fetch data directly via services/repositories and pass props to Client Components.
 
 ### Current Patterns
 
@@ -95,7 +96,7 @@ Server Components fetch data directly via controllers and pass props to Client C
 | **Email** | Nodemailer (Gmail SMTP), durable via Vercel Workflows with sequenced steps |
 | **iCal** | Custom `.ics` generation (no library) |
 | **CSV import** | Custom parser in `lib/services/` |
-| **PDF export** | jsPDF + jspdf-autotable |
+| **PDF export** | jsPDF + jspdf-autotable (dynamically imported on click) |
 | **Feature flags** | Environment variables (`EMAIL_FEATURE_FLAG`, `SSO_FEATURE_FLAG`, etc.) |
 | **Loading states** | Dedicated skeleton components + `loading.tsx` per route segment |
 | **Dark mode** | Class-based (`.dark` on `<html>`), persisted in localStorage, Tailwind v4 `@custom-variant dark` |
@@ -189,7 +190,7 @@ Emails are sent through **Vercel Workflows** (durable execution) with built-in r
 | `lib/services/email.ts` | Low-level Nodemailer senders (7 functions) |
 | `lib/email-templates/*.ts` | HTML templates (5 variants) |
 | `lib/workflows/email-workflows.ts` | Durable workflow wrappers (8 functions) |
-| `lib/controllers/appointments.ts` | Business logic that invokes workflows |
+| `features/appointments/appointments.controller.ts` | Orchestration that invokes workflows |
 
 ### Prerequisites for Production
 
