@@ -420,40 +420,7 @@ export default function Sidebar() {
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {!collapsed && <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-tertiary mb-2">Main Menu</p>}
 
-          {primaryRole === "STUDENT" && evaluationsVisible && !collapsed && (
-            <div>
-              {evaluationChildren
-                .filter((c) => (c.href === dashHref || (allowedPages && allowedPages.includes(c.href!))) && !hiddenHrefs.has(c.href!))
-                .map((child) => (
-                  <Link
-                    key={child.href}
-                    href={child.href!}
-                    className={`flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors ${
-                      pathname === child.href
-                        ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
-                        : "text-tertiary hover:bg-slate-800/50 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
-                    </svg>
-                    <span className="flex items-center gap-1.5 flex-1">
-                      {child.label}
-                      {child.href === "/student/evaluations" && evalAvailable === true && (
-                        <svg className="w-3 h-3 text-gold-400 animate-pulse shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                        </svg>
-                      )}
-                      {child.href === "/student/evaluations" && evalAvailable === false && (
-                        <svg className="w-3 h-3 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                      )}
-                    </span>
-                  </Link>
-                ))}
-            </div>
-          )}
+          {/* DUPLICATE STUDENT-SPECIFIC TOP EVALUATIONS BLOCK REMOVED FROM HERE */}
 
           {flatItems.map((link) => (
             <Link
@@ -601,6 +568,7 @@ export default function Sidebar() {
             </button>
           )}
 
+          {/* SINGLE TARGET EVALUATIONS BLOCK */}
           {evaluationsVisible && !collapsed && (
             <div>
               {primaryRole === "STUDENT" ? (
@@ -694,7 +662,6 @@ export default function Sidebar() {
               )}
             </div>
           )}
-
 
           {evaluationsVisible && collapsed && (
             <>
