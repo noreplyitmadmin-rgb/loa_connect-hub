@@ -97,6 +97,8 @@ Server Components fetch data directly via services/repositories and pass props t
 | **iCal** | Custom `.ics` generation (no library) |
 | **CSV import** | Custom parser in `lib/services/` |
 | **PDF export** | jsPDF + jspdf-autotable (dynamically imported on click) |
+| **Code splitting** | `next/dynamic` for tab-based report content; chart/schedule/summary views loaded on tab activation |
+| **Batch DB ops** | `Promise.all` for parallel slot/attendee creation and conflict checks instead of sequential `for...of` + `await` |
 | **Feature flags** | Environment variables (`EMAIL_FEATURE_FLAG`, `SSO_FEATURE_FLAG`, etc.) |
 | **Loading states** | Dedicated skeleton components + `loading.tsx` per route segment |
 | **Dark mode** | Class-based (`.dark` on `<html>`), persisted in localStorage, Tailwind v4 `@custom-variant dark` |
