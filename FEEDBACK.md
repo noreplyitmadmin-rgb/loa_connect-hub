@@ -20,11 +20,11 @@
 
 ## Scalability
 
-**Strengths:** Batch operations exist for user creation and section-level replacements (faculty-subjects, enrollments). Database has targeted indexes on the most common lookup paths (appointment status/student/faculty, time slot dates, user email, semester active flag). Embedded joins in `appointmentSelect` prevent N+1 on related data fetches.
+**Strengths:** Batch operations exist for user creation and section-level replacements (faculty-subjects, enrollments). Database has targeted indexes on the most common lookup paths (appointment status/student/faculty/date/meetingType, time slot dates, user email, semester active flag). Embedded joins in `appointmentSelect` prevent N+1 on related data fetches.
 
-**Strengths:** Appointment slot/attendee creation and conflict checks use `Promise.all` for parallel DB operations instead of sequential `for...of` + `await` loops, reducing N+M round-trips to a handful of batches.
+**Strengths:** Appointment slot/attendee creation and conflict checks use `Promise.all` for parallel DB operations instead of sequential `for...of` + `await` loops, reducing N+M round-trips to a handful of batches. All appointment list endpoints (`listByStudent`, `listByFaculty`, `listByParticipant`, `listAll`) use server-side pagination via Supabase `.range()` + `count: "exact"` with default limit 50.
 
-**Weaknesses:** Pagination has been added to all appointment list endpoints (`listByStudent`, `listByFaculty`, `listByParticipant`, `listAll`) using Supabase `.range()` + `count: "exact"` with default limit 50. Missing indexes on `appointments.date`, `appointments.meetingType`, and composite `(facultyId, status, date)` have been added. Department-scaled report queries still run 7+ queries per department in parallel (fine for <20 departments, problematic at 50+). No server-side caching beyond the 60s TTL access config cache (no Redis, no query result caching, no ISR).
+**Weaknesses:** Department-scaled report queries run 7+ queries per department in parallel (fine for <20 departments, problematic at 50+). No server-side caching beyond the 60s TTL access config cache (no Redis, no query result caching, no ISR).
 
 ---
 
