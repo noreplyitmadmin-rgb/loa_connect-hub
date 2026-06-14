@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
+import type { DepartmentData } from "@/lib/types"
 
 interface Result {
   id: string
@@ -25,12 +26,6 @@ interface Period {
   id: string
   name?: string
   title?: string
-}
-
-interface Department {
-  id: string
-  name: string
-  code: string
 }
 
 interface StudentRow {
@@ -122,7 +117,7 @@ export default function EvaluationDashboard({
 }: EvaluationDashboardProps) {
   const [periods, setPeriods] = useState<Period[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState("")
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [departments, setDepartments] = useState<DepartmentData[]>([])
   const [selectedDept, setSelectedDept] = useState("")
   const [results, setResults] = useState<Result[]>([])
   const [loading, setLoading] = useState(false)

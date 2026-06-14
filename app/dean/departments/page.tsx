@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useSession } from "next-auth/react"
 import SubmitButton from "@/components/ui/SubmitButton"
 import { useApiGet, invalidate } from "@/lib/api/client"
+import type { DepartmentData } from "@/lib/types"
 
 interface DepartmentCourse {
   id: string
@@ -12,13 +13,6 @@ interface DepartmentCourse {
   name: string
   code: string
   createdAt: string
-}
-
-interface Department {
-  id: string
-  name: string
-  code: string
-  deanId: string | null
 }
 
 export default function DeanDepartmentsPage() {
@@ -30,7 +24,7 @@ export default function DeanDepartmentsPage() {
 
   const userId = (session?.user as Record<string, unknown>)?.id as string
 
-  const { data: usersData, isLoading: usersLoading } = useApiGet<{ users: unknown[]; departments: Department[] }>(
+  const { data: usersData, isLoading: usersLoading } = useApiGet<{ users: unknown[]; departments: DepartmentData[] }>(
     session ? "/api/admin/users" : null
   )
 
@@ -40,7 +34,7 @@ export default function DeanDepartmentsPage() {
 
   const loading = usersLoading || coursesLoading
 
-  const department = usersData?.departments?.find((d: Department) => d.deanId === userId) ?? null
+  const department = usersData?.departments?.find((d: DepartmentData) => d.deanId === userId) ?? null
   const courses = department && allCourses ? allCourses.filter((c) => c.departmentId === department.id) : []
 
   const refresh = () => {

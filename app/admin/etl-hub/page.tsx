@@ -5,6 +5,7 @@ import { usePagination, Paginator } from "@/components/ui/Paginator"
 import BulkStudentImport from "@/features/users/components/bulk-import/BulkStudentImport"
 import BulkFacultyImport from "@/features/users/components/bulk-import/BulkFacultyImport"
 import Skeleton, { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
+import type { DepartmentData, SemesterData } from "@/lib/types"
 
 interface MappedFaculty {
   id: string
@@ -380,24 +381,10 @@ function ViewMappings() {
   )
 }
 
-interface Department {
-  id: string
-  name: string
-  code: string
-}
-
-interface SemesterData {
-  id: string
-  title: string
-  evalStartDate: string
-  evalEndDate: string
-  isActive: boolean
-  createdAt: Date
-}
 
 export default function EtlHubPage() {
   const [importTab, setImportTab] = useState<"student" | "faculty">("student")
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [departments, setDepartments] = useState<DepartmentData[]>([])
   const [deptId, setDeptId] = useState("")
   const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [resetMessage, setResetMessage] = useState("")

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useSidebar } from "@/lib/contexts/sidebar"
 import { usePageTitle } from "@/lib/contexts/page-title"
+import type { SubjectData } from "@/lib/types"
 
 interface RubricItem {
   id: string
@@ -18,12 +19,6 @@ interface RubricCategory {
   name: string
   displayOrder: number
   items: RubricItem[]
-}
-
-interface SubjectData {
-  id: string
-  code: string
-  title: string
 }
 
 function FacultyHeader({

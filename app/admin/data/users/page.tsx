@@ -5,25 +5,7 @@ import Skeleton from "@/components/ui/Skeleton"
 import SubmitButton from "@/components/ui/SubmitButton"
 import { useApiGet } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
-
-interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-  departmentId: string | null
-  isDisabled: boolean
-  hasLoggedInBefore: boolean
-  lastLoginAt: string | null
-  createdAt: string
-  onboardingVersion?: number
-}
-
-interface Department {
-  id: string
-  name: string
-  code: string
-}
+import type { UserData, DepartmentData } from "@/lib/types"
 
 const PAGE_SIZES = [10, 25, 50]
 
@@ -58,8 +40,8 @@ function buildRoleStr(userType: string | null, grant: string): string {
 }
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [users, setUsers] = useState<UserData[]>([])
+  const [departments, setDepartments] = useState<DepartmentData[]>([])
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [roleFilter] = useState("all")
@@ -72,7 +54,7 @@ export default function AdminUsersPage() {
   const [roleMenuOpen, setRoleMenuOpen] = useState<string | null>(null)
 
   // Edit modal state
-  const [editUser, setEditUser] = useState<User | null>(null)
+  const [editUser, setEditUser] = useState<UserData | null>(null)
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editDept, setEditDept] = useState("")
@@ -92,7 +74,7 @@ export default function AdminUsersPage() {
   const [createSendInvite, setCreateSendInvite] = useState(true)
   const [createResult, setCreateResult] = useState<string | null>(null)
 
-  const { data: adminData, isLoading } = useApiGet<{ users: User[]; departments: Department[] }>("/api/admin/users")
+  const { data: adminData, isLoading } = useApiGet<{ users: UserData[]; departments: DepartmentData[] }>("/api/admin/users")
 
   useEffect(() => {
     if (adminData?.users && !users.length) setUsers(adminData.users) // eslint-disable-line react-hooks/set-state-in-effect
@@ -147,7 +129,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  const openEditModal = (u: User) => {
+  const openEditModal = (u: UserData) => {
     setEditUser(u)
     setEditName(u.name)
     setEditEmail(u.email)
