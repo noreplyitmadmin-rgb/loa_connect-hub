@@ -44,8 +44,7 @@ features/                     # Domain slices — controllers, services, repos, 
 
 components/                   # Global reusable React components (23 files — ui/ + layouts/)
 ├── ui/                       # StatusBadge, Skeleton, SubmitButton, SearchInput, etc.
-├── layouts/                  # AppShell, Sidebar, Navbar, Providers, Breadcrumbs
-└── ...                       # FacultyDeanDashboard, StudentBooking, etc.
+└── layouts/                  # AppShell, Sidebar, Navbar, Providers, Breadcrumbs
 
 lib/                          # Cross-cutting infrastructure (62 files)
 ├── repositories/             # Repository factory + Supabase implementations
@@ -216,11 +215,11 @@ Copy `.env` to set up your local environment.
 
 ### Double-Click Prevention
 
-All form submissions and action buttons use `SubmitButton` (`components/SubmitButton.tsx`) which has a built-in `useRef` guard that blocks re-entry for 500ms after the first click, preventing double-submissions even before React re-renders.
+All form submissions and action buttons use `SubmitButton` (`components/ui/SubmitButton.tsx`) which has a built-in `useRef` guard that blocks re-entry for 500ms after the first click, preventing double-submissions even before React re-renders.
 
 ### Skeleton Loading
 
-Client-side pages that fetch data on mount show skeleton placeholders (`components/Skeleton.tsx`) instead of "Loading..." text. Variants: `text`, `card`, `table-row`, `avatar`, `metric`, `badge`, plus composite layouts `SkeletonTable`, `SkeletonMetricGrid`, `SkeletonCard`.
+Client-side pages that fetch data on mount show skeleton placeholders (`components/ui/Skeleton.tsx`) instead of "Loading..." text. Variants: `text`, `card`, `table-row`, `avatar`, `metric`, `badge`, plus composite layouts `SkeletonTable`, `SkeletonMetricGrid`, `SkeletonCard`.
 
 ### Redirect Guard on Login
 
@@ -464,7 +463,7 @@ Non-activated accounts must use the activation flow at `/activate`.
 |------|--------|
 | `EtlUploadType` constants | ✅ Done |
 | `lib/access.ts` DEFAULT_CONFIG | ✅ Done |
-| `components/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
+| `components/layouts/Sidebar.tsx` collapsible Evaluations group | ✅ Done |
 | `lib/types/index.ts` evaluation export | ✅ Done |
 
 ### Summary
