@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getDemandReportData } from "@/features/reports/demand.service"
+import { getDemandReportData } from "@/features/reports/demand.controller"
 import { DemandTrendReport } from "@/features/reports/components/reports/DemandTrendReport"
 import { ReportFiltersWithDept } from "@/features/reports/components/reports/ReportFiltersWithDept"
 import { resolveReportDepartment } from "@/lib/utils/report-helpers"

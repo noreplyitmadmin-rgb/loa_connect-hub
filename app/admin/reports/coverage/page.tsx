@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getConsultationCoverageData } from "@/features/reports/coverage.service"
+import { getConsultationCoverageData } from "@/features/reports/coverage.controller"
 import { CoverageReport } from "@/features/reports/components/reports/CoverageReport"
 import { ReportFiltersWithDept } from "@/features/reports/components/reports/ReportFiltersWithDept"
 import { resolveReportDepartment } from "@/lib/utils/report-helpers"

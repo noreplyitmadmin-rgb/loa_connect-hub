@@ -6,6 +6,8 @@
 
 **Gaps:** Faculty Evaluation module pages are all built. Sentiment analysis (`lib/services/sentiment.ts` + 3 API routes) is still stubbed with placeholder implementations.
 
+**Architecture:** The Reports domain has been refactored into a two-layer pattern (`*.controller.ts` orchestrates + shapes DTOs, `*.service.ts` handles pure data fetching/computation). Previously, service files mixed multi-department loops, cross-department aggregation, and UI formatting (month names, labels, percentages) with repository calls. The split follows the `appointments` controller precedent and improves testability — services are now focused units of logic.
+
 ---
 
 ## Testability

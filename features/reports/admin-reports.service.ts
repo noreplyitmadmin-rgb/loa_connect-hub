@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import { departmentRepository, reportsRepository, userRepository } from "@/lib/repositories/factory"
+import { userRepository } from "@/lib/repositories/factory"
 import type { FacultyStatsData, RawAppointmentData, ConsultationSummaryData, DepartmentFrequencyEntry, FacultyFrequencyData, DepartmentYearlyEntry, FacultyYearlyData, DepartmentSummary } from "@/lib/types"
 import { hasRole } from "@/lib/utils/roles"
 
@@ -17,7 +17,7 @@ export interface AdminReportResult {
   facultyYearlyFrequency: FacultyYearlyData[]
 }
 
-async function getDepartmentSummary(
+export async function getDepartmentSummary(
   deptId: string,
   deptName: string,
   filters?: { startDate?: string; endDate?: string; status?: string }
@@ -102,7 +102,7 @@ async function getDepartmentSummary(
   }
 }
 
-function mergeStats(acc: FacultyStatsData[], deptStats: FacultyStatsData[]): FacultyStatsData[] {
+export function mergeStats(acc: FacultyStatsData[], deptStats: FacultyStatsData[]): FacultyStatsData[] {
   const map = new Map(acc.map((s) => [s.facultyId, s]))
   for (const s of deptStats) {
     if (!map.has(s.facultyId)) {
@@ -112,7 +112,7 @@ function mergeStats(acc: FacultyStatsData[], deptStats: FacultyStatsData[]): Fac
   return Array.from(map.values())
 }
 
-function mergeMonthlyFreq(entries: DepartmentFrequencyEntry[][]): DepartmentFrequencyEntry[] {
+export function mergeMonthlyFreq(entries: DepartmentFrequencyEntry[][]): DepartmentFrequencyEntry[] {
   const map = new Map<string, DepartmentFrequencyEntry>()
   for (const arr of entries) {
     for (const e of arr) {
@@ -127,7 +127,7 @@ function mergeMonthlyFreq(entries: DepartmentFrequencyEntry[][]): DepartmentFreq
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month))
 }
 
-function mergeYearlyFreq(entries: DepartmentYearlyEntry[][]): DepartmentYearlyEntry[] {
+export function mergeYearlyFreq(entries: DepartmentYearlyEntry[][]): DepartmentYearlyEntry[] {
   const map = new Map<number, number>()
   for (const arr of entries) {
     for (const e of arr) {
@@ -139,7 +139,7 @@ function mergeYearlyFreq(entries: DepartmentYearlyEntry[][]): DepartmentYearlyEn
     .map(([year, count]) => ({ year, count }))
 }
 
-function mergeFacultyMonthly(data: FacultyFrequencyData[][]): FacultyFrequencyData[] {
+export function mergeFacultyMonthly(data: FacultyFrequencyData[][]): FacultyFrequencyData[] {
   const map = new Map<string, FacultyFrequencyData>()
   for (const arr of data) {
     for (const f of arr) {
@@ -164,7 +164,7 @@ function mergeFacultyMonthly(data: FacultyFrequencyData[][]): FacultyFrequencyDa
   return Array.from(map.values())
 }
 
-function mergeFacultyYearly(data: FacultyYearlyData[][]): FacultyYearlyData[] {
+export function mergeFacultyYearly(data: FacultyYearlyData[][]): FacultyYearlyData[] {
   const map = new Map<string, FacultyYearlyData>()
   for (const arr of data) {
     for (const f of arr) {
@@ -189,76 +189,4 @@ function mergeFacultyYearly(data: FacultyYearlyData[][]): FacultyYearlyData[] {
   return Array.from(map.values())
 }
 
-export async function getAdminReportData(
-  filters?: { startDate?: string; endDate?: string; status?: string },
-  selectedDepartmentId?: string | null
-): Promise<AdminReportResult> {
-  const departments = await departmentRepository.listAll()
 
-  const departmentSummaries: DepartmentSummary[] = []
-  for (const dept of departments) {
-    if (selectedDepartmentId && dept.id !== selectedDepartmentId) continue
-    const summary = await getDepartmentSummary(dept.id, dept.name, filters)
-    departmentSummaries.push(summary)
-  }
-
-  let targetDepts = departments
-  if (selectedDepartmentId) {
-    targetDepts = departments.filter((d) => d.id === selectedDepartmentId)
-  }
-
-  const allStats: FacultyStatsData[][] = []
-  const allRaw: RawAppointmentData[][] = []
-  const allSummaries: ConsultationSummaryData[][] = []
-  const allDeptFreq: DepartmentFrequencyEntry[][] = []
-  const allFacFreq: FacultyFrequencyData[][] = []
-  const allDeptYrFreq: DepartmentYearlyEntry[][] = []
-  const allFacYrFreq: FacultyYearlyData[][] = []
-
-  for (const dept of targetDepts) {
-    const [stats, raw, summaries, deptFreq, facFreq, deptYrFreq, facYrFreq] = await Promise.all([
-      reportsRepository.getDepartmentConsultationStats(dept.id, filters),
-      reportsRepository.getDepartmentConsultationAppointments(dept.id, filters),
-      reportsRepository.getConsultationSummaries(dept.id, filters),
-      reportsRepository.getDepartmentFrequency(dept.id, filters),
-      reportsRepository.getFacultyFrequency(dept.id, filters),
-      reportsRepository.getDepartmentYearlyFrequency(dept.id, filters),
-      reportsRepository.getFacultyYearlyFrequency(dept.id, filters),
-    ])
-    allStats.push(stats)
-    allRaw.push(raw)
-    allSummaries.push(summaries)
-    allDeptFreq.push(deptFreq)
-    allFacFreq.push(facFreq)
-    allDeptYrFreq.push(deptYrFreq)
-    allFacYrFreq.push(facYrFreq)
-  }
-
-  const departmentName = selectedDepartmentId
-    ? targetDepts[0]?.name || "Unknown"
-    : "All Departments"
-
-  const departmentId = selectedDepartmentId || null
-
-  const stats = mergeStats(allStats.flat(), [])
-  const rawAppointments = allRaw.flat()
-  const summaries = allSummaries.flat()
-  const departmentFrequency = mergeMonthlyFreq(allDeptFreq)
-  const facultyFrequency = mergeFacultyMonthly(allFacFreq)
-  const departmentYearlyFrequency = mergeYearlyFreq(allDeptYrFreq)
-  const facultyYearlyFrequency = mergeFacultyYearly(allFacYrFreq)
-
-  return {
-    departments: departmentSummaries,
-    selectedDepartmentId: departmentId,
-    departmentName,
-    departmentId,
-    stats,
-    rawAppointments,
-    summaries,
-    departmentFrequency,
-    facultyFrequency,
-    departmentYearlyFrequency,
-    facultyYearlyFrequency,
-  }
-}

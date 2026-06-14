@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getWorkloadDistributionData } from "@/features/reports/distribution.service"
+import { getWorkloadDistributionData } from "@/features/reports/distribution.controller"
 import { WorkloadDistributionReport } from "@/features/reports/components/reports/WorkloadDistributionReport"
 import { ReportFiltersWithDept } from "@/features/reports/components/reports/ReportFiltersWithDept"
 import { ReportHeader } from "@/features/reports/components/reports/ReportHeader"

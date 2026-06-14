@@ -17,49 +17,55 @@ Optional — guarded by `FEATURE_CREATE_TEAMS_MEETING` flag. Sync tracking field
 ### Layered Structure
 
 ```
-app/                          # Next.js App Router — pages, layouts, API routes
+app/                          # Next.js App Router — pages, layouts, API routes (174 files)
 ├── (auth)/                   # Auth route group (login, activate, forgot-password)
-│   └── error.tsx             # Auth error boundary
-├── admin/                    # Admin dashboard & management
-│   └── error.tsx             # Admin error boundary
 ├── api/                      # REST API routes (thin handlers -> controllers)
+├── admin/                    # Admin dashboard & management
 ├── dean/                     # Dean dashboard & management
-│   ├── error.tsx             # Dean error boundary
-│   └── loading.tsx           # Dean loading state
-├── dean/m/                   # Dean mobile companion pages (departments, upload)
 ├── faculty/                  # Faculty dashboard & management
-│   ├── error.tsx             # Faculty error boundary
-│   └── loading.tsx           # Faculty loading state
-├── faculty/m/                # Faculty mobile companion pages (meetings)
 ├── student/                  # Student dashboard & booking
-│   ├── error.tsx             # Student error boundary
-│   ├── loading.tsx           # Student loading state
-│   ├── book/loading.tsx      # Booking loading state
-│   └── meetings/             # Student meetings (with loading.tsx per [id])
-├── student/m/                # Student mobile companion pages (book, meetings)
 ├── 403/                      # Access denied page
 ├── faq/                      # FAQ page
 ├── error.tsx                 # Global error boundary (inside layout)
-├── global-error.tsx          # Root error boundary (outside layout, includes <html>)
+├── global-error.tsx          # Root error boundary (outside layout)
 ├── layout.tsx                # Root layout (SessionProvider + AppShell)
 └── page.tsx                  # Root page (role-based redirect / multi-role selector)
 
-components/                   # React components (37 files)
-├── reports/                  # Report-related components (12 files)
-├── MobileBookingFlow.tsx     # Mobile booking wizard (step-by-step)
-├── AppShell.tsx              # App layout shell (sidebar + breadcrumbs)
-├── BookingCalendar.tsx       # Calendar slot selection
-├── BookingForm.tsx           # Booking form
-├── Sidebar.tsx               # App sidebar navigation (dark mode toggle)
-└── ...                       # StatusBadge, Skeleton, SubmitButton, etc.
+features/                     # Domain slices — controllers, services, repos, UI (120 files)
+├── appointments/             # Booking, conflict detection, calendar, Teams sync
+├── reports/                  # 7 report types + 6 controllers + merge helpers
+├── users/                    # User CRUD, bulk import, auth flows
+├── evaluations/              # Evaluation periods, forms, ratings, comments
+├── evaluation-results/       # Computing and viewing evaluation results
+├── admin-data/               # Departments, semesters, subjects, sections, enrollments
+├── rubrics/                  # Rubric CRUD + category/item management
+├── audit/                    # Audit logging
+└── user-permissions/         # Permission management
 
-lib/                          # Business logic (32 files)
-├── workflows/                # Vercel Workflow functions (email orchestration)
-├── repositories/             # Data access layer (interfaces + Supabase impl)
-├── services/                 # Cross-cutting (email, audit, CSV, iCal)
+components/                   # Global reusable React components (39 files)
+├── ui/                       # StatusBadge, Skeleton, SubmitButton, SearchInput, etc.
+├── layouts/                  # AppShell, Sidebar, Navbar, Providers, Breadcrumbs
+└── ...                       # FacultyDeanDashboard, StudentBooking, etc.
+
+lib/                          # Cross-cutting infrastructure (62 files)
+├── repositories/             # Repository factory + Supabase implementations
+│   └── supabase/             #   (16 repository files)
+├── services/                 # Email, audit, CSV parse, iCal generation
+├── email-templates/          # HTML email templates (5 variants)
 ├── types/                    # Shared type definitions (entity, dto, repository)
 ├── utils/                    # Date, roles, semester helpers
-└── email-templates/          # HTML email templates (5 variants)
+├── workflows/                # Vercel Workflow functions (email orchestration)
+├── api/                      # API utility helpers
+├── contexts/                 # React context providers
+├── db/                       # DB client helpers
+└── __tests__/                # Test files (9 files)
+
+hooks/                        # Custom React hooks (2 files)
+├── useDebounce.ts
+└── usePullToRefresh.ts
+
+types/                        # Global type augmentations (1 file)
+└── jspdf-autotable.d.ts
 ```
 
 ### Data Flow
@@ -71,16 +77,18 @@ proxy.ts (NextAuth Middleware) — JWT validation, mobile-UA redirect, role-base
     ↓
 Next.js App Router / API Routes
     ↓
-API Route Handler (thin) — parse request, call service, return JSON
+API Route Handler (thin) — parse request, call controller, return JSON
     ↓
-Service (features/*/*.service.ts) — business logic, validation, orchestration
+Controller (features/*/*.controller.ts) — orchestration, cross-domain aggregation, DTO shaping
+    ↓
+Service (features/*/*.service.ts) — business logic, validation, single-domain data fetching
     ↓
 Repository (features/*/*.repository.ts) — data access via Supabase REST API
     ↓
 Supabase PostgreSQL
 ```
 
-Server Components fetch data directly via services/repositories and pass props to Client Components.
+Server Components fetch data directly via controllers (or services for simpler lookups) and pass props to Client Components.
 
 ### Current Patterns
 
@@ -90,6 +98,7 @@ Server Components fetch data directly via services/repositories and pass props t
 | **Auth** | NextAuth v4 (Credentials provider, JWT, bcryptjs) |
 | **Authorization** | Middleware (`proxy.ts`) + per-route `auth()` calls + DB role checks |
 | **Data access** | Repository pattern with interface abstraction |
+| **Layered architecture** | Controller orchestrates cross-domain logic + DTO shaping; service handles pure business logic and single-domain data fetching; repository handles data access |
 | **Roles** | Multi-role via pipe-delimited string in `user.role`; resolved by priority (ADMIN > DEAN > FACULTY > STUDENT); Faculty ⇔ Dean mutually exclusive |
 | **UI state** | React built-in hooks (`useState`, `useEffect`); no global state library |
 | **Forms** | Local `useState`; `SubmitButton` double-click prevention |
@@ -107,10 +116,13 @@ Server Components fetch data directly via services/repositories and pass props t
 
 | Directory | Source Files |
 |-----------|-------------|
-| `app/` | 92 (pages, API routes, layouts, error boundaries, loading states) |
-| `components/` | 37 (React components) |
-| `lib/` | 40 (controllers, services, workflows, repos, types, utils, email-templates) |
-| Total | ~169 source files |
+| `app/` | 174 (pages, API routes, layouts, error boundaries, loading states) |
+| `features/` | 120 (controllers, services, repos, actions, domain components) |
+| `components/` | 39 (global React components, includes backward-compat shims) |
+| `lib/` | 62 (types, utils, tests, services, repos factory, workflows, email) |
+| `hooks/` | 2 |
+| `types/` | 1 |
+| Total | ~398 source files |
 
 ### Known Issues & Risks
 
@@ -193,6 +205,8 @@ Emails are sent through **Vercel Workflows** (durable execution) with built-in r
 | `lib/email-templates/*.ts` | HTML templates (5 variants) |
 | `lib/workflows/email-workflows.ts` | Durable workflow wrappers (8 functions) |
 | `features/appointments/appointments.controller.ts` | Orchestration that invokes workflows |
+| `features/reports/*.controller.ts` | 6 report controllers (admin-reports, backlog, coverage, demand, distribution, responsiveness) |
+| `features/reports/*.service.ts` | 6 report services (pure helpers only — merge, computeByFaculty, etc.) |
 
 ### Prerequisites for Production
 
