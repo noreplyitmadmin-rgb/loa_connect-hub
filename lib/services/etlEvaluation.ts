@@ -1,3 +1,4 @@
+import { supabase } from "@/lib/supabase"
 import { userRepository, sectionRepository, subjectRepository, facultySubjectRepository, studentEnrollmentRepository } from "@/lib/repositories/factory"
 
 function parseSectionIdentifier(raw: string): { name: string; program: string } {
@@ -138,12 +139,21 @@ export async function importFacultySubjects(
 
   // ── Upsert sections ──
   const sectionKeys = new Set<string>()
-  const sectionItems: { name: string; program: string }[] = []
+  const sectionItems: { name: string; program: string; departmentCourseId: string }[] = []
+
+  const { data: allCourses } = await supabase.from("department_courses").select("id, code")
+  const courseCodeToId = new Map((allCourses || []).map((c: { code: string; id: string }) => [c.code, c.id]))
+
   for (const r of rows) {
     const key = `${r.sectionName}|${r.sectionProgram}`
     if (!sectionKeys.has(key)) {
       sectionKeys.add(key)
-      sectionItems.push({ name: r.sectionName, program: r.sectionProgram })
+      const courseId = courseCodeToId.get(r.sectionProgram)
+      if (!courseId) {
+        result.errors.push({ row: 0, message: `No department course found for program "${r.sectionProgram}"` })
+        continue
+      }
+      sectionItems.push({ name: r.sectionName, program: r.sectionProgram, departmentCourseId: courseId })
     }
   }
   const { data: sections, created: createdSections } = await sectionRepository.upsertMany(sectionItems)
@@ -312,12 +322,21 @@ export async function importStudentEnrollments(
 
   // ── Upsert sections ──
   const sectionKeys = new Set<string>()
-  const sectionItems: { name: string; program: string }[] = []
+  const sectionItems: { name: string; program: string; departmentCourseId: string }[] = []
+
+  const { data: allCourses } = await supabase.from("department_courses").select("id, code")
+  const courseCodeToId = new Map((allCourses || []).map((c: { code: string; id: string }) => [c.code, c.id]))
+
   for (const r of rows) {
     const key = `${r.sectionName}|${r.sectionProgram}`
     if (!sectionKeys.has(key)) {
       sectionKeys.add(key)
-      sectionItems.push({ name: r.sectionName, program: r.sectionProgram })
+      const courseId = courseCodeToId.get(r.sectionProgram)
+      if (!courseId) {
+        result.errors.push({ row: 0, message: `No department course found for program "${r.sectionProgram}"` })
+        continue
+      }
+      sectionItems.push({ name: r.sectionName, program: r.sectionProgram, departmentCourseId: courseId })
     }
   }
   const { data: sections, created: createdSections } = await sectionRepository.upsertMany(sectionItems)

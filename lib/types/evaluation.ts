@@ -19,6 +19,8 @@ export interface Section {
   id: string
   name: string
   program: string
+  departmentCourseId: string
+  isDisabled?: boolean
 }
 
 export interface FacultySubject {
@@ -126,6 +128,8 @@ export interface SectionData {
   id: string
   name: string
   program: string
+  departmentCourseId: string
+  isDisabled?: boolean
 }
 
 export interface FacultySubjectData {
@@ -245,7 +249,7 @@ export interface ISubjectRepository {
 
 export interface ISectionRepository {
   list(): Promise<SectionData[]>
-  upsertMany(items: { name: string; program: string }[]): Promise<{ data: Map<string, SectionData>; created: number }>
+  upsertMany(items: { name: string; program: string; departmentCourseId: string }[]): Promise<{ data: Map<string, SectionData>; created: number }>
   findByNameAndProgram(name: string, program: string): Promise<SectionData | null>
 }
 

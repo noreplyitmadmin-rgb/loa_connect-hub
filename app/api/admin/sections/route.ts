@@ -11,20 +11,30 @@ export async function POST(request: NextRequest) {
   const session = await auth()
 
   try {
-    const { name, program } = await request.json()
-    if (!name || !program) {
-      return NextResponse.json({ error: "Name and Program are required" }, { status: 400 })
+    const { name, departmentCourseId } = await request.json()
+    if (!name || !departmentCourseId) {
+      return NextResponse.json({ error: "Name and Department Course are required" }, { status: 400 })
     }
 
+    const { data: course, error: courseErr } = await supabase
+      .from("department_courses")
+      .select("code")
+      .eq("id", departmentCourseId)
+      .single()
+    if (courseErr || !course) {
+      return NextResponse.json({ error: "Invalid department course" }, { status: 400 })
+    }
+
+    const sectionName = name.toUpperCase().trim()
     const { data, error } = await supabase
       .from("sections")
-      .insert({ name, program, isDisabled: false })
+      .insert({ name: sectionName, program: course.code, departmentCourseId, isDisabled: false })
       .select("*")
       .single()
 
     if (error) {
       if (error.code === "23505") {
-        return NextResponse.json({ error: "Section with this name and program already exists" }, { status: 409 })
+        return NextResponse.json({ error: `Section "${course.code}-${sectionName}" already exists` }, { status: 409 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
@@ -33,7 +43,7 @@ export async function POST(request: NextRequest) {
     await logAuditEvent({
       userId: currentUserId,
       action: "CREATE_SECTION",
-      details: `Created section ${data.name} (${data.program})`,
+      details: `Created section ${course.code}-${sectionName}`,
     })
 
     return NextResponse.json(data, { status: 201 })

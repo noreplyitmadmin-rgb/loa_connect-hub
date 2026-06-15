@@ -9,6 +9,20 @@ vi.mock("@/lib/repositories/factory", () => ({
   studentEnrollmentRepository: { replaceBySection: vi.fn() },
 }))
 
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockResolvedValue({
+        data: [
+          { id: "course-bsit", code: "BSIT" },
+          { id: "course-bscs", code: "BSCS" },
+        ],
+        error: null,
+      }),
+    })),
+  },
+}))
+
 import { parseFacultySubjectCsv, parseStudentEnrollmentCsv, importFacultySubjects, importStudentEnrollments } from "@/lib/services/etlEvaluation"
 import * as factory from "@/lib/repositories/factory"
 
