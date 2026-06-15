@@ -12,7 +12,70 @@ Supabase PostgreSQL. Tables created via `supabase-schema.sql` (run in Supabase S
 
 Optional — guarded by `FEATURE_CREATE_TEAMS_MEETING` flag. Sync tracking fields on `Appointment` (`teamsSyncStatus`, `teamsSyncRetries`, etc.) with a cron-triggered endpoint at `POST /api/admin/sync-teams`.
 
-## Architecture Review
+## Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Client["🌐 Client Layer"]
+        Browser["Browser / Mobile"]
+    end
+
+    subgraph Edge["🛡️ Edge / Middleware"]
+        proxy["proxy.ts<br/>JWT Validation<br/>Role-based Access<br/>Mobile-UA Redirect"]
+    end
+
+    subgraph Presentation["🎨 Presentation Layer"]
+        direction TB
+        Pages["app/ (Pages & Layouts)<br/>Server Components → async data fetch<br/>Client Components → fetch / hooks"]
+        API["app/api/ (REST Handlers)<br/>Thin — parse request → call controller"]
+        UI["components/ui/ + layouts/<br/>Skeleton, SubmitButton, Sidebar..."]
+    end
+
+    subgraph Application["⚙️ Application Layer"]
+        direction TB
+        Controllers["features/*/*.controller.ts<br/>Orchestration, cross-domain aggregation, DTO shaping"]
+        Services["features/*/*.service.ts<br/>Business logic, validation, single-domain queries"]
+    end
+
+    subgraph DataAccess["🗄️ Data Access Layer"]
+        Repos["features/*/*.repository.ts<br/>Type-safe data access via Supabase REST"]
+        Factory["lib/repositories/factory.ts<br/>Wires repositories via DI"]
+    end
+
+    subgraph Infrastructure["🔧 Infrastructure Layer"]
+        direction TB
+        DB[("Supabase PostgreSQL<br/>supabase-schema.sql")]
+        Email["lib/services/email.ts<br/>Nodemailer (Gmail SMTP)"]
+        Workflows["lib/workflows/email-workflows.ts<br/>Vercel Workflows (durable delivery)"]
+        Templates["lib/email-templates/<br/>HTML template literals"]
+        Types["lib/types/<br/>Entity, DTO, repository interfaces"]
+        Utils["lib/utils/<br/>Date, roles, semester helpers"]
+        Audit["features/audit/<br/>Audit logging"]
+        ICS["lib/services/<br/>iCal generation"]
+    end
+
+    Browser --> proxy
+    proxy --> Pages
+    proxy --> API
+    Pages --> Controllers
+    Pages --> Services
+    API --> Controllers
+    Controllers --> Services
+    Controllers --> Repos
+    Services --> Repos
+    Services --> Workflows
+    Services --> Audit
+    Services --> ICS
+    Controllers --> Types
+    Services --> Types
+    Repos --> Factory
+    Repos --> DB
+    Workflows --> Email
+    Email --> Templates
+    Pages --> UI
+
+    linkStyle default stroke:#666,stroke-width:1.5px
+```
 
 ### Layered Structure
 
