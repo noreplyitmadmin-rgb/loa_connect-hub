@@ -198,7 +198,7 @@ export default function AdminRubricsPage() {
 
   if (lockedEndpoint) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 pb-safe px-4">
+      <div className="max-w-6xl mx-auto space-y-8 pb-12 px-4 animate-ios-slide-in">
         <LockedTab endpoint={lockedEndpoint} />
       </div>
     )
@@ -206,7 +206,7 @@ export default function AdminRubricsPage() {
 
   return (
     <ErrorBoundary>
-    <div className="max-w-4xl mx-auto space-y-6 pb-safe">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12 animate-ios-slide-in">
       <div className="flex items-start justify-between gap-4 px-4">
         <div>
           <h1 className="text-[28px] font-bold text-[var(--color-text)] tracking-tight">Rubric Editor</h1>
@@ -292,12 +292,12 @@ export default function AdminRubricsPage() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
                 <h3 className="text-[15px] font-semibold text-[var(--color-text)]">{cat.name}</h3>
                 <div className="flex gap-1">
-                  <IosButton variant="plain" size="xs" onClick={() => updateCategoryName(cat.id, cat.name)}>
+                  {/* <IosButton variant="plain" size="xs" onClick={() => updateCategoryName(cat.id, cat.name)}>
                     Rename
                   </IosButton>
                   <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteCategory(cat.id)}>
                     Delete
-                  </IosButton>
+                  </IosButton> */}
                 </div>
               </div>
               <div>

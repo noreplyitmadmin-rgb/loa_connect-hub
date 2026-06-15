@@ -403,7 +403,7 @@ export default function EvaluationDashboard({
 
   if (lockedEndpoint) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4">
+      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 animate-ios-slide-in">
         <LockedTab endpoint={lockedEndpoint} />
       </div>
     )
@@ -411,9 +411,9 @@ export default function EvaluationDashboard({
 
   return (
     <ErrorBoundary>
-    <div className="pb-12">
+    <div className="pb-12 animate-ios-slide-in">
       {/* Header */}
-      <div className="max-w-[1400px] mx-auto px-6 pt-6">
+      <div className="max-w-6xl mx-auto px-6 pt-6">
         <h1 className="text-2xl font-bold text-primary">{title}</h1>
         <p className="text-sm text-tertiary mt-1">{subtitle}</p>
       </div>
@@ -423,7 +423,7 @@ export default function EvaluationDashboard({
       {!errorMessage && (
       <>
       {/* Filter Card */}
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 pt-3 sm:pt-6">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-6">
         <div className="flex flex-wrap items-end gap-2 sm:gap-4 p-3 sm:p-5 bg-surface rounded-2xl shadow-sm">
           {showDepartmentFilter && (
             <div className="flex flex-col gap-1 sm:gap-1.5 w-full sm:w-auto">
@@ -496,7 +496,7 @@ export default function EvaluationDashboard({
       </div>
 
       {loading ? (
-        <div className="max-w-[1400px] mx-auto px-6 pt-6 space-y-6">
+        <div className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
           <div className="flex flex-wrap items-end gap-4 p-5 bg-surface rounded-2xl shadow-sm animate-pulse">
             <div className="flex flex-col gap-1.5">
               <div className="h-3 w-16 bg-surface-tertiary rounded" />
@@ -516,7 +516,7 @@ export default function EvaluationDashboard({
       ) : results.length === 0 ? (
         <p className="text-sm text-tertiary text-center pt-20">No evaluation results available for this period.</p>
       ) : (
-        <div className="max-w-[1400px] mx-auto px-6 pt-6">
+        <div className="max-w-6xl mx-auto px-6 pt-6">
           {/* Summary cards */}
           {departmentSummary && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 mb-6">

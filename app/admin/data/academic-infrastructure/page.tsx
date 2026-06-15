@@ -40,7 +40,7 @@ export default function AcademicInfrastructurePage() {
 
   if (accessState === "loading") {
     return (
-      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 sm:px-0">
+      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 sm:px-0 animate-ios-slide-in">
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-64 bg-surface-dim rounded" />
           <div className="h-4 w-96 bg-surface-dim rounded" />
@@ -51,7 +51,7 @@ export default function AcademicInfrastructurePage() {
 
   if (accessState === "locked") {
     return (
-      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 sm:px-0">
+      <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 sm:px-0 animate-ios-slide-in">
         <div className="card p-12 text-center space-y-4">
           <div className="text-4xl text-tertiary">&#x1f512;</div>
           <h1 className="text-xl font-bold text-primary">Access Restricted</h1>
@@ -65,7 +65,7 @@ export default function AcademicInfrastructurePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 sm:px-0">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12 px-4 sm:px-0 animate-ios-slide-in">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-primary">Academic Infrastructure</h1>
         <p className="text-xs sm:text-sm text-tertiary mt-0.5 sm:mt-1">
