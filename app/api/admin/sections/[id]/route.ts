@@ -17,7 +17,7 @@ export async function PATCH(
 
   try {
     const body = await request.json()
-    const { name, program, isDisabled } = body
+    const { name, departmentCourseId, isDisabled } = body
 
     const { data: existing } = await supabase.from("sections").select("*").eq("id", id).single()
     if (!existing) {
@@ -25,8 +25,19 @@ export async function PATCH(
     }
 
     const updateData: Record<string, unknown> = {}
-    if (name !== undefined) updateData.name = name
-    if (program !== undefined) updateData.program = program
+    if (name !== undefined) updateData.name = name.toUpperCase().trim()
+    if (departmentCourseId !== undefined) {
+      const { data: course } = await supabase
+        .from("department_courses")
+        .select("code")
+        .eq("id", departmentCourseId)
+        .single()
+      if (!course) {
+        return NextResponse.json({ error: "Invalid department course" }, { status: 400 })
+      }
+      updateData.program = course.code
+      updateData.departmentCourseId = departmentCourseId
+    }
     if (isDisabled !== undefined) updateData.isDisabled = !!isDisabled
 
     if (Object.keys(updateData).length === 0) {

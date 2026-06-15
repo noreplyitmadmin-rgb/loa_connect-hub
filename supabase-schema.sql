@@ -681,6 +681,8 @@ CREATE TABLE IF NOT EXISTS sections (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   name TEXT NOT NULL,
   program TEXT NOT NULL,
+  "departmentCourseId" TEXT NOT NULL REFERENCES department_courses(id),
+  "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE,
   UNIQUE(name, program)
 );
 
@@ -893,10 +895,12 @@ CREATE TABLE IF NOT EXISTS sections (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   name TEXT NOT NULL,
   program TEXT NOT NULL,
+  "departmentCourseId" TEXT NOT NULL REFERENCES department_courses(id),
+  "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE,
   UNIQUE(name, program)
 );
 
--- Drop old foreign keys and columns from subjects
+CREATE INDEX IF NOT EXISTS idx_sections_department_course ON sections("departmentCourseId");
 ALTER TABLE faculty_subjects DROP CONSTRAINT IF EXISTS faculty_subjects_subjectId_fkey;
 ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_periodId_fkey;
 ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_periodId_name_key;
@@ -1273,8 +1277,8 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- ── SECTION ─────────────────────────────────────────────
-  INSERT INTO sections (id, name, program)
-  VALUES (_section_id, '31E1', 'BSIT')
+  INSERT INTO sections (id, name, program, "departmentCourseId")
+  VALUES (_section_id, '31E1', 'BSIT', _course_bsit_id)
   ON CONFLICT (id) DO NOTHING;
 
   -- ── FACULTY-SUBJECT LINK ────────────────────────────────
@@ -1367,7 +1371,6 @@ END $$;
 --
 -- Controls faculty-facing visibility of evaluation results.
 -- Admin sets this flag; faculty can only see their result when TRUE.
--- =========================================================
 
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -1375,5 +1378,34 @@ DO $$ BEGIN
     WHERE table_name = 'evaluation_results' AND column_name = 'is_results_visible'
   ) THEN
     ALTER TABLE evaluation_results ADD COLUMN is_results_visible BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- =========================================================
+-- Migration 24: Add departmentCourseId to sections
+-- =========================================================
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'sections' AND column_name = 'departmentCourseId'
+  ) THEN
+    ALTER TABLE sections ADD COLUMN "departmentCourseId" TEXT REFERENCES department_courses(id);
+    UPDATE sections SET "departmentCourseId" = dc.id
+    FROM department_courses dc
+    WHERE sections.program = dc.code;
+    ALTER TABLE sections ALTER COLUMN "departmentCourseId" SET NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_sections_department_course ON sections("departmentCourseId");
+  END IF;
+END $$;
+
+-- Update initial CREATE TABLE for fresh installs (idempotent via IF NOT EXISTS)
+-- Only applies if the column was added by the migration above
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'sections_departmentCourseId_fkey'
+  ) THEN
+    -- The FK is already added by the ALTER TABLE ... REFERENCES above, so no-op.
   END IF;
 END $$;

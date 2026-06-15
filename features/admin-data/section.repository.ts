@@ -3,9 +3,19 @@ import type { SectionData, ISectionRepository } from "@/lib/types"
 
 export const sectionRepository: ISectionRepository = {
   async list() {
-    const { data, error } = await supabase.from("sections").select("*").order("program", { ascending: true }).order("name", { ascending: true })
+    const { data, error } = await supabase
+      .from("sections")
+      .select("*, departmentCourse:departmentCourseId(id, code, name, departmentId)")
+      .order("program", { ascending: true })
+      .order("name", { ascending: true })
     if (error) throw error
-    return data as SectionData[]
+    return (data || []).map((row: Record<string, unknown>) => {
+      const { departmentCourse, ...section } = row
+      return {
+        ...section,
+        departmentCourseId: (departmentCourse as Record<string, unknown>)?.id as string,
+      } as SectionData
+    })
   },
 
   async upsertMany(items) {
@@ -16,7 +26,7 @@ export const sectionRepository: ISectionRepository = {
 
     const lookup = new Map(existing!.map((s) => [`${s.name}|${s.program}`, s]))
 
-    const inserts: { name: string; program: string }[] = []
+    const inserts: { name: string; program: string; departmentCourseId: string }[] = []
     for (const item of items) {
       const key = `${item.name}|${item.program}`
       const existingRow = lookup.get(key)
