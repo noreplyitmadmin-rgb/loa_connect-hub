@@ -666,6 +666,32 @@
   .btn-ios-destructive:not(:disabled):hover { background-color: var(--color-danger-border); }
   .btn-ios-destructive:not(:disabled):active { transform: scale(0.97); }
 
+  .btn-ios-success {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 0.5rem; padding: 0.625rem 1.25rem;
+    font-size: 0.875rem; font-weight: 600;
+    border-radius: 0.75rem; cursor: pointer;
+    background-color: #e8f5e9; color: #2e7d32;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-tap-highlight-color: transparent; user-select: none;
+  }
+  .btn-ios-success:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ios-success:not(:disabled):hover { background-color: #c8e6c9; }
+  .btn-ios-success:not(:disabled):active { transform: scale(0.97); }
+
+  .dark .btn-ios-success { background-color: #1b3d1f; color: #66bb6a; }
+  .dark .btn-ios-success:not(:disabled):hover { background-color: #2e5a32; }
+
+  .ios-btn-xs {
+    font-size: 0.6875rem; padding: 0;
+    min-height: unset; font-weight: 600;
+  }
+
+  .ios-btn-sm {
+    font-size: 0.75rem; padding: 0.375rem 0.75rem;
+  }
+
   .input {
     width: 100%; padding: 0.625rem 0.875rem;
     border: 1.5px solid var(--color-border);

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useApiGet } from "@/lib/api/client"
 import { usePagination, Paginator } from "@/components/ui/Paginator"
 import { SkeletonTable } from "@/components/ui/Skeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import { SegmentedControl, SearchInput } from "./shared"
 import type { DepartmentData } from "@/lib/types"
@@ -161,7 +161,7 @@ function SubjectsTab() {
             <input value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. Introduction to Programming" required />
           </div>
         </div>
-        <div><SubmitButton type="submit" loading={saving} variant="primary">Add Subject</SubmitButton></div>
+        <div><IosButton type="submit" loading={saving} variant="primary">Add Subject</IosButton></div>
       </form>
 
       <div className="card p-4 sm:p-6 bg-surface space-y-4">
@@ -193,10 +193,10 @@ function SubjectsTab() {
                         </span>
                       </td>
                       <td className="px-6 py-4 space-x-3 text-center">
-                        <button onClick={() => startEditing(s)} className="text-xs font-bold text-amber-500 hover:text-amber-700">Edit</button>
-                        <button onClick={() => handleToggleStatus(s)} className={`text-xs font-bold ${s.isDisabled ? "text-green-600 hover:text-green-800" : "text-red-500 hover:text-red-700"}`}>
+                        <IosButton variant="plain" size="xs" onClick={() => startEditing(s)}>Edit</IosButton>
+                        <IosButton variant="plain" size="xs" onClick={() => handleToggleStatus(s)} className={s.isDisabled ? "!text-green-600" : "!text-red-500"}>
                           {s.isDisabled ? "Enable" : "Disable"}
-                        </button>
+                        </IosButton>
                       </td>
                     </tr>
                   ))}
@@ -216,10 +216,10 @@ function SubjectsTab() {
                     </span>
                   </div>
                   <div className="flex gap-2 pt-1">
-                    <button onClick={() => startEditing(s)} className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">Edit</button>
-                    <button onClick={() => handleToggleStatus(s)} className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${s.isDisabled ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}>
+                    <IosButton variant="tinted" size="sm" onClick={() => startEditing(s)} className="flex-1">Edit</IosButton>
+                    <IosButton variant={s.isDisabled ? "success" : "destructive"} size="sm" onClick={() => handleToggleStatus(s)} className="flex-1">
                       {s.isDisabled ? "Enable" : "Disable"}
-                    </button>
+                    </IosButton>
                   </div>
                 </div>
               ))}
@@ -247,8 +247,8 @@ function SubjectsTab() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingId(null)} className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-secondary hover:bg-slate-50 transition-colors">Cancel</button>
-              <SubmitButton type="button" loading={saving} variant="primary" onClick={handleEdit}>Save Changes</SubmitButton>
+              <IosButton variant="gray" onClick={() => setEditingId(null)}>Cancel</IosButton>
+              <IosButton type="button" loading={saving} variant="primary" onClick={handleEdit}>Save Changes</IosButton>
             </div>
           </div>
         </div>
@@ -455,7 +455,7 @@ function SectionsTab() {
             Preview: <span className="font-mono text-amber-800">{clusteredPreview(selectedNewCourse.code, newName)}</span>
           </p>
         )}
-        <div><SubmitButton type="submit" loading={saving} variant="primary">Add Section</SubmitButton></div>
+        <div><IosButton type="submit" loading={saving} variant="primary">Add Section</IosButton></div>
       </form>
 
       <div className="card p-4 sm:p-6 bg-surface space-y-4">
@@ -487,10 +487,10 @@ function SectionsTab() {
                         </span>
                       </td>
                       <td className="px-6 py-4 space-x-3 text-center">
-                        <button onClick={() => startEditing(s)} className="text-xs font-bold text-amber-500 hover:text-amber-700">Edit</button>
-                        <button onClick={() => handleToggleStatus(s)} className={`text-xs font-bold ${s.isDisabled ? "text-green-600 hover:text-green-800" : "text-red-500 hover:text-red-700"}`}>
+                        <IosButton variant="plain" size="xs" onClick={() => startEditing(s)}>Edit</IosButton>
+                        <IosButton variant="plain" size="xs" onClick={() => handleToggleStatus(s)} className={s.isDisabled ? "!text-green-600" : "!text-red-500"}>
                           {s.isDisabled ? "Enable" : "Disable"}
-                        </button>
+                        </IosButton>
                       </td>
                     </tr>
                   ))}
@@ -510,10 +510,10 @@ function SectionsTab() {
                     </span>
                   </div>
                   <div className="flex gap-2 pt-1">
-                    <button onClick={() => startEditing(s)} className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">Edit</button>
-                    <button onClick={() => handleToggleStatus(s)} className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${s.isDisabled ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}>
+                    <IosButton variant="tinted" size="sm" onClick={() => startEditing(s)} className="flex-1">Edit</IosButton>
+                    <IosButton variant={s.isDisabled ? "success" : "destructive"} size="sm" onClick={() => handleToggleStatus(s)} className="flex-1">
                       {s.isDisabled ? "Enable" : "Disable"}
-                    </button>
+                    </IosButton>
                   </div>
                 </div>
               ))}
@@ -556,8 +556,8 @@ function SectionsTab() {
               )}
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingId(null)} className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-secondary hover:bg-slate-50 transition-colors">Cancel</button>
-              <SubmitButton type="button" loading={saving} variant="primary" onClick={handleEdit}>Save Changes</SubmitButton>
+              <IosButton variant="gray" onClick={() => setEditingId(null)}>Cancel</IosButton>
+              <IosButton type="button" loading={saving} variant="primary" onClick={handleEdit}>Save Changes</IosButton>
             </div>
           </div>
         </div>

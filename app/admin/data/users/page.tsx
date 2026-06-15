@@ -2,7 +2,7 @@
 
 import { useRef, useState, useMemo, useEffect } from "react"
 import Skeleton from "@/components/ui/Skeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
@@ -355,9 +355,9 @@ export default function AdminUsersPage() {
         <h1 className="text-xl sm:text-2xl font-bold text-primary">Manage Users</h1>
         <div className="flex items-center gap-3">
           <p className="text-xs text-tertiary">{filtered.length} user(s)</p>
-          <SubmitButton onClick={() => setShowCreate(true)} variant="primary" className="text-xs font-semibold px-3 py-3 sm:py-1.5 rounded-lg">
+          <IosButton onClick={() => setShowCreate(true)} variant="primary" className="text-xs font-semibold px-3 py-3 sm:py-1.5 rounded-lg">
             + Create User
-          </SubmitButton>
+          </IosButton>
         </div>
       </div>
 
@@ -497,12 +497,12 @@ export default function AdminUsersPage() {
                                 </div>
                               </div>
                             )}
-                            <button
+                            <IosButton
                               onClick={() => setRoleMenuOpen(null)}
-                              className="w-full text-[10px] font-semibold text-tertiary hover:text-secondary py-1"
+                              variant="primary"
                             >
                               Done
-                            </button>
+                            </IosButton>
                           </div>
                         )}
                       </td>
@@ -537,14 +537,14 @@ export default function AdminUsersPage() {
                           </span>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <button onClick={() => openEditModal(u)} className="text-xs font-bold text-amber-500 hover:text-amber-700">Edit</button>
+                            <IosButton onClick={() => openEditModal(u)} variant="plain" size="xs">Edit</IosButton>
                             {!isDefaultAdmin && (
-                              <button onClick={() => handleToggle(u.id, u.isDisabled)} className={`text-xs font-bold ${u.isDisabled ? "text-green-600 hover:text-green-800" : "text-red-500 hover:text-red-700"}`}>
+                              <IosButton onClick={() => handleToggle(u.id, u.isDisabled)} variant="plain" size="xs" className={u.isDisabled ? "!text-green-600" : "!text-red-500"}>
                                 {u.isDisabled ? "Enable" : "Disable"}
-                              </button>
+                              </IosButton>
                             )}
                             {!u.hasLoggedInBefore && !isDefaultAdmin && (
-                              <button onClick={() => handleResetOnboarding(u.id)} className="text-xs font-bold text-red-500 hover:text-red-700">Reset</button>
+                              <IosButton onClick={() => handleResetOnboarding(u.id)} variant="plain" size="xs" className="!text-red-500">Reset</IosButton>
                             )}
                           </div>
                         )}
@@ -636,12 +636,12 @@ export default function AdminUsersPage() {
                           </div>
                         </div>
                       )}
-                      <button
+                      <IosButton
                         onClick={() => setRoleMenuOpen(null)}
-                        className="w-full text-xs font-semibold text-tertiary hover:text-secondary py-1"
+                        variant="primary"
                       >
                         Done
-                      </button>
+                      </IosButton>
                     </div>
                   )}
 
@@ -667,12 +667,12 @@ export default function AdminUsersPage() {
                       </span>
                     ) : (
                       <>
-                        <button onClick={() => openEditModal(u)} className="flex-1 text-xs font-semibold px-2.5 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">Edit</button>
-                        <button onClick={() => handleToggle(u.id, u.isDisabled)} className={`flex-1 text-xs font-semibold px-2.5 py-2 rounded-lg border transition-colors ${u.isDisabled ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}>
+                        <IosButton onClick={() => openEditModal(u)} variant="plain" size="xs" className="flex-1">Edit</IosButton>
+                        <IosButton onClick={() => handleToggle(u.id, u.isDisabled)} variant="plain" size="xs" className={`flex-1 ${u.isDisabled ? "!text-green-600" : "!text-red-500"}`}>
                           {u.isDisabled ? "Enable" : "Disable"}
-                        </button>
+                        </IosButton>
                         {!u.hasLoggedInBefore && (
-                          <button onClick={() => handleResetOnboarding(u.id)} className="flex-1 text-xs font-semibold px-2.5 py-2 rounded-lg border transition-colors bg-red-50 text-red-700 border-red-200 hover:bg-red-100">Reset</button>
+                          <IosButton onClick={() => handleResetOnboarding(u.id)} variant="plain" size="xs" className="flex-1 !text-red-500">Reset</IosButton>
                         )}
                       </>
                     )}
@@ -809,16 +809,17 @@ export default function AdminUsersPage() {
                 Reset Onboarding
               </button>
               <div className="flex gap-2">
-                <button
+                <IosButton
                   onClick={() => setEditUser(null)}
                   disabled={editSaving}
-                  className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg border border-default bg-surface-hover disabled:opacity-50 flex-1 sm:flex-none"
+                  variant="gray"
+                  className="flex-1 sm:flex-none"
                 >
                   Cancel
-                </button>
-                <SubmitButton onClick={handleEditSave} variant="primary" className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg flex-1 sm:flex-none" disabled={editSaving}>
+                </IosButton>
+                <IosButton onClick={handleEditSave} variant="primary" className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg flex-1 sm:flex-none" disabled={editSaving}>
                   {editSaving ? "Saving..." : "Save"}
-                </SubmitButton>
+                </IosButton>
               </div>
             </div>
           </div>
@@ -905,16 +906,17 @@ export default function AdminUsersPage() {
             {createError && <p className="text-xs text-red-600">{createError}</p>}
 
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-              <button
+              <IosButton
                 onClick={() => { setShowCreate(false); setCreateError(""); setCreateResult(null) }}
                 disabled={createSaving}
-                className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg border border-default bg-surface-hover disabled:opacity-50 w-full sm:w-auto"
+                variant="gray"
+                className="w-full sm:w-auto"
               >
                 Cancel
-              </button>
-              <SubmitButton onClick={handleCreateUser} variant="primary" className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg w-full sm:w-auto" disabled={createSaving}>
+              </IosButton>
+              <IosButton onClick={handleCreateUser} variant="primary" className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg w-full sm:w-auto" disabled={createSaving}>
                 {createSaving ? "Creating..." : "Create"}
-              </SubmitButton>
+              </IosButton>
             </div>
           </div>
         </div>

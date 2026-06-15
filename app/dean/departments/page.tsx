@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import { useApiGet, invalidate } from "@/lib/api/client"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
@@ -165,7 +165,7 @@ export default function DeanDepartmentsPage() {
             />
           </div>
         </div>
-        <SubmitButton type="submit" loading={saving} variant="primary">Add Course</SubmitButton>
+        <IosButton type="submit" loading={saving} variant="primary">Add Course</IosButton>
       </form>
 
       {/* Department Courses List */}
@@ -193,12 +193,9 @@ export default function DeanDepartmentsPage() {
                       <td className="px-6 py-3 font-mono text-xs font-semibold text-secondary">{c.code}</td>
                       <td className="px-6 py-3 text-secondary">{c.name}</td>
                       <td className="px-6 py-3">
-                        <button
-                          onClick={() => handleDelete(c.id)}
-                          className="text-xs font-semibold text-red-500 hover:text-red-700"
-                        >
+                        <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDelete(c.id)}>
                           Remove
-                        </button>
+                        </IosButton>
                       </td>
                     </tr>
                   ))}
@@ -214,12 +211,9 @@ export default function DeanDepartmentsPage() {
                     <p className="text-xs font-semibold text-secondary font-mono">{c.code}</p>
                     <p className="text-xs text-secondary">{c.name}</p>
                   </div>
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    className="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-2"
-                  >
+                  <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDelete(c.id)}>
                     Remove
-                  </button>
+                  </IosButton>
                 </div>
               ))}
             </div>

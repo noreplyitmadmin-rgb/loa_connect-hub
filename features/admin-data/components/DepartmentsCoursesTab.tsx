@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useApiGet, invalidate } from "@/lib/api/client"
 import { SkeletonTable, SkeletonCard } from "@/components/ui/Skeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import { SegmentedControl } from "./shared"
 import type { DepartmentData, UserData } from "@/lib/types"
@@ -167,7 +167,7 @@ export function DepartmentsCoursesTab() {
             <form onSubmit={handleEditDeptSubmit} className="card p-6 bg-surface space-y-4 border border-amber-300">
               <div className="flex justify-between items-center">
                 <h2 className="text-sm font-bold text-amber-700">Edit Department Details</h2>
-                <button type="button" onClick={() => setEditingDeptId(null)} className="text-xs text-tertiary hover:text-secondary font-semibold">Cancel Edit</button>
+                <IosButton variant="gray" size="sm" onClick={() => setEditingDeptId(null)}>Cancel Edit</IosButton>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -186,7 +186,7 @@ export function DepartmentsCoursesTab() {
                   </select>
                 </div>
               </div>
-              <div><SubmitButton type="submit" loading={saving} variant="primary">Save Changes</SubmitButton></div>
+              <div><IosButton type="submit" loading={saving} variant="primary">Save Changes</IosButton></div>
             </form>
           ) : (
             <form onSubmit={handleAddDept} className="card p-6 bg-surface space-y-4">
@@ -208,7 +208,7 @@ export function DepartmentsCoursesTab() {
                   </select>
                 </div>
               </div>
-              <div><SubmitButton type="submit" loading={saving} variant="primary">Create Department</SubmitButton></div>
+              <div><IosButton type="submit" loading={saving} variant="primary">Create Department</IosButton></div>
             </form>
           )}
 
@@ -247,10 +247,10 @@ export function DepartmentsCoursesTab() {
                               </span>
                             </td>
                       <td className="px-6 py-4 space-x-3 text-center">
-                              <button onClick={() => startEditing(dept)} className="text-xs font-bold text-amber-500 hover:text-amber-700">Edit</button>
-                              <button onClick={() => handleToggleStatus(dept)} className={`text-xs font-bold ${dept.isDisabled ? "text-green-600 hover:text-green-800" : "text-red-500 hover:text-red-700"}`}>
+                              <IosButton variant="plain" size="xs" onClick={() => startEditing(dept)}>Edit</IosButton>
+                              <IosButton variant="plain" size="xs" onClick={() => handleToggleStatus(dept)} className={dept.isDisabled ? "!text-green-600" : "!text-red-500"}>
                                 {dept.isDisabled ? "Enable" : "Disable"}
-                              </button>
+                              </IosButton>
                             </td>
                           </tr>
                         )
@@ -274,10 +274,10 @@ export function DepartmentsCoursesTab() {
                           {assignedDean ? (<span className="text-secondary">{assignedDean.name} <span className="text-tertiary">({assignedDean.email})</span></span>) : (<span className="italic text-tertiary">Not assigned</span>)}
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <button onClick={() => startEditing(dept)} className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">Edit</button>
-                          <button onClick={() => handleToggleStatus(dept)} className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${dept.isDisabled ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}>
+                          <IosButton variant="tinted" size="sm" onClick={() => startEditing(dept)} className="flex-1">Edit</IosButton>
+                          <IosButton variant={dept.isDisabled ? "success" : "destructive"} size="sm" onClick={() => handleToggleStatus(dept)} className="flex-1">
                             {dept.isDisabled ? "Enable" : "Disable"}
-                          </button>
+                          </IosButton>
                         </div>
                       </div>
                     )
@@ -311,7 +311,7 @@ export function DepartmentsCoursesTab() {
                 <input value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value.toUpperCase())} maxLength={10} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. BSIT" required />
               </div>
             </div>
-            <div><SubmitButton type="submit" loading={saving} variant="primary">Add Course</SubmitButton></div>
+            <div><IosButton type="submit" loading={saving} variant="primary">Add Course</IosButton></div>
           </form>
 
           <div className="space-y-6">
@@ -340,7 +340,7 @@ export function DepartmentsCoursesTab() {
                               <td className="px-6 py-3 font-mono text-xs font-semibold text-secondary">{c.code}</td>
                               <td className="px-6 py-3 text-secondary">{c.name}</td>
                               <td className="px-6 py-3">
-                                <button onClick={() => handleDeleteCourse(c.id)} className="text-xs font-semibold text-red-500 hover:text-red-700">Remove</button>
+                                <IosButton variant="plain" size="xs" onClick={() => handleDeleteCourse(c.id)} className="!text-red-500">Remove</IosButton>
                               </td>
                             </tr>
                           ))}
@@ -351,7 +351,7 @@ export function DepartmentsCoursesTab() {
                       {dept.courses.map((c) => (
                         <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-surface border border-default">
                           <div><p className="text-xs font-semibold text-secondary font-mono">{c.code}</p><p className="text-xs text-secondary">{c.name}</p></div>
-                          <button onClick={() => handleDeleteCourse(c.id)} className="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-2">Remove</button>
+                          <IosButton variant="plain" size="xs" onClick={() => handleDeleteCourse(c.id)} className="!text-red-500">Remove</IosButton>
                         </div>
                       ))}
                     </div>

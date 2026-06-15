@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useApiGet } from "@/lib/api/client"
 import { usePagination, Paginator } from "@/components/ui/Paginator"
 import { SkeletonTable } from "@/components/ui/Skeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import { SegmentedControl, SearchInput } from "./shared"
 import { EnrollmentsTab } from "./EnrollmentsTab"
@@ -201,7 +201,7 @@ function FacultyTab() {
             </select>
           </div>
         </div>
-        <div><SubmitButton type="submit" loading={formSaving} variant="primary">Add Mapping</SubmitButton></div>
+        <div><IosButton type="submit" loading={formSaving} variant="primary">Add Mapping</IosButton></div>
       </form>
 
       {/* Department Filter */}
@@ -236,12 +236,12 @@ function FacultyTab() {
         ) : (
           <>
             <div ref={tableRef} className="desktop-only overflow-x-auto max-h-96 overflow-y-auto border border-default rounded-lg">
-              <table className="w-full text-[11px]">
+              <table className="w-full text-[11px] text-align-center">
                 <thead>
                   <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
                     <th className="p-2">Faculty</th>
                     <th className="p-2">Email</th>
-                    <th className="p-2">Class Load</th>
+                 
                     <th className="p-2">Headcount</th>
                     <th className="p-2">Action</th>
                   </tr>
@@ -253,19 +253,12 @@ function FacultyTab() {
                       <tr key={group.faculty.id} className="border-b border-default hover:bg-surface-hover">
                         <td className="p-2 font-medium text-secondary">{group.faculty.name}</td>
                         <td className="p-2 text-tertiary">{group.faculty.email}</td>
-                        <td className="p-2">
-                          <span className="font-semibold text-secondary">{group.mappings.length}</span>
-                        </td>
+       
                         <td className="p-2">
                           <span className="font-semibold text-secondary">{headcount}</span>
                         </td>
                         <td className="p-2">
-                          <button
-                            onClick={() => setSelectedFacultyLoad(group.mappings)}
-                            className="text-xs font-semibold text-amber-600 hover:text-amber-800"
-                          >
-                            View
-                          </button>
+                          <IosButton variant="plain" size="xs" onClick={() => setSelectedFacultyLoad(group.mappings)}>View Class Load</IosButton>
                         </td>
                       </tr>
                     )
@@ -286,12 +279,7 @@ function FacultyTab() {
                       <div className="shrink-0 text-right">
                         <span className="text-xs font-semibold text-secondary">{group.mappings.length} Subject{group.mappings.length !== 1 ? "s" : ""}</span>
                         <span className="block text-xs text-tertiary">{headcount} Student{headcount !== 1 ? "s" : ""}</span>
-                        <button
-                          onClick={() => setSelectedFacultyLoad(group.mappings)}
-                          className="block text-[11px] font-semibold text-amber-600 hover:text-amber-800 underline underline-offset-2"
-                        >
-                          View
-                        </button>
+                        <IosButton variant="plain" size="xs" onClick={() => setSelectedFacultyLoad(group.mappings)}>View</IosButton>
                       </div>
                     </div>
                   </div>
@@ -313,11 +301,11 @@ function FacultyTab() {
                 <p className="text-sm font-bold text-secondary truncate">{selectedFacultyLoad[0].faculty.name}</p>
                 <p className="text-xs text-tertiary truncate">{selectedFacultyLoad.length} subject load{selectedFacultyLoad.length !== 1 ? "s" : ""}</p>
               </div>
-              <button type="button" onClick={() => setSelectedFacultyLoad(null)} className="text-xs p-1.5 rounded-lg hover:bg-surface-dim transition-colors shrink-0">
+              <IosButton variant="gray" size="xs" onClick={() => setSelectedFacultyLoad(null)}>
                 <svg className="w-4 h-4 text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
+              </IosButton>
             </div>
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               <table className="desktop-only w-full text-[11px]">
@@ -326,31 +314,40 @@ function FacultyTab() {
                     <th className="p-2 w-8">#</th>
                     <th className="p-2">Subject</th>
                     <th className="p-2">Section</th>
+                    <th className="p-2 text-center">HeadCount</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {facultyLoadPagination.paginatedItems.map((m, i) => (
-                    <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
-                      <td className="p-2 text-tertiary">{i + 1}</td>
-                      <td className="p-2">
-                        <span className="font-medium text-secondary">{m.subject.code}</span>
-                        <span className="text-tertiary ml-1">- {m.subject.name}</span>
-                      </td>
-                      <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
-                    </tr>
-                  ))}
+                  {facultyLoadPagination.paginatedItems.map((m, i) => {
+                    const hc = enrollmentCountByFsId.get(m.id) ?? 0
+                    return (
+                      <tr key={m.id} className="border-b border-default hover:bg-surface-hover">
+                        <td className="p-2 text-tertiary">{i + 1}</td>
+                        <td className="p-2">
+                          <span className="font-medium text-secondary">{m.subject.code}</span>
+                          <span className="text-tertiary ml-1">- {m.subject.name}</span>
+                        </td>
+                        <td className="p-2 text-secondary">{m.section.program}-{m.section.name}</td>
+                        <td className="p-2 text-center font-semibold text-secondary">{hc}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
               <div className="mobile-only space-y-1.5">
-                {facultyLoadPagination.paginatedItems.map((m, i) => (
-                  <div key={m.id} className="flex items-center gap-3 px-2 py-2 rounded-lg bg-surface-hover/50 text-xs">
-                    <span className="text-tertiary font-mono w-5 shrink-0 text-right">{i + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-secondary truncate">{m.subject.code} - {m.subject.name}</p>
-                      <p className="text-tertiary truncate">{m.section.program}-{m.section.name}</p>
+                {facultyLoadPagination.paginatedItems.map((m, i) => {
+                  const hc = enrollmentCountByFsId.get(m.id) ?? 0
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 px-2 py-2 rounded-lg bg-surface-hover/50 text-xs">
+                      <span className="text-tertiary font-mono w-5 shrink-0 text-right">{i + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-secondary truncate">{m.subject.code} - {m.subject.name}</p>
+                        <p className="text-tertiary truncate">{m.section.program}-{m.section.name}</p>
+                      </div>
+                      <span className="shrink-0 text-right text-xs font-semibold text-secondary">{hc} student{hc !== 1 ? "s" : ""}</span>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
             <div className="flex items-center justify-between px-6 py-3 border-t border-default bg-surface-dim text-xs text-tertiary">

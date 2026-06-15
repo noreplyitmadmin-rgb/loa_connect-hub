@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useApiGet, invalidate } from "@/lib/api/client"
 import { SkeletonTable } from "@/components/ui/Skeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import type { SemesterData } from "@/lib/types"
 
@@ -142,7 +142,7 @@ export function SemestersTab() {
         <p className="text-[11px] text-tertiary">
           Evaluation dates are managed inline — click <strong>Enable Evaluation</strong> on a semester to set start/end dates. Only semesters with evaluation dates can have active evaluations. New semesters start as inactive.
         </p>
-        <div><SubmitButton type="submit" loading={saving} variant="primary">Create Semester</SubmitButton></div>
+        <div><IosButton type="submit" loading={saving} variant="primary">Create Semester</IosButton></div>
       </form>
 
       {isEditing && (
@@ -158,8 +158,8 @@ export function SemestersTab() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingId(null)} className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-secondary hover:bg-slate-50 transition-colors">Cancel</button>
-              <SubmitButton type="button" loading={saving} variant="primary" onClick={() => handleUpdate(editingId!)}>Save Changes</SubmitButton>
+              <IosButton variant="gray" onClick={() => setEditingId(null)}>Cancel</IosButton>
+              <IosButton type="button" loading={saving} variant="primary" onClick={() => handleUpdate(editingId!)}>Save Changes</IosButton>
             </div>
           </div>
         </div>
@@ -194,8 +194,8 @@ export function SemestersTab() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEvalEditingId(null)} className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-secondary hover:bg-slate-50 transition-colors">Cancel</button>
-              <SubmitButton type="button" loading={saving} variant="primary" onClick={() => handleStartEvaluation(evalEditingId!)}>Enable</SubmitButton>
+              <IosButton variant="gray" onClick={() => setEvalEditingId(null)}>Cancel</IosButton>
+              <IosButton type="button" loading={saving} variant="primary" onClick={() => handleStartEvaluation(evalEditingId!)}>Enable</IosButton>
             </div>
           </div>
         </div>
@@ -230,11 +230,11 @@ export function SemestersTab() {
                         </span>
                       </td>
                       <td className="px-6 py-4 space-x-3 text-center">
-                        <button onClick={() => { setEditTitle(semester.title); setEditingId(semester.id) }} className="text-xs font-bold text-amber-500 hover:text-amber-700">Edit</button>
+                        <IosButton variant="plain" size="xs" onClick={() => { setEditTitle(semester.title); setEditingId(semester.id) }}>Edit</IosButton>
                         {semester.evalStartDate ? (
-                          <button onClick={() => handleEndEvaluation(semester.id)} className="text-xs font-bold text-red-500 hover:text-red-700">End Evaluation</button>
+                          <IosButton variant="plain" size="xs" onClick={() => handleEndEvaluation(semester.id)} className="!text-red-500">End Evaluation</IosButton>
                         ) : (
-                          <button onClick={() => { setEvalEditingId(semester.id); setEditEvalStartDate(semester.evalStartDate || ""); setEditEvalEndDate(semester.evalEndDate || "") }} className="text-xs font-bold text-emerald-600 hover:text-emerald-800">Enable Evaluation</button>
+                          <IosButton variant="plain" size="xs" onClick={() => { setEvalEditingId(semester.id); setEditEvalStartDate(semester.evalStartDate || ""); setEditEvalEndDate(semester.evalEndDate || "") }} className="!text-green-600">Enable Evaluation</IosButton>
                         )}
                       </td>
                     </tr>
@@ -255,11 +255,11 @@ export function SemestersTab() {
                     <p className="text-tertiary">Period: {semester.evalStartDate} to {semester.evalEndDate || 'N/A'}</p>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <button onClick={() => { setEditTitle(semester.title); setEditingId(semester.id) }} className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">Edit</button>
+                    <IosButton variant="tinted" size="sm" onClick={() => { setEditTitle(semester.title); setEditingId(semester.id) }} className="flex-1">Edit</IosButton>
                     {semester.evalStartDate ? (
-                      <button onClick={() => handleEndEvaluation(semester.id)} className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors bg-red-50 text-red-700 border-red-200 hover:bg-red-100">End Evaluation</button>
+                      <IosButton variant="destructive" size="sm" onClick={() => handleEndEvaluation(semester.id)} className="flex-1">End Evaluation</IosButton>
                     ) : (
-                      <button onClick={() => { setEvalEditingId(semester.id); setEditEvalStartDate(semester.evalStartDate || ""); setEditEvalEndDate(semester.evalEndDate || "") }} className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors">Enable Evaluation</button>
+                      <IosButton variant="success" size="sm" onClick={() => { setEvalEditingId(semester.id); setEditEvalStartDate(semester.evalStartDate || ""); setEditEvalEndDate(semester.evalEndDate || "") }} className="flex-1">Enable Evaluation</IosButton>
                     )}
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useApiGet } from "@/lib/api/client"
 import { usePagination, Paginator } from "@/components/ui/Paginator"
 import { SkeletonTable } from "@/components/ui/Skeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import { SearchInput } from "./shared"
 import type { FacultyMapping, Enrollment } from "./types"
@@ -368,22 +368,8 @@ export function EnrollmentsTab() {
                   </div>
 
                   <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
-                    <button
-                      type="button"
-                      disabled={csvImporting}
-                      onClick={handleCsvReset}
-                      className="flex-1 text-sm font-semibold px-4 py-3 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={csvImporting || csvRows.length === 0 || !csvFsId}
-                      onClick={handleCsvImport}
-                      className="flex-1 text-sm font-semibold px-4 py-3 rounded-xl bg-gold-600 text-white hover:bg-gold-700 disabled:opacity-40 transition-colors"
-                    >
-                      {csvImporting ? "Importing..." : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}
-                    </button>
+                    <IosButton variant="gray" type="button" disabled={csvImporting} onClick={handleCsvReset} className="flex-1">Cancel</IosButton>
+                    <IosButton variant="primary" type="button" disabled={csvImporting || csvRows.length === 0 || !csvFsId} onClick={handleCsvImport} className="flex-1">{csvImporting ? "Importing..." : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}</IosButton>
                   </div>
                 </div>
               )}
@@ -426,13 +412,7 @@ export function EnrollmentsTab() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={handleCsvReset}
-                    className="w-full text-sm font-semibold px-4 py-3 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
-                  >
-                    Import Another File
-                  </button>
+                  <IosButton variant="gray" type="button" onClick={handleCsvReset} className="w-full">Import Another File</IosButton>
                 </div>
               )}
             </div>
@@ -460,7 +440,7 @@ export function EnrollmentsTab() {
                       <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="e.g. juan@example.com" className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required />
                     </div>
                   </div>
-                  <SubmitButton type="submit" loading={formSaving} variant="primary">Add Enrollment</SubmitButton>
+                  <IosButton type="submit" loading={formSaving} variant="primary">Add Enrollment</IosButton>
                 </form>
               )}
             </div>
@@ -485,7 +465,7 @@ export function EnrollmentsTab() {
                   <tr className="bg-surface-dim text-left text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default sticky top-0">
                     <th className="p-2">Student</th>
                     <th className="p-2">Email</th>
-                    <th className="p-2">Enrolled Subjects</th>
+                    <th className="p-2">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -494,13 +474,7 @@ export function EnrollmentsTab() {
                       <td className="p-2 font-medium text-secondary">{group.student.name}</td>
                       <td className="p-2 text-tertiary">{group.student.email}</td>
                       <td className="p-2">
-                        <span className="font-semibold text-primary">{group.enrollments.length}</span>
-                        <button
-                          onClick={() => setSelectedStudentEnrollments(group.enrollments)}
-                          className="ml-2 text-xs text-amber-600 hover:text-amber-800"
-                        >
-                          View
-                        </button>
+                         <IosButton variant="plain" size="xs" onClick={() => setSelectedStudentEnrollments(group.enrollments)}>View Enrolled Subjects</IosButton>
                       </td>
                     </tr>
                   ))}
@@ -517,12 +491,7 @@ export function EnrollmentsTab() {
                     </div>
                     <div className="shrink-0 text-right">
                       <span className="text-xs font-semibold text-secondary">{group.enrollments.length} Subject{group.enrollments.length !== 1 ? "s" : ""}</span>
-                      <button
-                        onClick={() => setSelectedStudentEnrollments(group.enrollments)}
-                        className="block text-[11px] font-semibold text-amber-600 hover:text-amber-800 underline underline-offset-2"
-                      >
-                        (View)
-                      </button>
+                      <IosButton variant="plain" size="xs" onClick={() => setSelectedStudentEnrollments(group.enrollments)}>(View)</IosButton>
                     </div>
                   </div>
                 </div>
@@ -543,11 +512,11 @@ export function EnrollmentsTab() {
                 <p className="text-sm font-bold text-secondary truncate">{selectedStudentEnrollments[0].student.name}</p>
                 <p className="text-xs text-tertiary truncate">{selectedStudentEnrollments.length} enrolled subject{selectedStudentEnrollments.length !== 1 ? "s" : ""}</p>
               </div>
-              <button type="button" onClick={() => setSelectedStudentEnrollments(null)} className="text-xs p-1.5 rounded-lg hover:bg-surface-dim transition-colors shrink-0">
+              <IosButton variant="gray" size="xs" onClick={() => setSelectedStudentEnrollments(null)}>
                 <svg className="w-4 h-4 text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
+              </IosButton>
             </div>
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               <table className="desktop-only w-full text-[11px]">

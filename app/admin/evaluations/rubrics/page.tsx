@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { IosSkeletonCard } from "@/components/ui/IosSkeleton"
-import SubmitButton from "@/components/ui/SubmitButton"
+import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
@@ -292,18 +292,12 @@ export default function AdminRubricsPage() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
                 <h3 className="text-[15px] font-semibold text-[var(--color-text)]">{cat.name}</h3>
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => updateCategoryName(cat.id, cat.name)}
-                    className="btn-ios-plain text-xs h-7 px-2"
-                  >
+                  <IosButton variant="plain" size="xs" onClick={() => updateCategoryName(cat.id, cat.name)}>
                     Rename
-                  </button>
-                  <button
-                    onClick={() => deleteCategory(cat.id)}
-                    className="btn-ios-plain text-xs h-7 px-2 !text-[var(--color-system-red)]"
-                  >
+                  </IosButton>
+                  <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteCategory(cat.id)}>
                     Delete
-                  </button>
+                  </IosButton>
                 </div>
               </div>
               <div>
@@ -314,18 +308,12 @@ export default function AdminRubricsPage() {
                     <div key={item.id} className="ios-table-row justify-between">
                       <span className="text-[15px] text-[var(--color-text)]">{item.text}</span>
                       <div className="flex gap-1 shrink-0">
-                        <button
-                          onClick={() => updateItem(item.id, cat.id, item.text)}
-                          className="btn-ios-plain text-xs h-7 px-2"
-                        >
+                        <IosButton variant="plain" size="xs" onClick={() => updateItem(item.id, cat.id, item.text)}>
                           Edit
-                        </button>
-                        <button
-                          onClick={() => deleteItem(item.id, cat.id)}
-                          className="btn-ios-plain text-xs h-7 px-2 !text-[var(--color-system-red)]"
-                        >
+                        </IosButton>
+                        <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteItem(item.id, cat.id)}>
                           Remove
-                        </button>
+                        </IosButton>
                       </div>
                     </div>
                   ))
@@ -343,9 +331,9 @@ export default function AdminRubricsPage() {
           ))}
 
           <div className="flex justify-end pt-2">
-            <SubmitButton onClick={saveAll} loading={saving} variant="ios-primary">
+            <IosButton onClick={saveAll} loading={saving} variant="primary">
               Save Rubric
-            </SubmitButton>
+            </IosButton>
           </div>
         </div>
       ))}

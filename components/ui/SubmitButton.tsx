@@ -1,63 +1,29 @@
 "use client"
 
-import { useRef } from "react"
+import IosButton from "./IosButton"
+import type { ComponentProps } from "react"
 
-interface SubmitButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  loading?: boolean
+type IosButtonProps = ComponentProps<typeof IosButton>
+
+interface SubmitButtonProps extends Omit<IosButtonProps, "variant"> {
   variant?: "primary" | "secondary" | "success" | "danger" | "ios-primary" | "ios-tinted" | "ios-gray" | "ios-plain" | "ios-destructive"
 }
 
-const variantClasses = {
-  primary: "btn-primary",
-  secondary: "btn-secondary",
-  success: "btn-success",
-  danger: "btn-danger",
-  "ios-primary": "btn-ios-primary",
-  "ios-tinted": "btn-ios-tinted",
-  "ios-gray": "btn-ios-gray",
-  "ios-plain": "btn-ios-plain",
-  "ios-destructive": "btn-ios-destructive",
+const legacyToNew: Record<string, "primary" | "tinted" | "success" | "destructive" | "gray" | "plain"> = {
+  primary: "primary",
+  secondary: "gray",
+  success: "success",
+  danger: "destructive",
+  "ios-primary": "primary",
+  "ios-tinted": "tinted",
+  "ios-gray": "gray",
+  "ios-plain": "plain",
+  "ios-destructive": "destructive",
 }
 
 export default function SubmitButton({
-  children,
-  loading = false,
-  disabled = false,
   variant = "primary",
-  onClick,
-  className = "",
   ...props
 }: SubmitButtonProps) {
-  const clicked = useRef(false)
-
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (clicked.current || loading || disabled) {
-      e.preventDefault()
-      return
-    }
-    clicked.current = true
-    setTimeout(() => { clicked.current = false }, 500)
-    onClick?.(e)
-  }
-
-  return (
-    <button
-      {...props}
-      disabled={disabled || loading}
-      onClick={handleClick}
-      className={`${variantClasses[variant]} ${className}`}
-    >
-      {loading ? (
-        <span className="flex items-center justify-center gap-2">
-          <svg className="animate-spin ios-spinner w-3.5 h-3.5" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          {children}
-        </span>
-      ) : (
-        children
-      )}
-    </button>
-  )
+  return <IosButton variant={legacyToNew[variant]} {...props} />
 }
