@@ -9,17 +9,10 @@ import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import type { DepartmentData } from "@/lib/types"
-
-interface DepartmentCourse {
-  id: string
-  departmentId: string
-  name: string
-  code: string
-  createdAt: string
-}
+import type { DepartmentCourse } from "@/features/admin-data/components/types"
 
 export default function DeanDepartmentsPage() {
-  const { data: session } = useSession() ?? {};
+  const { data: session } = useSession();
   const [error, setError] = useState("")
   const [newName, setNewName] = useState("")
   const [newCode, setNewCode] = useState("")
