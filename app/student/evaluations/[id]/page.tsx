@@ -113,6 +113,7 @@ export default function FillEvaluationPage() {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
+  const [pageLoading, setPageLoading] = useState(true)
 
   useEffect(() => {
     return () => setExclusive(false)
@@ -170,8 +171,10 @@ export default function FillEvaluationPage() {
           const rubricData = await rubricRes.json()
           setCategories(rubricData.rubric || [])
         }
+        setPageLoading(false)
       } catch {
         setErrorMessage("Failed to load evaluation")
+        setPageLoading(false)
       }
     }
     load()
@@ -264,6 +267,50 @@ export default function FillEvaluationPage() {
     return (
       <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-20 sm:pt-22 pb-12">
         <LockedTab endpoint={lockedEndpoint} />
+      </div>
+    )
+  }
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-dvh bg-surface-muted">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 dark:bg-black/90 backdrop-blur-lg shadow-lg">
+          <div className="flex items-center justify-between px-4 sm:px-6 h-14 sm:h-16">
+            <div className="w-20 h-4 bg-slate-700/60 rounded-full animate-pulse" />
+            <div className="space-y-1.5 text-right">
+              <div className="h-3.5 w-48 bg-slate-700/60 rounded-full animate-pulse ml-auto" />
+              <div className="h-2.5 w-32 bg-slate-700/40 rounded-full animate-pulse ml-auto" />
+            </div>
+          </div>
+        </header>
+        <div className="pt-20 sm:pt-22 pb-12 animate-pulse">
+          <div className="mx-auto max-w-5xl px-4 sm:px-8">
+            <div className="mb-8 space-y-2">
+              <div className="h-7 w-72 bg-surface-tertiary rounded-full" />
+              <div className="h-4 w-48 bg-surface-tertiary rounded-full" />
+            </div>
+            <div className="space-y-5">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="bg-surface rounded-2xl overflow-hidden shadow-sm border border-default">
+                  <div className="h-1.5 bg-surface-tertiary" />
+                  <div className="p-5 sm:p-6 space-y-4">
+                    <div className="h-5 bg-surface-tertiary rounded w-1/3" />
+                    {[1, 2].map((_) => (
+                      <div key={_} className="space-y-2">
+                        <div className="h-4 bg-surface-tertiary rounded w-full" />
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((v) => (
+                            <div key={v} className="w-10 h-10 bg-surface-tertiary rounded-xl" />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

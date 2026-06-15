@@ -1309,8 +1309,7 @@ BEGIN
 
   -- ── DEAN ──────────────────────────────────────────────────
   INSERT INTO users (id, name, email, "passwordHash")
-  VALUES (_dean_id, 'Regie Ellana', 'r.ellana@lyceumalabang.edu.ph
-', _hash)
+  VALUES (_dean_id, 'Regie Ellana', 'r.ellana@lyceumalabang.edu.ph', _hash)
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO userrole ("userId", "roleName") VALUES (_dean_id, 'DEAN')
