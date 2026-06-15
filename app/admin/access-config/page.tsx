@@ -62,24 +62,22 @@ function AdminAccessConfigPageInner() {
         </p>
       </div>
 
-      <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-1 border-b border-default min-w-max">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => {
-                router.push(tab.key === "rbac" ? "/admin/access-config" : `/admin/access-config?tab=${tab.key}`)
-              }}
-              className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? "border-gold-600 text-gold-600"
-                  : "border-transparent text-tertiary hover:text-secondary"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-1 p-1 bg-surface-tertiary rounded-xl w-fit">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => {
+              router.push(tab.key === "rbac" ? "/admin/access-config" : `/admin/access-config?tab=${tab.key}`)
+            }}
+            className={`shrink-0 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg whitespace-nowrap transition-all duration-200 ${
+              activeTab === tab.key
+                ? "bg-surface text-amber-600 shadow-ios-sm"
+                : "text-tertiary hover:text-secondary"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === "rbac" ? <RBACTab /> : <UserPermissionsTab />}
@@ -141,27 +139,30 @@ function RBACTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 p-4 rounded-lg border border-default bg-surface">
-        <input
-          type="text"
-          value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              handleAddGroup()
-            }
-          }}
-          placeholder="New group name (e.g. COORDINATOR)"
-          className="input text-xs flex-1 min-w-0 px-3 py-2 rounded-lg border border-strong"
-        />
-        <button
-          onClick={handleAddGroup}
-          disabled={creating || !newGroupName.trim()}
-          className="text-xs font-semibold px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors"
-        >
-          {creating ? "Adding\u2026" : "Add Group"}
-        </button>
+      <div className="card p-4 space-y-3">
+        <label className="text-xs font-semibold text-secondary">New Group</label>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                handleAddGroup()
+              }
+            }}
+            placeholder="e.g. COORDINATOR"
+            className="input text-xs flex-1 min-w-0 px-3 py-2 rounded-lg border border-strong"
+          />
+          <button
+            onClick={handleAddGroup}
+            disabled={creating || !newGroupName.trim()}
+            className="text-xs font-semibold px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40 transition-colors shrink-0"
+          >
+            {creating ? "Adding\u2026" : "Add Group"}
+          </button>
+        </div>
       </div>
 
       {groups.length === 0 && (
@@ -175,7 +176,7 @@ function RBACTab() {
             <Link
               key={group.groupName}
               href={`/admin/access-config/${group.groupName}`}
-              className="block card p-4 hover:shadow-md transition-shadow"
+              className="block card p-3 hover:shadow-md transition-shadow"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -282,6 +283,7 @@ function UserPermissionsTab() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [sidebarFilter, setSidebarFilter] = useState("")
+  const [pageTab, setPageTab] = useState<"pages" | "api">("pages")
 
   useEffect(() => {
     Promise.all([
@@ -352,6 +354,9 @@ function UserPermissionsTab() {
   }
 
   const groupedPaths = allPaths.reduce<Record<string, string[]>>((acc, p) => {
+    const isApi = p.startsWith("/api/")
+    if (pageTab === "api" && !isApi) return acc
+    if (pageTab === "pages" && isApi) return acc
     const c = cat(p)
     if (!acc[c]) acc[c] = []
     if (!sidebarFilter || p.toLowerCase().includes(sidebarFilter.toLowerCase()) || lab(p).toLowerCase().includes(sidebarFilter.toLowerCase())) {
@@ -430,11 +435,30 @@ function UserPermissionsTab() {
 
       <aside className="w-full lg:w-72 shrink-0 order-2 lg:order-1">
         <div className="card p-4 space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-secondary">Filter paths</label>
-            <input type="text" value={sidebarFilter} onChange={(e) => setSidebarFilter(e.target.value)}
-              placeholder="Search paths..." className="input text-xs w-full mt-1 px-3 py-2 rounded-lg border border-strong" />
+          <div className="flex gap-1 p-1 bg-surface-tertiary rounded-xl">
+            <button
+              onClick={() => setPageTab("pages")}
+              className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 flex-1 ${
+                pageTab === "pages"
+                  ? "bg-surface text-amber-600 shadow-ios-sm"
+                  : "text-tertiary hover:text-secondary"
+              }`}
+            >
+              Pages
+            </button>
+            <button
+              onClick={() => setPageTab("api")}
+              className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 flex-1 ${
+                pageTab === "api"
+                  ? "bg-surface text-amber-600 shadow-ios-sm"
+                  : "text-tertiary hover:text-secondary"
+              }`}
+            >
+              API
+            </button>
           </div>
+          <input type="text" value={sidebarFilter} onChange={(e) => setSidebarFilter(e.target.value)}
+            placeholder="Search paths..." className="input text-xs w-full px-3 py-2 rounded-lg border border-strong" />
           <div className="max-h-[calc(100vh-320px)] overflow-y-auto space-y-3">
             {Object.entries(groupedPaths).map(([category, paths]) => (
               <div key={category}>

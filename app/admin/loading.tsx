@@ -2,8 +2,8 @@ export default function Loading() {
   return (
     <div className="max-w-6xl mx-auto pb-12 space-y-8">
       <div className="h-8 w-32 bg-surface-dim rounded animate-pulse-soft" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="rounded-2xl border border-default bg-surface p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="h-5 w-5 bg-surface-dim rounded animate-pulse-soft" />

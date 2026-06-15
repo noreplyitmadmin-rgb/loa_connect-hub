@@ -34,6 +34,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <AnimatedPage className={hidden ? "" : "overflow-hidden"}>
             <main className={`flex-1 overflow-y-auto ${hidden ? "" : "pb-24 lg:pb-6 px-4 sm:px-6 pt-4 sm:pt-6"}`}>
               {children}
+              <div className="text-xs text-tertiary bg-surface-tertiary/50 border border-default rounded-lg px-4 py-3 leading-relaxed mt-8">
+                <strong>Disclaimer:</strong> This system is by no means a replacement for any internal bespoke application that the institution is currently using.
+              </div>
             </main>
           </AnimatedPage>
         </div>

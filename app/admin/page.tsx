@@ -41,8 +41,6 @@ export default async function AdminDashboard() {
   const { count: userCount } = await supabase.from("users").select("*", { count: "exact", head: true }).is("deletedAt", null) || { count: 0 }
   const { count: facultyCount } = await supabase.from("userrole").select("*", { count: "exact", head: true }).eq("roleName", "FACULTY") || { count: 0 }
   const { count: studentCount } = await supabase.from("userrole").select("*", { count: "exact", head: true }).eq("roleName", "STUDENT") || { count: 0 }
-  const { count: apptCount } = await supabase.from("appointments").select("*", { count: "exact", head: true }) || { count: 0 }
-  const { count: pendingCount } = await supabase.from("appointments").select("*", { count: "exact", head: true }).eq("status", "PENDING") || { count: 0 }
   const { count: deptCount } = await supabase.from("departments").select("*", { count: "exact", head: true }).eq("isDisabled", false) || { count: 0 }
 
   return (
@@ -50,12 +48,10 @@ export default async function AdminDashboard() {
       <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         <StatCard label="System Users" value={userCount ?? "—"} icon="👥" color="text-gold-600" />
         <StatCard label="Faculty" value={facultyCount ?? "—"} icon="👨‍🏫" color="text-blue-600" />
         <StatCard label="Students" value={studentCount ?? "—"} icon="🎓" color="text-violet-600" />
-        <StatCard label="Appointments" value={apptCount ?? "—"} icon="📅" color="text-amber-600" />
-        <StatCard label="Pending" value={pendingCount ?? "—"} icon="⏳" color="text-rose-600" />
         <StatCard label="Departments" value={deptCount ?? "—"} icon="🏛" color="text-sky-600" />
       </div>
 

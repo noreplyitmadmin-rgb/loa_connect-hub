@@ -83,10 +83,6 @@ export default function AcademicInfrastructurePage() {
       {mainTab === "departments" && <DepartmentsCoursesTab />}
       {mainTab === "subjects" && <SubjectsSectionsTab />}
       {mainTab === "faculty_enroll" && <FacultyLoadingTab />}
-
-      <div className="text-xs text-tertiary bg-amber-50/50 border border-amber-200 rounded-lg px-4 py-3 leading-relaxed">
-        <strong className="text-amber-700">Disclaimer:</strong> This system is by no means a replacement for any internal bespoke application that the institution is currently using.
-      </div>
     </div>
   )
 }

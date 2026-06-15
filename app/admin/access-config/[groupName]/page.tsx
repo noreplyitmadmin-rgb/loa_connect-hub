@@ -47,6 +47,8 @@ export default function EditAccessGroupPage() {
   const [errorMessage, setErrorMessage] = useState("")
 
   const [selectedPages, setSelectedPages] = useState<string[]>([])
+  const [search, setSearch] = useState("")
+  const [pageTab, setPageTab] = useState<"pages" | "api">("pages")
 
   useEffect(() => {
     fetch("/api/admin/access-config")
@@ -165,22 +167,69 @@ export default function EditAccessGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-secondary mb-2">Allowed Pages</label>
-          {catalog && (
-            <div className="space-y-1 mb-3">
-              {Object.entries(catalog.pages).map(([category, items]) => {
-                const visible = items.filter(
-                  (item) =>
-                    !(group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)) ||
-                    selectedPages.includes(item.path)
-                )
-                if (visible.length === 0) return null
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex gap-1 p-1 bg-surface-tertiary rounded-xl">
+              <button
+                onClick={() => setPageTab("pages")}
+                className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 ${
+                  pageTab === "pages"
+                    ? "bg-surface text-amber-600 shadow-ios-sm"
+                    : "text-tertiary hover:text-secondary"
+                }`}
+              >
+                Pages
+              </button>
+              <button
+                onClick={() => setPageTab("api")}
+                className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 ${
+                  pageTab === "api"
+                    ? "bg-surface text-amber-600 shadow-ios-sm"
+                    : "text-tertiary hover:text-secondary"
+                }`}
+              >
+                API
+              </button>
+            </div>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter pages..."
+              className="input text-xs w-48 px-3 py-1.5 rounded-lg border border-strong"
+            />
+          </div>
+
+          {catalog && (() => {
+            const filtered = Object.entries(catalog.pages).reduce<[string, CatalogItem[]][]>((acc, [category, items]) => {
+              const isApi = (p: string) => p.startsWith("/api/")
+              const matched = items.filter((item) => {
+                if (pageTab === "api" && !isApi(item.path)) return false
+                if (pageTab === "pages" && isApi(item.path)) return false
+                const lockedFilter = !(group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)) || selectedPages.includes(item.path)
+                if (!lockedFilter) return false
+                if (!search.trim()) return true
+                const q = search.toLowerCase()
                 return (
+                  item.label.toLowerCase().includes(q) ||
+                  item.path.toLowerCase().includes(q) ||
+                  item.description.toLowerCase().includes(q)
+                )
+              })
+              if (matched.length === 0) return acc
+              acc.push([category, matched])
+              return acc
+            }, [])
+
+            return filtered.length === 0 ? (
+              <p className="text-sm text-tertiary text-center py-8">No pages found.</p>
+            ) : (
+              <div className="space-y-1 mb-3">
+                {filtered.map(([category, items]) => (
                   <div key={category}>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary mb-1 mt-2 first:mt-0">
                       {category}
                     </p>
-                    {visible.map((item) => {
+                    {items.map((item) => {
                       const locked = group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)
                       return (
                         <label
@@ -208,10 +257,10 @@ export default function EditAccessGroupPage() {
                       )
                     })}
                   </div>
-                )
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            )
+          })()}
           <p className="text-[10px] text-tertiary mt-1">Child routes are automatically allowed.</p>
         </div>
 
