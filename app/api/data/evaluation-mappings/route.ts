@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       .from("faculty_subjects")
       .select(`
         id,
+        "semesterId",
         faculty:faculty_id (id, name, email, "departmentId"),
         subject:subject_id (id, code, name),
         section:section_id (id, name, program)
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       .from("student_enrollments")
       .select(`
         id,
+        "semesterId",
         student:student_id (id, name, email),
         section:section_id (id, name, program),
         faculty_subject:faculty_subject_id (

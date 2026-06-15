@@ -16,6 +16,8 @@ export function EnrollmentsTab() {
   const [locked, setLocked] = useState("")
   const [search, setSearch] = useState("")
 
+  const [activeSemesterId, setActiveSemesterId] = useState<string>("")
+
   // ── CSV Import state ─────────────────────────────────────
   const csvFileRef = useRef<HTMLInputElement>(null)
   const [csvFsId, setCsvFsId] = useState("")
@@ -47,6 +49,16 @@ export function EnrollmentsTab() {
   }, [])
 
   useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
+
+  useEffect(() => {
+    fetch("/api/evaluation-periods")
+      .then((r) => r.json())
+      .then((d) => {
+        const active = (d.periods || []).find((p: { isActive: boolean }) => p.isActive)
+        if (active) setActiveSemesterId(active.id)
+      })
+      .catch(() => {})
+  }, [])
 
   const { data: fsData } = useApiGet<{ data: FacultyMapping[] }>("/api/data/evaluation-mappings?type=faculty")
   const facultySubjects = fsData?.data ?? []
@@ -94,7 +106,7 @@ export function EnrollmentsTab() {
       const res = await fetch("/api/admin/student-enrollments/csv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ faculty_subject_id: csvFsId, rows: csvRows }),
+        body: JSON.stringify({ faculty_subject_id: csvFsId, rows: csvRows, semesterId: activeSemesterId || null }),
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Import failed") }
       const result = await res.json()
@@ -141,7 +153,7 @@ export function EnrollmentsTab() {
       const res = await fetch("/api/admin/student-enrollments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: formName, email: formEmail, faculty_subject_id: csvFsId }),
+        body: JSON.stringify({ name: formName, email: formEmail, faculty_subject_id: csvFsId, semesterId: activeSemesterId || null }),
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to add enrollment") }
       setFormName(""); setFormEmail(""); setShowQuickAdd(false)
@@ -181,6 +193,8 @@ export function EnrollmentsTab() {
   const [selectedStudentEnrollments, setSelectedStudentEnrollments] = useState<Enrollment[] | null>(null)
   const enrolledPagination = usePagination(selectedStudentEnrollments ?? [], 25)
 
+  const hasNullSemesterId = data?.some((e) => !e.semesterId) ?? false
+
   const domainOk = (email: string) => email.endsWith("@itmlyceumalabang.onmicrosoft.com")
 
   const paginatedCsvRows = csvRows
@@ -216,6 +230,12 @@ export function EnrollmentsTab() {
           </select>
         </div>
 
+        {!activeSemesterId && (
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
+            <span>⚠️</span>
+            <span>No active semester — semesterId will be null, evaluations won't work.</span>
+          </div>
+        )}
         {!csvFsId && (
           <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
             Select a subject above to begin.
@@ -452,6 +472,12 @@ export function EnrollmentsTab() {
           ENROLLMENT TABLE
          ═══════════════════════════════════════════════════ */}
       <div className="card p-4 sm:p-6 space-y-4">
+        {hasNullSemesterId && (
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
+            <span>⚠️</span>
+            <span>Some enrollments are missing semesterId — affected students won't see faculty to evaluate.</span>
+          </div>
+        )}
         <SearchInput value={search} onChange={setSearch} placeholder="Search by student name, email, section, subject, or faculty..." />
         {loading && !data ? (
           <SkeletonTable rows={4} cols={3} />
@@ -532,7 +558,10 @@ export function EnrollmentsTab() {
                   {enrolledPagination.paginatedItems.map((enr, i) => (
                     <tr key={enr.id}>
                       <td className="text-tertiary">{i + 1}</td>
-                      <td className="text-secondary">{enr.section.program}-{enr.section.name}</td>
+                      <td className="text-secondary">
+                        {enr.section.program}-{enr.section.name}
+                        {!enr.semesterId && <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">no semester</span>}
+                      </td>
                       <td>
                         {enr.faculty_subject ? (
                           <span className="font-medium text-secondary">{enr.faculty_subject.subject.code} - {enr.faculty_subject.subject.name}</span>
@@ -555,7 +584,7 @@ export function EnrollmentsTab() {
                   <div key={enr.id} className="flex items-center gap-3 px-2 py-2 rounded-lg bg-surface-hover/50 text-xs">
                     <span className="text-tertiary font-mono w-5 shrink-0 text-right">{i + 1}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-secondary truncate">{enr.section.program}-{enr.section.name}</p>
+                      <p className="font-semibold text-secondary truncate">{enr.section.program}-{enr.section.name}{!enr.semesterId && <span className="ml-1.5 text-[10px] font-semibold text-amber-600">⚠️</span>}</p>
                       <p className="text-tertiary truncate">
                         {enr.faculty_subject ? (
                           <>{enr.faculty_subject.subject.code} - {enr.faculty_subject.subject.name} · {enr.faculty_subject.faculty.name}</>

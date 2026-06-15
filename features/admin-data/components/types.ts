@@ -13,6 +13,7 @@ export interface Section {
 
 export interface FacultyMapping {
   id: string
+  semesterId: string | null
   faculty: { id: string; name: string; email: string; departmentId: string | null }
   subject: { id: string; code: string; name: string }
   section: { id: string; name: string; program: string }
@@ -20,6 +21,7 @@ export interface FacultyMapping {
 
 export interface Enrollment {
   id: string
+  semesterId: string | null
   student: { id: string; name: string; email: string }
   section: { id: string; name: string; program: string }
   faculty_subject_id: string | null

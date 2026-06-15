@@ -42,6 +42,7 @@ function FacultyTab() {
   const [formError, setFormError] = useState("")
   const [formSuccess, setFormSuccess] = useState("")
 
+  const [activeSemesterId, setActiveSemesterId] = useState<string>("")
   const tableRef = useRef<HTMLDivElement>(null)
 
   // ── Department filter ────────────────────────────────────
@@ -62,6 +63,16 @@ function FacultyTab() {
   }, [])
 
   useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
+
+  useEffect(() => {
+    fetch("/api/evaluation-periods")
+      .then((r) => r.json())
+      .then((d) => {
+        const active = (d.periods || []).find((p: { isActive: boolean }) => p.isActive)
+        if (active) setActiveSemesterId(active.id)
+      })
+      .catch(() => {})
+  }, [])
 
   // Get current user info for department restriction
   useEffect(() => {
@@ -119,7 +130,7 @@ function FacultyTab() {
       const res = await fetch("/api/admin/faculty-subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ faculty_id: formFaculty, subject_id: formSubject, section_id: formSection }),
+        body: JSON.stringify({ faculty_id: formFaculty, subject_id: formSubject, section_id: formSection, semesterId: activeSemesterId || null }),
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to add mapping") }
       setFormFaculty(""); setFormSubject(""); setFormSection("")
@@ -129,6 +140,8 @@ function FacultyTab() {
     } catch (err) { setFormError((err as Error).message) }
     finally { setFormSaving(false) }
   }
+
+  const hasNullSemesterId = data?.some((m) => !m.semesterId) ?? false
 
   const byDept = data?.filter((m) => {
     if (deptFilter === "all") return true
@@ -178,6 +191,7 @@ function FacultyTab() {
         <h2 className="text-sm font-bold text-secondary">Add Faculty-Subject Mapping</h2>
         {formError && <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded">{formError}</p>}
         {formSuccess && <p className="text-xs font-medium text-green-600 bg-green-50 p-2 rounded">{formSuccess}</p>}
+        {!activeSemesterId && <p className="text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded flex items-center gap-2"><span>⚠️</span> No active semester — semesterId will be null, evaluations won't work.</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-semibold text-tertiary mb-1">Faculty</label>
@@ -228,6 +242,12 @@ function FacultyTab() {
           })}
         </div>
 
+        {hasNullSemesterId && (
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
+            <span>⚠️</span>
+            <span>Some mappings are missing semesterId — affected faculty won't appear in student evaluations.</span>
+          </div>
+        )}
         <SearchInput value={search} onChange={(v) => { setSearch(v) }} placeholder="Search by faculty name, email, subject code, or section..." />
         {loading && !data ? (
           <SkeletonTable rows={4} cols={3} />
@@ -328,7 +348,10 @@ function FacultyTab() {
                           <span className="text-tertiary ml-1">- {m.subject.name}</span>
                         </td>
                         <td className="text-secondary">{m.section.program}-{m.section.name}</td>
-                        <td className="text-center font-semibold text-secondary">{hc}</td>
+                        <td className="text-center font-semibold text-secondary">
+                          {hc}
+                          {!m.semesterId && <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">no semester</span>}
+                        </td>
                       </tr>
                     )
                   })}
@@ -344,7 +367,7 @@ function FacultyTab() {
                         <p className="font-semibold text-secondary truncate">{m.subject.code} - {m.subject.name}</p>
                         <p className="text-tertiary truncate">{m.section.program}-{m.section.name}</p>
                       </div>
-                      <span className="shrink-0 text-right text-xs font-semibold text-secondary">{hc} student{hc !== 1 ? "s" : ""}</span>
+                        <span className="shrink-0 text-right text-xs font-semibold text-secondary">{hc} student{hc !== 1 ? "s" : ""}{!m.semesterId && <span className="ml-1 text-[10px] font-semibold text-amber-600">⚠️</span>}</span>
                     </div>
                   )
                 })}

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (authErr) return authErr
 
   try {
-    const { faculty_subject_id, rows } = await request.json()
+    const { faculty_subject_id, rows, semesterId } = await request.json()
     if (!faculty_subject_id) {
       return NextResponse.json({ error: "faculty_subject_id is required" }, { status: 400 })
     }
@@ -42,9 +42,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "rows must be a non-empty array" }, { status: 400 })
     }
 
-    const { data: fs } = await supabase.from("faculty_subjects").select("section_id").eq("id", faculty_subject_id).single()
+    const { data: fs } = await supabase.from("faculty_subjects").select(`section_id, "semesterId"`).eq("id", faculty_subject_id).single()
     if (!fs) return NextResponse.json({ error: "Faculty-subject mapping not found" }, { status: 404 })
     const section_id = fs.section_id
+    const resolvedSemesterId = semesterId || fs.semesterId || null
 
     const result: ImportResult = { matched: 0, created: 0, errors: [] }
 
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
         student_id: studentId,
         section_id,
         faculty_subject_id,
+        semesterId: resolvedSemesterId,
       })
       if (insErr) {
         if (insErr.code === "23505") {
