@@ -377,6 +377,7 @@
 }
 
 @layer utilities {
+  .border { border-width: 0; }
   .bg-surface { background-color: var(--color-surface); }
   .bg-surface-muted { background-color: var(--color-surface-muted); }
   .bg-surface-hover { background-color: var(--color-surface-hover); }
