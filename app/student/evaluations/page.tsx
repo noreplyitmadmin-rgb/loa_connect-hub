@@ -49,10 +49,10 @@ export default function StudentEvaluationsPage() {
   }
 
   useEffect(() => {
-    Promise.resolve().then(async () => {
+    async function loadData() {
       try {
         const periodRes = await fetch("/api/evaluation-periods")
-        if (periodRes.status === 403) { setLockedEndpoint("/api/evaluation-periods"); setLoading(false); return }
+        if (periodRes.status === 403) { setLockedEndpoint("/api/evaluation-periods"); return }
         const periodData = await periodRes.json()
         const active = (periodData.periods || []).find((p: { isActive: boolean }) => p.isActive)
         if (active?.evalStartDate && active?.evalEndDate) {
@@ -84,8 +84,8 @@ export default function StudentEvaluationsPage() {
           fetch("/api/evaluations/pending"),
           fetch("/api/evaluations"),
         ])
-        if (pendingRes.status === 403) { setLockedEndpoint("/api/evaluations/pending"); setLoading(false); return }
-        if (evalRes.status === 403) { setLockedEndpoint("/api/evaluations"); setLoading(false); return }
+        if (pendingRes.status === 403) { setLockedEndpoint("/api/evaluations/pending"); return }
+        if (evalRes.status === 403) { setLockedEndpoint("/api/evaluations"); return }
         const [pendingData, evalData] = await Promise.all([pendingRes.json(), evalRes.json()])
         setPending(pendingData.pending || [])
         setEvaluations(evalData.evaluations || [])
@@ -94,7 +94,14 @@ export default function StudentEvaluationsPage() {
       } finally {
         setLoading(false)
       }
-    })
+    }
+    Promise.resolve().then(loadData)
+
+    try {
+      const ch = new BroadcastChannel("eval-updates")
+      ch.onmessage = () => loadData()
+      return () => ch.close()
+    } catch {}
   }, [])
 
   const total = pending.length + evaluations.length

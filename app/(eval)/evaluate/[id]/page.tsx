@@ -179,6 +179,7 @@ export default function StandaloneEvaluationPage() {
       }
       const submitRes = await fetch(`/api/evaluations/${evaluationId}/submit`, { method: "POST" })
       if (submitRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
+      try { new BroadcastChannel("eval-updates").postMessage({ type: "submitted" }) } catch {}
       router.replace("/student/evaluations/thank-you")
     } catch {
       setErrorMessage("Failed to submit evaluation")
