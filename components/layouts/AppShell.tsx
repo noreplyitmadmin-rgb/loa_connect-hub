@@ -12,14 +12,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { collapsed, exclusive } = useSidebar()
   const { title } = usePageTitle()
 
+  const isStandalonePage =
+    pathname.startsWith("/change-password") ||
+    pathname.startsWith("/setup-password") ||
+    pathname.startsWith("/evaluate")
+
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/activate" ||
-    pathname === "/forgot-password" ||
-    pathname.startsWith("/change-password") ||
-    pathname.startsWith("/setup-password")
+    pathname === "/forgot-password"
 
-  const hidden = isAuthPage || exclusive
+  const hidden = isAuthPage || isStandalonePage || exclusive
 
   return (
     <div className="flex dvh-screen overflow-x-hidden bg-surface-muted">

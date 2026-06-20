@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
     pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results", "/faq"],
   },
   STUDENT: {
-    pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/faq"],
+    pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/evaluate", "/faq"],
   },
   GUEST: {
     pages: [],
