@@ -199,7 +199,7 @@ export default function StudentEvaluationsPage() {
                       })
                       if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
                       const data = await res.json()
-                      if (data.evaluation?.id) window.open(`/evaluate/${data.evaluation.id}`, "_blank")
+                      if (data.evaluation?.id) { window.open(`/evaluate/${data.evaluation.id}`, "_blank"); setNavigatingId(null) }
                   } catch {
                     setNavigatingId(null)
                   }
@@ -256,7 +256,7 @@ export default function StudentEvaluationsPage() {
                       if (ev.status === "SUBMITTED") {
                         router.push(`/student/evaluations/${data.evaluation.id}`)
                       } else {
-                        window.open(`/evaluate/${data.evaluation.id}`, "_blank")
+                        window.open(`/evaluate/${data.evaluation.id}`, "_blank"); setNavigatingId(null)
                       }
                     }
                   } catch {
