@@ -111,6 +111,9 @@ export async function proxy(request: NextRequest) {
   // Authenticated non-admin API requests are allowed by default
   if (pathname.startsWith("/api/")) return NextResponse.next();
 
+  // Standalone evaluation page — any authenticated student can access
+  if (pathname.startsWith("/evaluate")) return NextResponse.next();
+
   // Layer 2: DB access-config merged with defaults
   const config = await loadAccessConfig();
   const entry = config[group];
