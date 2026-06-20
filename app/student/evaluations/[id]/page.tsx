@@ -247,6 +247,8 @@ export default function FillEvaluationPage() {
       }
       const submitRes = await fetch(`/api/evaluations/${evaluationId}/submit`, { method: "POST" })
       if (submitRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
+      setIsSubmitted(true)
+      setSubmittedAt(new Date().toISOString())
       router.replace("/student/evaluations/thank-you")
     } catch {
       setErrorMessage("Failed to submit evaluation")
