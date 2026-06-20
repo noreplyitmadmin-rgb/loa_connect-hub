@@ -1,6 +1,9 @@
+import { BayesClassifier } from "natural"
+import seedData from "./sentiment-seed.json"
+
 export interface SentimentResult {
   sentimentScore: number
-  sentimentLabel: "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED"
+  sentimentLabel: "positive" | "negative" | "neutral"
 }
 
 export interface SentimentSummary {
@@ -10,8 +13,28 @@ export interface SentimentSummary {
   averageScore: number | null
 }
 
-export async function analyzeComment(_comment: string): Promise<SentimentResult> {
-  return { sentimentScore: 0.75, sentimentLabel: "POSITIVE" }
+let classifier: BayesClassifier | null = null
+
+function getClassifier(): BayesClassifier {
+  if (!classifier) {
+    classifier = new BayesClassifier()
+    for (const doc of seedData as { text: string; label: string }[]) {
+      classifier.addDocument(doc.text.toLowerCase(), doc.label)
+    }
+    classifier.train()
+  }
+  return classifier
+}
+
+export async function analyzeComment(text: string): Promise<SentimentResult> {
+  const cl = getClassifier()
+  const classifications = cl.getClassifications(text.toLowerCase())
+  const byLabel = Object.fromEntries(classifications.map((c) => [c.label, c.value]))
+  const positive = byLabel["positive"] ?? 0
+  const negative = byLabel["negative"] ?? 0
+  const score = parseFloat((positive - negative).toFixed(4))
+  const top = classifications.reduce((best, c) => (c.value > best.value ? c : best))
+  return { sentimentScore: score, sentimentLabel: top.label as SentimentResult["sentimentLabel"] }
 }
 
 export async function batchAnalyze(_periodId?: string): Promise<number> {

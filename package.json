@@ -15,6 +15,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "natural": "^8.1.1",
     "next": "16.2.6",
     "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",

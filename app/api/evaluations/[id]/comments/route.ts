@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { addEvaluationComment, getEvaluationComment, getEvaluationIfOwner } from "@/features/evaluations/evaluations.service"
+import { analyzeEvaluationComment } from "@/features/reports/sentiment.service"
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -30,6 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!evaluation) return NextResponse.json({ error: "Not found" }, { status: 404 })
     const { comment } = await request.json()
     const created = await addEvaluationComment(id, comment)
+    analyzeEvaluationComment(id, comment).catch(() => {})
     return NextResponse.json({ comment: created }, { status: 201 })
   } catch {
     return NextResponse.json({ error: "Failed to add comment" }, { status: 500 })
