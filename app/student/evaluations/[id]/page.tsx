@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { usePageTitle } from "@/lib/contexts/page-title"
-import { SentimentBadge } from "@/features/evaluations/components/evaluation/SentimentBadge"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
@@ -32,8 +31,6 @@ export default function EvaluationResultsPage() {
   const [ratings, setRatings] = useState<Record<string, number>>({})
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
   const [existingComment, setExistingComment] = useState<string | null>(null)
-  const [sentimentLabel, setSentimentLabel] = useState<string | null>(null)
-  const [sentimentScore, setSentimentScore] = useState<number | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
@@ -83,11 +80,7 @@ export default function EvaluationResultsPage() {
         const commentRes = await fetch(`/api/evaluations/${ev.id}/comments`)
         if (commentRes.status === 403) { setLockedEndpoint(`/api/evaluations/${ev.id}/comments`); return }
         const commentData = await commentRes.json()
-        if (commentData.comment) {
-          setExistingComment(commentData.comment.comment || null)
-          setSentimentLabel(commentData.comment.sentimentLabel || null)
-          setSentimentScore(commentData.comment.sentimentScore ?? null)
-        }
+        if (commentData.comment) setExistingComment(commentData.comment.comment || null)
 
         const periodRes = await fetch("/api/evaluation-periods")
         if (periodRes.status === 403) { setLockedEndpoint("/api/evaluation-periods"); return }
@@ -222,10 +215,7 @@ export default function EvaluationResultsPage() {
               {existingComment && (
                 <div className="bg-surface rounded-2xl overflow-hidden shadow-sm border border-default">
                   <div className="p-5 sm:p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-base font-bold text-primary">Feedback</h3>
-                      <SentimentBadge label={sentimentLabel} score={sentimentScore} />
-                    </div>
+                    <h3 className="text-base font-bold text-primary mb-2">Feedback</h3>
                     <p className="text-sm text-secondary leading-relaxed whitespace-pre-wrap">{existingComment}</p>
                   </div>
                 </div>

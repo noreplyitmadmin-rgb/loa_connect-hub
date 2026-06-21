@@ -6,6 +6,7 @@ import { SkeletonCard } from "@/components/ui/Skeleton"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import { SentimentBadge } from "@/features/evaluations/components/evaluation/SentimentBadge"
 
 interface CommentRow {
   id: string
@@ -15,18 +16,27 @@ interface CommentRow {
   evaluation: { evaluateeId: string; semesterId: string }
 }
 
+const DISPLAY_ORDER = ["positive", "negative", "neutral", "mixed"]
+
+const DISPLAY_LABELS: Record<string, string> = {
+  positive: "Positive",
+  negative: "Negative",
+  neutral: "Needs Review",
+  mixed: "Needs Review",
+}
+
 const SENTIMENT_COLORS: Record<string, string> = {
-  POSITIVE: "bg-emerald-100 text-emerald-700 border-emerald-300",
-  NEGATIVE: "bg-red-100 text-red-700 border-red-300",
-  NEUTRAL: "bg-slate-100 text-slate-600 border-slate-300",
-  MIXED: "bg-amber-100 text-amber-700 border-amber-300",
+  positive: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  negative: "bg-red-100 text-red-700 border-red-300",
+  neutral: "bg-amber-100 text-amber-700 border-amber-300",
+  mixed: "bg-amber-100 text-amber-700 border-amber-300",
 }
 
 const SENTIMENT_BG: Record<string, string> = {
-  POSITIVE: "bg-emerald-500",
-  NEGATIVE: "bg-red-500",
-  NEUTRAL: "bg-slate-500",
-  MIXED: "bg-amber-500",
+  positive: "bg-emerald-500",
+  negative: "bg-red-500",
+  neutral: "bg-amber-500",
+  mixed: "bg-amber-500",
 }
 
 interface Semester {
@@ -83,7 +93,7 @@ export default function SentimentAnalysisPage() {
   }, [selectedSemester])
 
   const filteredComments = filter
-    ? comments.filter((c) => c.sentimentLabel === filter)
+    ? comments.filter((c) => (c.sentimentLabel || "").toLowerCase() === filter)
     : comments
 
   if (loading) {
@@ -112,17 +122,17 @@ export default function SentimentAnalysisPage() {
     )
   }
 
-  const labelCounts = { POSITIVE: 0, NEGATIVE: 0, NEUTRAL: 0, MIXED: 0 }
-  const labelKeys = Object.keys(labelCounts)
+  const labelCounts: Record<string, number> = {}
   for (const c of comments) {
-    const key = (c.sentimentLabel || "NEUTRAL") as keyof typeof labelCounts
-    if (key in labelCounts) labelCounts[key]++
+    const key = (c.sentimentLabel || "neutral").toLowerCase()
+    labelCounts[key] = (labelCounts[key] || 0) + 1
   }
   const total = comments.length
-  const distribution = labelKeys.map((label) => ({
-    label,
-    count: labelCounts[label as keyof typeof labelCounts],
-    percentage: total > 0 ? Math.round((labelCounts[label as keyof typeof labelCounts] / total) * 100) : 0,
+  const distribution = DISPLAY_ORDER.map((key) => ({
+    key,
+    label: DISPLAY_LABELS[key] || key,
+    count: labelCounts[key] || 0,
+    percentage: total > 0 ? Math.round(((labelCounts[key] || 0) / total) * 100) : 0,
   }))
   const maxCount = Math.max(...distribution.map((d) => d.count), 1)
 
@@ -148,8 +158,8 @@ export default function SentimentAnalysisPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {distribution.map((d) => (
-          <div key={d.label} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-            <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${SENTIMENT_COLORS[d.label]?.split(" ")[0] ?? ""} inline-block px-2 py-0.5 rounded-full`}>
+          <div key={d.key} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${SENTIMENT_COLORS[d.key]?.split(" ")[0] ?? ""} inline-block px-2 py-0.5 rounded-full`}>
               {d.label}
             </p>
             <p className="text-2xl font-bold text-primary mt-1">{d.count}</p>
@@ -162,13 +172,13 @@ export default function SentimentAnalysisPage() {
         <h3 className="text-sm font-bold text-primary mb-4">Distribution</h3>
         <div className="space-y-3">
           {distribution.map((d) => (
-            <div key={d.label} className="flex items-center gap-3">
-              <span className={`text-xs font-semibold w-20 ${SENTIMENT_COLORS[d.label]?.split(" ")[0] ?? ""}`}>
+            <div key={d.key} className="flex items-center gap-3">
+              <span className={`text-xs font-semibold w-24 ${SENTIMENT_COLORS[d.key]?.split(" ")[0] ?? ""}`}>
                 {d.label}
               </span>
               <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-700 ${SENTIMENT_BG[d.label] ?? "bg-slate-500"}`}
+                  className={`h-full rounded-full transition-all duration-700 ${SENTIMENT_BG[d.key] ?? "bg-slate-500"}`}
                   style={{ width: `${maxCount > 0 ? (d.count / maxCount) * 100 : 0}%` }}
                 />
               </div>
@@ -182,17 +192,17 @@ export default function SentimentAnalysisPage() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-bold text-primary">Comments</h3>
           <div className="flex gap-2">
-            {["ALL", "POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].map((l) => (
+            {[{ key: "all", label: "All" }, ...DISPLAY_ORDER.map((k) => ({ key: k, label: DISPLAY_LABELS[k] }))].map((item) => (
               <button
-                key={l}
-                onClick={() => setFilter(l === "ALL" ? null : l)}
+                key={item.key}
+                onClick={() => setFilter(item.key === "all" ? null : item.key)}
                 className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                  (l === "ALL" && !filter) || filter === l
+                  (item.key === "all" && !filter) || filter === item.key
                     ? "bg-blue-100 border-blue-300 text-blue-700"
                     : "bg-white border-slate-200 text-tertiary hover:border-slate-300"
                 }`}
               >
-                {l === "ALL" ? "All" : l.charAt(0) + l.slice(1).toLowerCase()}
+                {item.label}
               </button>
             ))}
           </div>
@@ -205,11 +215,7 @@ export default function SentimentAnalysisPage() {
               <div key={c.id} className="bg-white rounded-xl border border-slate-200 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm text-primary whitespace-pre-wrap">{c.comment}</p>
-                  {c.sentimentLabel && (
-                    <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${SENTIMENT_COLORS[c.sentimentLabel] ?? ""}`}>
-                      {c.sentimentLabel}
-                    </span>
-                  )}
+                  <SentimentBadge label={c.sentimentLabel} />
                 </div>
               </div>
             ))}
