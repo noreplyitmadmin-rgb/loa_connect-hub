@@ -303,6 +303,8 @@ export interface StudentBreakdownItem {
   assessmentAndFeedback: number | null
   generalRating: number | null
   comment: string | null
+  sentimentLabel: string | null
+  sentimentScore: number | null
 }
 
 export interface FacultyEvalDetail {

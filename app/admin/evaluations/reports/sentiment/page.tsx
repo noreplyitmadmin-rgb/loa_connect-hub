@@ -7,19 +7,6 @@ import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
-interface DistributionItem {
-  label: string
-  count: number
-  percentage: number
-}
-
-interface SentimentSummary {
-  totalComments: number
-  analyzed: number
-  distribution: DistributionItem[]
-  averageScore: number | null
-}
-
 interface CommentRow {
   id: string
   comment: string
@@ -42,9 +29,15 @@ const SENTIMENT_BG: Record<string, string> = {
   MIXED: "bg-amber-500",
 }
 
+interface Semester {
+  id: string
+  title: string
+}
+
 export default function SentimentAnalysisPage() {
-  const [summary, setSummary] = useState<SentimentSummary | null>(null)
   const [comments, setComments] = useState<CommentRow[]>([])
+  const [semesters, setSemesters] = useState<Semester[]>([])
+  const [selectedSemester, setSelectedSemester] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string | null>(null)
   const [lockedEndpoint, setLockedEndpoint] = useState("")
@@ -53,13 +46,13 @@ export default function SentimentAnalysisPage() {
   useEffect(() => {
     Promise.resolve().then(async () => {
       try {
-        const [sumRes, comRes] = await Promise.all([
-          fetch("/api/sentiment-analysis/summary"),
+        const [perRes, comRes] = await Promise.all([
+          fetch("/api/evaluation-periods"),
           fetch("/api/evaluation-comments"),
         ])
-        if (sumRes.status === 403) {
-          const data = await sumRes.json()
-          setLockedEndpoint(data.endpoint || "/api/sentiment-analysis/summary")
+        if (perRes.status === 403) {
+          const data = await perRes.json()
+          setLockedEndpoint(data.endpoint || "/api/evaluation-periods")
           return
         }
         if (comRes.status === 403) {
@@ -67,8 +60,9 @@ export default function SentimentAnalysisPage() {
           setLockedEndpoint(data.endpoint || "/api/evaluation-comments")
           return
         }
-        const [sumData, comData] = await Promise.all([sumRes.json(), comRes.json()])
-        setSummary(sumData.data)
+        const [perData, comData] = await Promise.all([perRes.json(), comRes.json()])
+        setSemesters(perData.periods || [])
+        if (perData.periods?.length > 0) setSelectedSemester(perData.periods[0].id)
         setComments(comData.comments || [])
       } catch {
         setErrorMessage("Failed to load sentiment data")
@@ -77,6 +71,16 @@ export default function SentimentAnalysisPage() {
       }
     })
   }, [])
+
+  useEffect(() => {
+    if (!selectedSemester) return
+    Promise.resolve().then(async () => {
+      const res = await fetch(`/api/evaluation-comments?semesterId=${selectedSemester}`)
+      if (!res.ok) return
+      const data = await res.json()
+      setComments(data.comments || [])
+    })
+  }, [selectedSemester])
 
   const filteredComments = filter
     ? comments.filter((c) => c.sentimentLabel === filter)
@@ -108,20 +112,42 @@ export default function SentimentAnalysisPage() {
     )
   }
 
-  const maxCount = summary ? Math.max(...summary.distribution.map((d) => d.count), 1) : 1
+  const labelCounts = { POSITIVE: 0, NEGATIVE: 0, NEUTRAL: 0, MIXED: 0 }
+  const labelKeys = Object.keys(labelCounts)
+  for (const c of comments) {
+    const key = (c.sentimentLabel || "NEUTRAL") as keyof typeof labelCounts
+    if (key in labelCounts) labelCounts[key]++
+  }
+  const total = comments.length
+  const distribution = labelKeys.map((label) => ({
+    label,
+    count: labelCounts[label as keyof typeof labelCounts],
+    percentage: total > 0 ? Math.round((labelCounts[label as keyof typeof labelCounts] / total) * 100) : 0,
+  }))
+  const maxCount = Math.max(...distribution.map((d) => d.count), 1)
 
   return (
     <ErrorBoundary>
     <div className="w-full space-y-8 pb-12">
-      <div>
-        <h1 className="text-xl font-bold text-primary">Sentiment Analysis</h1>
-        <p className="text-sm text-tertiary mt-1">
-          {summary?.analyzed ?? 0} comments analyzed
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-primary">Sentiment Analysis</h1>
+          <p className="text-sm text-tertiary mt-1">{total} comments analyzed</p>
+        </div>
+        <select
+          value={selectedSemester}
+          onChange={(e) => setSelectedSemester(e.target.value)}
+          className="text-sm border border-default rounded-lg px-3 py-1.5 bg-surface text-primary"
+        >
+          <option value="">All Semesters</option>
+          {semesters.map((s) => (
+            <option key={s.id} value={s.id}>{s.title}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {summary?.distribution.map((d) => (
+        {distribution.map((d) => (
           <div key={d.label} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
             <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${SENTIMENT_COLORS[d.label]?.split(" ")[0] ?? ""} inline-block px-2 py-0.5 rounded-full`}>
               {d.label}
@@ -135,7 +161,7 @@ export default function SentimentAnalysisPage() {
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <h3 className="text-sm font-bold text-primary mb-4">Distribution</h3>
         <div className="space-y-3">
-          {summary?.distribution.map((d) => (
+          {distribution.map((d) => (
             <div key={d.label} className="flex items-center gap-3">
               <span className={`text-xs font-semibold w-20 ${SENTIMENT_COLORS[d.label]?.split(" ")[0] ?? ""}`}>
                 {d.label}

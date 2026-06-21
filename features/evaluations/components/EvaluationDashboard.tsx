@@ -6,6 +6,7 @@ import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import type { DepartmentData } from "@/lib/types"
+import { SentimentBadge } from "./evaluation/SentimentBadge"
 
 interface Result {
   id: string
@@ -43,6 +44,8 @@ interface StudentRow {
   assessmentAndFeedback: number | null
   generalRating: number | null
   comment: string | null
+  sentimentLabel: string | null
+  sentimentScore: number | null
 }
 
 interface EvaluationDashboardProps {
@@ -805,7 +808,7 @@ function DetailPanel({
                       <td key={c.key} className="text-center text-primary">{s[c.key] !== null ? s[c.key]!.toFixed(2) : "—"}</td>
                     ))}
                     <td className="text-center font-bold text-primary">{s.generalRating !== null ? s.generalRating.toFixed(2) : "—"}</td>
-                    <td className="text-tertiary max-w-48 truncate" title={s.comment || ""}>{s.comment || "—"}</td>
+                    <td className="text-tertiary max-w-48 truncate" title={s.comment || ""}><span className="flex items-center gap-1">{s.comment || "—"}<SentimentBadge label={s.sentimentLabel} score={s.sentimentScore} /></span></td>
                   </tr>
                 ))}
               </tbody>
@@ -827,7 +830,7 @@ function DetailPanel({
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="font-bold text-primary">Gen: {s.generalRating !== null ? s.generalRating.toFixed(2) : "—"}</span>
-                  <span className="text-tertiary truncate max-w-[60%]" title={s.comment || ""}>{s.comment || "—"}</span>
+                  <span className="text-tertiary truncate max-w-[60%]" title={s.comment || ""}><span className="flex items-center gap-1">{s.comment || "—"}<SentimentBadge label={s.sentimentLabel} score={s.sentimentScore} /></span></span>
                 </div>
               </div>
             ))}

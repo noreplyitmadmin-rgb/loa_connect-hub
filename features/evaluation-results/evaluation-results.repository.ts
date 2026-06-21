@@ -202,7 +202,7 @@ export async function getStudentBreakdownsForFaculty(
           rubric_categories!inner(name)
         )
       ),
-      evaluation_comments(comment)
+      evaluation_comments(comment, sentimentLabel, sentimentScore)
     `)
     .eq("semesterId", semesterId)
     .eq("evaluateeId", facultyId)
@@ -215,7 +215,7 @@ export async function getStudentBreakdownsForFaculty(
       rating: number
       rubric_items: { categoryId: string; rubric_categories: { name: string } }
     }>
-    const comments = (ev.evaluation_comments || []) as Array<{ comment: string }>
+    const comments = (ev.evaluation_comments || []) as Array<{ comment: string; sentimentLabel: string | null; sentimentScore: number | null }>
 
     const catScores: Record<string, number[]> = {}
     for (const r of ratings) {
@@ -235,6 +235,8 @@ export async function getStudentBreakdownsForFaculty(
       assessmentAndFeedback: null,
       generalRating: null,
       comment: comments.length > 0 ? comments[0].comment : null,
+      sentimentLabel: comments.length > 0 ? comments[0].sentimentLabel : null,
+      sentimentScore: comments.length > 0 ? comments[0].sentimentScore : null,
     }
 
     let catAvgSum = 0

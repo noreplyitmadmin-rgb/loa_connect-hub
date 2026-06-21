@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { searchParams } = new URL(request.url)
-  const periodId = searchParams.get("periodId")
+  const semesterId = searchParams.get("semesterId")
   const sentimentLabel = searchParams.get("sentimentLabel")
 
   let q = supabase.from("evaluation_comments").select("*, evaluation:evaluations!inner(*)")
-  if (periodId) q = q.eq("evaluation.periodId", periodId)
+  if (semesterId) q = q.eq("evaluation.semesterId", semesterId)
   if (sentimentLabel) q = q.eq("sentimentLabel", sentimentLabel)
 
   const { data, error } = await q
