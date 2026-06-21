@@ -172,7 +172,7 @@ export default function AppointmentDetail() {
     setCompleteError("")
 
     if (actionTaken.trim().length < 20) {
-      setCompleteError("Actions taken must be at least 100 characters")
+      setCompleteError("Actions taken must be at least 20 characters")
       return
     }
 
@@ -622,8 +622,8 @@ export default function AppointmentDetail() {
                   placeholder="Describe what actions were taken during this appointment..."
                   className="input text-xs py-2 w-full resize-none"
                 />
-                <p className={`text-[10px] mt-0.5 ${actionTaken.trim().length >= 100 ? "text-emerald-600" : "text-tertiary"}`}>
-                  {actionTaken.trim().length}/100 minimum
+                <p className={`text-[10px] mt-0.5 ${actionTaken.trim().length >= 20 ? "text-emerald-600" : "text-tertiary"}`}>
+                  {actionTaken.trim().length}/20 minimum
                 </p>
               </div>
 
