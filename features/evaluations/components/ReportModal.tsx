@@ -1,7 +1,14 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { getRemark, getRemarkColor } from "./EvaluationDashboard"
+import { SentimentBadge } from "./evaluation/SentimentBadge"
+
+interface Period {
+  id: string
+  name?: string
+  title?: string
+}
 
 interface Result {
   id: string
@@ -37,9 +44,23 @@ interface StudentRow {
   sentimentScore: number | null
 }
 
-type CategoryKey = "professionalManner" | "communicationWithStudent" | "studentEngagement" | "learningMaterials" | "timeManagement" | "experientialLearning" | "respectUniqueness" | "assessmentAndFeedback"
+interface SubjectMapping {
+  id: string
+  semesterId: string | null
+  faculty: { id: string; name: string; email: string; departmentId: string | null } | null
+  subject: { id: string; code: string; name: string } | null
+  section: { id: string; name: string; program: string } | null
+}
 
-const CATEGORIES_FULL: { key: CategoryKey; label: string }[] = [
+interface DepartmentData {
+  id: string
+  name: string
+  code: string
+  deanId: string | null
+  isDisabled: boolean
+}
+
+const CATEGORIES_FULL: { key: keyof Pick<Result, "professionalManner" | "communicationWithStudent" | "studentEngagement" | "learningMaterials" | "timeManagement" | "experientialLearning" | "respectUniqueness" | "assessmentAndFeedback">; label: string }[] = [
   { key: "professionalManner", label: "Professional Manner" },
   { key: "communicationWithStudent", label: "Communication with Students" },
   { key: "studentEngagement", label: "Student Engagement" },
@@ -53,11 +74,14 @@ const CATEGORIES_FULL: { key: CategoryKey; label: string }[] = [
 interface ReportModalProps {
   isOpen: boolean
   onClose: () => void
-  departmentName: string
-  periodName: string
-  results: Result[]
-  facultyNames: Record<string, string>
-  facultyStudentData: Record<string, StudentRow[]>
+  apiBase: string
+  periods: Period[]
+  departments: DepartmentData[]
+  initialDept: string
+  initialPeriod: string
+  initialResults: Result[]
+  initialFacultyNames: Record<string, string>
+  initialStudentData: Record<string, StudentRow[]>
 }
 
 function DepartmentView({
@@ -140,110 +164,127 @@ function DepartmentView({
 export default function ReportModal({
   isOpen,
   onClose,
-  departmentName,
-  periodName,
-  results,
-  facultyNames,
-  facultyStudentData,
+  apiBase,
+  periods,
+  departments,
+  initialDept,
+  initialPeriod,
+  initialResults,
+  initialFacultyNames,
+  initialStudentData,
 }: ReportModalProps) {
   const [tab, setTab] = useState<"department" | "individual">("department")
-  const [selectedId, setSelectedId] = useState(results[0]?.facultyId ?? "")
+  const [periodId, setPeriodId] = useState(initialPeriod)
+  const [deptId, setDeptId] = useState(initialDept)
+  const [results, setResults] = useState<Result[]>(initialResults)
+  const [facultyNames, setFacultyNames] = useState<Record<string, string>>(initialFacultyNames)
+  const [facultyStudentData, setFacultyStudentData] = useState<Record<string, StudentRow[]>>(initialStudentData)
+  const [facultySubjects, setFacultySubjects] = useState<Record<string, SubjectMapping[]>>({})
+  const [fetching, setFetching] = useState(false)
 
-  const handlePrint = useCallback(async () => {
-    const selected = results.find((r) => r.facultyId === selectedId)
-    if (!selected) return
+  // Faculty search + selection in individual tab
+  const [facultySearch, setFacultySearch] = useState("")
+  const [selectedId, setSelectedId] = useState("")
+  const [showDropdown, setShowDropdown] = useState(false)
 
-    const { jsPDF } = await import("jspdf")
-    const { default: autoTable } = await import("jspdf-autotable")
-    const students = facultyStudentData[selected.facultyId] || []
-    const doc = new jsPDF("portrait")
-    const pageW = doc.internal.pageSize.getWidth()
-    const name = facultyNames[selected.facultyId] || selected.facultyId
-    const overall = selected.generalRating ?? 0
-    const remarkLabel = getRemark(overall) ?? ""
+  // Reset faculty selection when results change
+  useEffect(() => {
+    setSelectedId("")
+    setFacultySearch("")
+  }, [periodId, deptId])
 
-    doc.setFontSize(14)
-    doc.text("INDIVIDUAL FACULTY EVALUATION REPORT", pageW / 2, 15, { align: "center" })
-    doc.setFontSize(8)
-    doc.text(`Period: ${periodName}  |  Generated: ${new Date().toLocaleDateString()}`, pageW / 2, 22, { align: "center" })
-    doc.setFontSize(13)
-    doc.text(name, pageW / 2, 32, { align: "center" })
-
-    const tableBody: (string | number)[][] = [["0", "OVERALL EVALUATION RESULT", overall.toFixed(2)]]
-    CATEGORIES_FULL.forEach((c, i) => {
-      tableBody.push([String(i + 1), c.label, selected[c.key] !== null ? selected[c.key]!.toFixed(2) : "—"])
-    })
-
-    autoTable(doc, {
-      startY: 40,
-      head: [["#", "Category", "Rating"]],
-      body: tableBody,
-      theme: "grid",
-      styles: { fontSize: 9, cellPadding: 2.5, halign: "center" },
-      headStyles: { fillColor: [59, 130, 246], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "left", fontStyle: "bold" } },
-      tableWidth: "auto",
-      margin: { left: 20, right: 20 },
-    })
-    let y = doc.lastAutoTable.finalY + 8
-
-    doc.setFontSize(11)
-    doc.text("Overall Rating", pageW / 2, y, { align: "center" })
-    y += 6
-    doc.setFontSize(13)
-    doc.text(`${overall.toFixed(2)} / 5.00 – ${remarkLabel}`, pageW / 2, y, { align: "center" })
-    y += 10
-
-    const comments = students.filter((s) => s.comment?.trim())
-    if (comments.length > 0) {
-      doc.setFontSize(10)
-      doc.text("Student Comment", pageW / 2, y, { align: "center" })
-      y += 5
-      doc.setFontSize(9)
-      for (let i = 0; i < Math.min(comments.length, 30); i++) {
-        if (y > 260) { doc.addPage(); y = 20 }
-        const lines = doc.splitTextToSize(`"${comments[i].comment!.trim()}"`, pageW - 50)
-        doc.text(lines, 25, y)
-        y += lines.length * 4 + 3
-      }
-      y += 3
+  // Fetch results when period or dept changes
+  useEffect(() => {
+    if (!periodId || !isOpen) return
+    if (periodId === initialPeriod && deptId === initialDept) {
+      // Use initial data if filters match dashboard
+      setResults(initialResults)
+      setFacultyNames(initialFacultyNames)
+      setFacultyStudentData(initialStudentData)
+      return
     }
-
-    if (y > 240) { doc.addPage(); y = 20 }
-    doc.setFontSize(10)
-    doc.text("Interpretation", pageW / 2, y, { align: "center" })
-    y += 5
-    doc.setFontSize(9)
-
-    const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
-    const posCount = sentLabels.filter((l) => l === "positive").length
-    const negCount = sentLabels.filter((l) => l === "negative").length
-    const neutralCount = sentLabels.filter((l) => l === "neutral").length
-
-    let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
-    if (comments.length > 0 && posCount > negCount && posCount > 0) {
-      interp += `Student feedback was predominantly positive (${Math.round((posCount / comments.length) * 100)}% of comments), with many students expressing appreciation for the instructor's teaching approach and classroom management. `
-    } else if (comments.length > 0 && negCount > posCount && negCount > 0) {
-      interp += `Some students provided critical feedback (${Math.round((negCount / comments.length) * 100)}% of comments), suggesting areas for improvement. `
+    const fetchData = async () => {
+      setFetching(true)
+      setSelectedId("")
+      try {
+        const params = new URLSearchParams({ periodId })
+        if (deptId) params.set("departmentId", deptId)
+        const res = await fetch(`${apiBase}?${params}&_=${Date.now()}`)
+        if (!res.ok) return
+        const data = await res.json()
+        setResults(data.results || [])
+        setFacultyNames(data.facultyNames || {})
+        setFacultyStudentData({})
+      } catch { /* ignore */ }
+      setFetching(false)
     }
-    if (comments.length > 0 && neutralCount > 0) {
-      interp += `A portion of comments were neutral or mixed. `
-    }
-    interp += `The results reflect the collective assessment of ${selected.totalRespondents} student respondent(s).`
+    fetchData()
+  }, [periodId, deptId, isOpen, apiBase, initialPeriod, initialDept, initialResults, initialFacultyNames, initialStudentData])
 
-    doc.text(doc.splitTextToSize(interp, pageW - 50), 25, y)
-    doc.autoPrint()
-    doc.output("dataurlnewwindow")
-  }, [results, selectedId, facultyNames, periodName, facultyStudentData])
+  // Fetch student details for selected faculty
+  const fetchStudentDetails = useCallback(async (facultyId: string) => {
+    if (facultyStudentData[facultyId]) return facultyStudentData[facultyId]
+    try {
+      const res = await fetch(`/api/dean/evaluation-results/details?periodId=${periodId}&facultyId=${facultyId}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      const students = data.students || []
+      setFacultyStudentData((prev) => ({ ...prev, [facultyId]: students }))
+      return students
+    } catch { return [] }
+  }, [periodId, facultyStudentData])
+
+  // Fetch subjects for selected faculty
+  const fetchSubjects = useCallback(async (facultyId: string) => {
+    if (facultySubjects[facultyId]) return
+    try {
+      const res = await fetch(`/api/data/evaluation-mappings?type=faculty`)
+      if (!res.ok) return
+      const data = await res.json()
+      const filtered = (data.data || []).filter(
+        (m: SubjectMapping) => m.faculty?.id === facultyId && m.semesterId === periodId
+      )
+      setFacultySubjects((prev) => ({ ...prev, [facultyId]: filtered }))
+    } catch { /* ignore */ }
+  }, [periodId, facultySubjects])
+
+  // When faculty selected, load details + subjects
+  useEffect(() => {
+    if (!selectedId) return
+    fetchStudentDetails(selectedId)
+    fetchSubjects(selectedId)
+  }, [selectedId, fetchStudentDetails, fetchSubjects])
+
+  // Filtered results by department (for department tab)
+  const deptResults = useMemo(() => {
+    if (!deptId) return results
+    return results.filter((r) => r.departmentId === deptId)
+  }, [results, deptId])
+
+  // Filtered faculty list for search
+  const filteredFaculty = useMemo(() => {
+    let list = results
+    if (!facultySearch) return list
+    const q = facultySearch.toLowerCase()
+    return list.filter((r) => (facultyNames[r.facultyId] || r.facultyId).toLowerCase().includes(q))
+  }, [results, facultySearch, facultyNames])
+
+  const periodName = periods.find((p) => p.id === periodId)?.name || periods.find((p) => p.id === periodId)?.title || periodId
+  const departmentName = departments.find((d) => d.id === deptId)?.name ?? ""
+
+  // Department filter: disabled when dashboard already has a department
+  const deptFilterDisabled = initialDept !== ""
+
+  const selectedResult = results.find((r) => r.facultyId === selectedId)
+  const selectedStudents = selectedId ? facultyStudentData[selectedId] || [] : []
+  const selectedSubjects = selectedId ? facultySubjects[selectedId] || [] : []
 
   if (!isOpen) return null
 
-  const selectedResult = results.find((r) => r.facultyId === selectedId)
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-10 bg-black/50 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 bg-black/50 overflow-y-auto" onClick={onClose}>
       <div
-        className="w-full max-w-3xl mx-4 bg-surface rounded-2xl shadow-2xl border border-default overflow-hidden"
+        className="w-full max-w-4xl mx-4 bg-surface rounded-2xl shadow-2xl border border-default overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -272,25 +313,51 @@ export default function ReportModal({
               Individual
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            {tab === "individual" && selectedResult && (
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="px-3 py-1.5 rounded-lg bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800 transition-all"
-              >
-                Print
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-tertiary hover:text-secondary hover:bg-surface-muted transition-all"
-            >
-              Close
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-tertiary hover:text-secondary hover:bg-surface-muted transition-all"
+          >
+            Close
+          </button>
         </div>
+
+        {/* Filters bar (only in individual tab) */}
+        {tab === "individual" && (
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-default bg-surface-muted/30">
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-tertiary">Semester</label>
+              <select
+                value={periodId}
+                onChange={(e) => { setPeriodId(e.target.value); setDeptId(initialDept) }}
+                className="px-2.5 py-1.5 rounded-lg text-xs text-secondary bg-surface border border-default focus:outline-none focus:ring-2 focus:ring-brand-500/40 min-w-[140px]"
+              >
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name || p.title || p.id}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-tertiary">Department</label>
+              <select
+                value={deptId}
+                onChange={(e) => setDeptId(e.target.value)}
+                disabled={deptFilterDisabled}
+                className={`px-2.5 py-1.5 rounded-lg text-xs min-w-[160px] border focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${
+                  deptFilterDisabled
+                    ? "bg-surface-tertiary text-tertiary cursor-not-allowed border-default/50"
+                    : "bg-surface text-secondary border-default"
+                }`}
+                title={deptFilterDisabled ? "Department is set from the dashboard" : ""}
+              >
+                <option value="">All Departments</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="p-5 max-h-[70vh] overflow-y-auto">
@@ -298,34 +365,63 @@ export default function ReportModal({
             <DepartmentView
               departmentName={departmentName}
               periodName={periodName}
-              results={results}
+              results={deptResults}
               facultyNames={facultyNames}
             />
           ) : (
             <div className="space-y-5">
-              {/* Faculty selector */}
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-tertiary whitespace-nowrap">Select Faculty:</label>
-                <select
-                  value={selectedId}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg text-sm text-secondary bg-surface border border-default focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                >
-                  {results.map((r) => (
-                    <option key={r.facultyId} value={r.facultyId}>
-                      {facultyNames[r.facultyId] || r.facultyId}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {fetching ? (
+                <div className="text-center py-10 text-sm text-tertiary">Loading...</div>
+              ) : (
+                <>
+                  {/* Faculty search */}
+                  <div className="relative">
+                    <label className="text-xs font-semibold text-tertiary mb-1.5 block">Search Faculty</label>
+                    <input
+                      type="text"
+                      value={facultySearch}
+                      onChange={(e) => { setFacultySearch(e.target.value); setShowDropdown(true) }}
+                      onFocus={() => setShowDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                      placeholder="Type faculty name..."
+                      className="w-full px-3 py-2 rounded-lg text-sm text-secondary bg-surface border border-default focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    />
+                    {showDropdown && filteredFaculty.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-surface border border-default rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredFaculty.map((r) => {
+                          const name = facultyNames[r.facultyId] || r.facultyId
+                          const isSelected = r.facultyId === selectedId
+                          return (
+                            <button
+                              key={r.facultyId}
+                              type="button"
+                              onMouseDown={() => { setSelectedId(r.facultyId); setFacultySearch(name); setShowDropdown(false) }}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                                isSelected ? "bg-brand-50 text-brand-700 font-semibold" : "text-secondary hover:bg-surface-muted"
+                              }`}
+                            >
+                              {name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
 
-              {/* Report preview */}
-              {selectedResult && (
-                <IndividualPreview
-                  result={selectedResult}
-                  name={facultyNames[selectedResult.facultyId] || selectedResult.facultyId}
-                  students={facultyStudentData[selectedResult.facultyId] || []}
-                />
+                  {/* Selected faculty report */}
+                  {selectedResult ? (
+                    <IndividualPreview
+                      result={selectedResult}
+                      name={facultyNames[selectedResult.facultyId] || selectedResult.facultyId}
+                      students={selectedStudents}
+                      subjects={selectedSubjects}
+                    />
+                  ) : (
+                    <div className="text-center py-10 text-sm text-tertiary">
+                      Search and select a faculty member to view their evaluation report.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -339,10 +435,12 @@ function IndividualPreview({
   result,
   name,
   students,
+  subjects,
 }: {
   result: Result
   name: string
   students: StudentRow[]
+  subjects: SubjectMapping[]
 }) {
   const overall = result.generalRating ?? 0
   const remarkLabel = getRemark(overall) ?? ""
@@ -364,12 +462,31 @@ function IndividualPreview({
   }
   interp += `The results reflect the collective assessment of ${result.totalRespondents} student respondent(s).`
 
+  // Unique subjects
+  const uniqueSubjects = subjects.filter((s, i, arr) => arr.findIndex((x) => x.subject?.id === s.subject?.id) === i)
+
   return (
     <div className="border border-default rounded-xl p-5 space-y-5 bg-surface">
       <div className="text-center border-b border-default pb-3">
         <p className="text-sm font-semibold text-secondary">{name}</p>
       </div>
 
+      {/* Subjects handled */}
+      {uniqueSubjects.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-tertiary uppercase tracking-wider mb-2">Subjects Handled</p>
+          <div className="flex flex-wrap gap-1.5">
+            {uniqueSubjects.map((s) => (
+              <span key={s.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[11px] font-medium border border-blue-200">
+                {s.subject?.code && <span className="font-semibold">{s.subject.code}</span>}
+                {s.subject?.name || "Unknown"}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Rating table */}
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-brand-500 text-white">
@@ -401,14 +518,18 @@ function IndividualPreview({
         <p className="text-lg font-bold text-primary">{overall.toFixed(2)} / 5.00 – {remarkLabel}</p>
       </div>
 
+      {/* All comments with sentiment badges */}
       {comments.length > 0 && (
         <div>
-          <p className="text-sm font-semibold text-primary mb-2">Student Comment</p>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+          <p className="text-sm font-semibold text-primary mb-2">Student Comments ({comments.length})</p>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
             {comments.map((s) => (
-              <p key={s.id} className="text-sm text-tertiary bg-surface-muted rounded-lg px-3 py-2 border border-default">
-                &ldquo;{s.comment!.trim()}&rdquo;
-              </p>
+              <div key={s.id} className="flex items-start gap-2 bg-surface-muted rounded-lg px-3 py-2 border border-default">
+                <SentimentBadge label={s.sentimentLabel} score={s.sentimentScore} />
+                <p className="text-sm text-tertiary flex-1 min-w-0">
+                  &ldquo;{s.comment!.trim()}&rdquo;
+                </p>
+              </div>
             ))}
           </div>
         </div>

@@ -957,11 +957,14 @@ export default function EvaluationDashboard({
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        departmentName={departmentName}
-        periodName={periods.find((p) => p.id === selectedPeriod)?.name || periods.find((p) => p.id === selectedPeriod)?.title || selectedPeriod}
-        results={results}
-        facultyNames={facultyNames}
-        facultyStudentData={studentData}
+        apiBase={apiBase}
+        periods={periods}
+        departments={departments}
+        initialDept={selectedDept}
+        initialPeriod={selectedPeriod}
+        initialResults={results}
+        initialFacultyNames={facultyNames}
+        initialStudentData={studentData}
       />
     </ErrorBoundary>
   )
