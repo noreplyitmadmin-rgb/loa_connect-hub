@@ -459,44 +459,44 @@ export default function ReportModal({
         doc.text(interpLines, 25, y)
       } else {
         // Loop over all faculty — full individual report per faculty
-        const renderFacultyReport = async (r: Result) => {
+        const renderFacultyReport = async (r: Result, isFirst: boolean) => {
           const overall = r.generalRating ?? 0
           const remarkLabel = getRemark(overall) ?? ""
           const students = facultyStudentData[r.facultyId] || []
 
-          doc.addPage()
-          y = 20
+          if (!isFirst) {
+            doc.addPage()
+            // Re-draw header on new page
+            const logoY2 = 12
+            const logoWidth2 = 28
+            let logoHeight2 = 28
+            try {
+              const resp2 = await fetch("/logo-blk.png")
+              const blob2 = await resp2.blob()
+              const logoData2 = await new Promise<string>((resolve) => {
+                const reader2 = new FileReader()
+                reader2.onloadend = () => resolve(reader2.result as string)
+                reader2.readAsDataURL(blob2)
+              })
+              const img2 = new Image()
+              await new Promise<void>((resolve2, reject2) => {
+                img2.onload = () => resolve2()
+                img2.onerror = reject2
+                img2.src = logoData2
+              })
+              logoHeight2 = logoWidth2 * (img2.naturalHeight / img2.naturalWidth)
+              doc.addImage(logoData2, "PNG", (pageW - logoWidth2) / 2, logoY2, logoWidth2, logoHeight2)
+            } catch { /* skip logo */ }
 
-          // Re-draw header on each page
-          const logoY2 = 12
-          const logoWidth2 = 28
-          let logoHeight2 = 28
-          try {
-            const resp2 = await fetch("/logo-blk.png")
-            const blob2 = await resp2.blob()
-            const logoData2 = await new Promise<string>((resolve) => {
-              const reader2 = new FileReader()
-              reader2.onloadend = () => resolve(reader2.result as string)
-              reader2.readAsDataURL(blob2)
-            })
-            const img2 = new Image()
-            await new Promise<void>((resolve2, reject2) => {
-              img2.onload = () => resolve2()
-              img2.onerror = reject2
-              img2.src = logoData2
-            })
-            logoHeight2 = logoWidth2 * (img2.naturalHeight / img2.naturalWidth)
-            doc.addImage(logoData2, "PNG", (pageW - logoWidth2) / 2, logoY2, logoWidth2, logoHeight2)
-          } catch { /* skip logo */ }
-
-          const addrY2 = logoY2 + logoHeight2 + 3
-          doc.setFontSize(7)
-          doc.text("Main Bldg. Km. 30 National Road, Tunasan, Muntinlupa City", pageW / 2, addrY2, { align: "center" })
-          const lineY2 = addrY2 + 5
-          doc.setDrawColor(180, 180, 180)
-          doc.line(14, lineY2, pageW - 14, lineY2)
-          doc.setDrawColor(0, 0, 0)
-          y = lineY2 + 6
+            const addrY2 = logoY2 + logoHeight2 + 3
+            doc.setFontSize(7)
+            doc.text("Main Bldg. Km. 30 National Road, Tunasan, Muntinlupa City", pageW / 2, addrY2, { align: "center" })
+            const lineY2 = addrY2 + 5
+            doc.setDrawColor(180, 180, 180)
+            doc.line(14, lineY2, pageW - 14, lineY2)
+            doc.setDrawColor(0, 0, 0)
+            y = lineY2 + 6
+          }
 
           doc.setFontSize(11)
           doc.text("INDIVIDUAL FACULTY EVALUATION REPORT", pageW / 2, y, { align: "center" })
@@ -587,9 +587,9 @@ export default function ReportModal({
         }
 
         // Render first faculty on current page, rest on new pages
-        await renderFacultyReport(results[0])
+        await renderFacultyReport(results[0], true)
         for (let i = 1; i < results.length; i++) {
-          await renderFacultyReport(results[i])
+          await renderFacultyReport(results[i], false)
         }
       }
     }
