@@ -44,6 +44,7 @@ export default function AppointmentDetail() {
   const [showCompleteForm, setShowCompleteForm] = useState(false)
   const [actionTaken, setActionTaken] = useState("")
   const [completeFiles, setCompleteFiles] = useState<File[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState(false)
   const [completeError, setCompleteError] = useState("")
   const [previewFile, setPreviewFile] = useState<AppointmentDetailDto["files"][number] | null>(null)
 
@@ -52,19 +53,23 @@ export default function AppointmentDetail() {
   const userId = (session?.user as Record<string, unknown>)?.id as string
   const appointmentId = params.id as string
 
-  const { data: fetchData, error: fetchError, isLoading } = useApiGet<{ appointment: AppointmentDetailDto }>(
+  const { data: fetchData, error: fetchError, isLoading, isValidating } = useApiGet<{ appointment: AppointmentDetailDto }>(
     appointmentId ? `/api/appointments/${appointmentId}` : null
   )
 
+  const initialLoadDone = useRef(false)
+
   useEffect(() => {
     if (isLoading) return
+    if (isValidating && !initialLoadDone.current) return
     if (fetchData?.appointment) {
+      initialLoadDone.current = true
       setAppointment(fetchData.appointment) // eslint-disable-line react-hooks/set-state-in-effect
     } else if (fetchError) {
       setError(fetchError.message || "Failed to load appointment")
     }
     setLoading(false)
-  }, [fetchData, fetchError, isLoading])
+  }, [fetchData, fetchError, isLoading, isValidating])
 
   const effectiveStatus = localStatus || appointment?.status || ""
   const pendingRef = useRef(false)
@@ -76,8 +81,9 @@ export default function AppointmentDetail() {
     try {
       const url = endpoint || `/api/appointments/${appointmentId}/${action}`
       const res = await fetch(url, { method: "POST" })
-      const data = await res.json()
+      const text = await res.text()
       if (res.ok) {
+        const data = JSON.parse(text)
         if (data.appointment) setAppointment(data.appointment)
         const statusMap: Record<string, string> = {
           accept: "APPROVED",
@@ -91,7 +97,12 @@ export default function AppointmentDetail() {
         }
         setLocalStatus(statusMap[action] || null)
       } else {
-        setError(data.error || "Action failed")
+        try {
+          const data = JSON.parse(text)
+          setError(data.error || "Action failed")
+        } catch {
+          setError(text || "Action failed")
+        }
       }
     } catch {
       setError("An error occurred")
@@ -127,8 +138,13 @@ export default function AppointmentDetail() {
           body: JSON.stringify({ teamsLink: singleLink.trim() }),
         })
         if (!res.ok) {
-          const data = await res.json()
-          setTeamsLinkError(data.error || "Failed to save Teams link")
+          const text = await res.text()
+          try {
+            const data = JSON.parse(text)
+            setTeamsLinkError(data.error || "Failed to save Teams link")
+          } catch {
+            setTeamsLinkError(text || "Failed to save Teams link")
+          }
           setActionLoading("")
           return
         }
@@ -142,8 +158,13 @@ export default function AppointmentDetail() {
             body: JSON.stringify({ teamsLink: link }),
           })
           if (!res.ok) {
-            const data = await res.json()
-            setTeamsLinkError(data.error || `Failed to save link for ${slot.date} ${slot.startTime}`)
+            const text = await res.text()
+            try {
+              const data = JSON.parse(text)
+              setTeamsLinkError(data.error || `Failed to save link for ${slot.date} ${slot.startTime}`)
+            } catch {
+              setTeamsLinkError(text || `Failed to save link for ${slot.date} ${slot.startTime}`)
+            }
             setActionLoading("")
             return
           }
@@ -151,15 +172,21 @@ export default function AppointmentDetail() {
       }
 
       const res = await fetch(`/api/appointments/${appointmentId}/accept`, { method: "POST" })
-      const data = await res.json()
+      const text = await res.text()
       if (res.ok) {
+        const data = JSON.parse(text)
         if (data.appointment) setAppointment(data.appointment)
         setLocalStatus("APPROVED")
         setShowTeamsLinkForm(false)
         setSingleLink("")
         setSlotLinks({})
       } else {
-        setTeamsLinkError(data.error || "Failed to approve appointment")
+        try {
+          const data = JSON.parse(text)
+          setTeamsLinkError(data.error || "Failed to approve appointment")
+        } catch {
+          setTeamsLinkError(text || "Failed to approve appointment")
+        }
       }
     } catch {
       setTeamsLinkError("An error occurred")
@@ -169,63 +196,85 @@ export default function AppointmentDetail() {
   }
 
   const handleCompleteSubmit = async () => {
+    if (pendingRef.current) return
+    pendingRef.current = true
+
     setCompleteError("")
 
     if (actionTaken.trim().length < 20) {
       setCompleteError("Actions taken must be at least 20 characters")
+      pendingRef.current = false
       return
     }
 
     setActionLoading("complete")
 
     try {
-      const filePayload = await Promise.all(
-        completeFiles.map(async (f) => {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => {
-              const result = reader.result as string
-              resolve(result.split(",")[1])
-            }
-            reader.onerror = reject
-            reader.readAsDataURL(f)
-          })
-          return {
-            fileName: f.name,
-            fileType: f.type,
-            fileData: base64,
-            fileSize: f.size,
+      const filesToUpload = [...completeFiles]
+      setCompleteFiles([])
+      setUploadingFiles(true)
+
+      for (const f of filesToUpload) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const result = reader.result as string
+            resolve(result.split(",")[1])
           }
+          reader.onerror = reject
+          reader.readAsDataURL(f)
         })
-      )
 
-      const fileRes = await fetch(`/api/appointments/${appointmentId}/files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: filePayload }),
-      })
+        const fileRes = await fetch(`/api/appointments/${appointmentId}/files`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            files: [{
+              fileName: f.name,
+              fileType: f.type,
+              fileData: base64,
+              fileSize: f.size,
+            }],
+          }),
+        })
 
-      if (!fileRes.ok) {
-        const fileData = await fileRes.json()
-        setCompleteError(fileData.error || "Failed to upload files")
-        setActionLoading("")
-        return
+        if (!fileRes.ok) {
+          const text = await fileRes.text()
+          try {
+            const fileData = JSON.parse(text)
+            setCompleteError(fileData.error || "Failed to upload files")
+          } catch {
+            setCompleteError(text || "Failed to upload files")
+          }
+          setActionLoading("")
+          setUploadingFiles(false)
+          pendingRef.current = false
+          return
+        }
       }
+
+      setUploadingFiles(false)
 
       const res = await fetch(`/api/appointments/${appointmentId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actionTaken: actionTaken.trim() }),
       })
-      const data = await res.json()
+      const text = await res.text()
       if (res.ok) {
+        const data = JSON.parse(text)
         if (data.appointment) setAppointment(data.appointment)
         setLocalStatus("COMPLETED")
         setShowCompleteForm(false)
         setActionTaken("")
         setCompleteFiles([])
       } else {
-        setCompleteError(data.error || "Failed to complete appointment")
+        try {
+          const data = JSON.parse(text)
+          setCompleteError(data.error || "Failed to complete appointment")
+        } catch {
+          setCompleteError(text || "Failed to complete appointment")
+        }
       }
     } catch (err){
       setCompleteError("An error occurred")
@@ -666,13 +715,15 @@ export default function AppointmentDetail() {
                 <SubmitButton
                   onClick={handleCompleteSubmit}
                   loading={actionLoading === "complete"}
+                  disabled={actionLoading === "complete"}
                   variant="ios-primary"
                   className="w-full sm:w-auto py-3 sm:py-2"
                 >
-                  {actionLoading === "complete" ? "Completing..." : "Submit & Complete"}
+                  {uploadingFiles ? "Uploading files..." : actionLoading === "complete" ? "Completing..." : "Submit & Complete"}
                 </SubmitButton>
                 <SubmitButton
                   onClick={() => {
+                    if (uploadingFiles) return
                     setShowCompleteForm(false)
                     setActionTaken("")
                     setCompleteFiles([])

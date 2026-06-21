@@ -49,6 +49,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: `${fileName} must be less than 5MB` }, { status: 400 })
       }
 
+      // Dedup: skip if same fileName + fileSize already exists for this appointment
+      const existing = await appointmentRepository.listFiles(id)
+      const isDuplicate = existing.some((ef) => ef.fileName === fileName && ef.fileSize === fileSize)
+      if (isDuplicate) continue
+
       const result = await appointmentRepository.addFile(id, { fileName, fileType, fileData, fileSize })
       results.push(result)
     }
