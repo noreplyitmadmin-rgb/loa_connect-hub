@@ -1023,6 +1023,7 @@ export default function EvaluationDashboard({
       )}
     </div>
       <ReportModal
+        key={showReportModal ? "open" : "closed"}
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         apiBase={apiBase}
