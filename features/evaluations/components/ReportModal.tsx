@@ -458,56 +458,145 @@ export default function ReportModal({
         const interpLines = doc.splitTextToSize(interp, pageW - 50)
         doc.text(interpLines, 25, y)
       } else {
-        // Summary table — all faculty in results
-        const deptAvg = results.length > 0
-          ? results.reduce((s, r) => s + (r.generalRating ?? 0), 0) / results.length
-          : 0
-        const totalResp = results.reduce((s, r) => s + r.totalRespondents, 0)
+        // Loop over all faculty — full individual report per faculty
+        const renderFacultyReport = async (r: Result) => {
+          const overall = r.generalRating ?? 0
+          const remarkLabel = getRemark(overall) ?? ""
+          const students = facultyStudentData[r.facultyId] || []
 
-        doc.setFontSize(11)
-        doc.text("INDIVIDUAL EVALUATION REPORT — ALL FACULTY", pageW / 2, y, { align: "center" })
-        y += 9
-        doc.setFontSize(8)
-        doc.text(`Department: ${departmentName || "All Departments"}`, 14, y)
-        y += 4.5
-        doc.text(`Semester: ${periodName}`, 14, y)
-        y += 4.5
-        doc.text(`Date Generated: ${new Date().toLocaleDateString()}`, 14, y)
-        y += 8
+          doc.addPage()
+          y = 20
 
-        doc.setFontSize(8)
-        doc.text(`Faculties Evaluated: ${results.length}`, pageW / 2, y, { align: "center" })
-        y += 5
-        doc.text(`Department Average: ${deptAvg.toFixed(2)}`, pageW / 2, y, { align: "center" })
-        y += 5
-        doc.text(`Total Respondents: ${totalResp.toLocaleString()}`, pageW / 2, y, { align: "center" })
-        y += 8
+          // Re-draw header on each page
+          const logoY2 = 12
+          const logoWidth2 = 28
+          let logoHeight2 = 28
+          try {
+            const resp2 = await fetch("/logo-blk.png")
+            const blob2 = await resp2.blob()
+            const logoData2 = await new Promise<string>((resolve) => {
+              const reader2 = new FileReader()
+              reader2.onloadend = () => resolve(reader2.result as string)
+              reader2.readAsDataURL(blob2)
+            })
+            const img2 = new Image()
+            await new Promise<void>((resolve2, reject2) => {
+              img2.onload = () => resolve2()
+              img2.onerror = reject2
+              img2.src = logoData2
+            })
+            logoHeight2 = logoWidth2 * (img2.naturalHeight / img2.naturalWidth)
+            doc.addImage(logoData2, "PNG", (pageW - logoWidth2) / 2, logoY2, logoWidth2, logoHeight2)
+          } catch { /* skip logo */ }
 
-        const dHead = [["Faculty", "General Rating", "Respondents", "Remark"]]
-        const dBody = results.map((r) => [
-          facultyNames[r.facultyId] || r.facultyId,
-          r.generalRating?.toFixed(2) ?? "—",
-          String(r.totalRespondents),
-          r.remarks ?? "—",
-        ])
+          const addrY2 = logoY2 + logoHeight2 + 3
+          doc.setFontSize(7)
+          doc.text("Main Bldg. Km. 30 National Road, Tunasan, Muntinlupa City", pageW / 2, addrY2, { align: "center" })
+          const lineY2 = addrY2 + 5
+          doc.setDrawColor(180, 180, 180)
+          doc.line(14, lineY2, pageW - 14, lineY2)
+          doc.setDrawColor(0, 0, 0)
+          y = lineY2 + 6
 
-        autoTable(doc, {
-          startY: y,
-          head: dHead,
-          body: dBody,
-          theme: "grid",
-          styles: { fontSize: 8, cellPadding: 2, halign: "center" },
-          headStyles: { fillColor: [59, 130, 246], fontStyle: "bold" },
-          columnStyles: { 0: { halign: "left" } },
-          tableWidth: "auto",
-          margin: { left: 14, right: 14 },
-        })
+          doc.setFontSize(11)
+          doc.text("INDIVIDUAL FACULTY EVALUATION REPORT", pageW / 2, y, { align: "center" })
+          y += 9
+          doc.setFontSize(8)
+          doc.text(`Name: ${facultyNames[r.facultyId] || r.facultyId}`, 14, y)
+          y += 4.5
+          doc.text(`Semester: ${periodName}`, 14, y)
+          y += 4.5
+          doc.text(`Date Generated: ${new Date().toLocaleDateString()}`, 14, y)
+          y += 8
+
+          const iHead = [["#", "Category", "Rating"]]
+          const iBody: (string | number)[][] = [
+            ["0", "OVERALL EVALUATION RESULT", overall.toFixed(2)],
+          ]
+          CATEGORIES_FULL.forEach((c, i) => {
+            iBody.push([String(i + 1), c.label, r[c.key] !== null ? r[c.key]!.toFixed(2) : "—"])
+          })
+
+          autoTable(doc, {
+            startY: y,
+            head: iHead,
+            body: iBody,
+            theme: "grid",
+            styles: { fontSize: 9, cellPadding: 2.5, halign: "center" },
+            headStyles: { fillColor: [59, 130, 246], fontStyle: "bold" },
+            columnStyles: { 1: { halign: "left", fontStyle: "bold" } },
+            tableWidth: "auto",
+            margin: { left: 20, right: 20 },
+          })
+          y = doc.lastAutoTable.finalY + 8
+
+          doc.setFontSize(9)
+          doc.text("Overall Rating", pageW / 2, y, { align: "center" })
+          y += 5
+          doc.setFontSize(10)
+          doc.text(`${overall.toFixed(2)} / 5.00 – ${remarkLabel}`, pageW / 2, y, { align: "center" })
+          y += 8
+
+          const comments = students.filter((s) => s.comment?.trim())
+          if (comments.length > 0) {
+            doc.setFontSize(9)
+            doc.text("Student Comment", pageW / 2, y, { align: "center" })
+            y += 5
+            doc.setFontSize(8)
+
+            const maxShow = Math.min(comments.length, 30)
+            for (let i = 0; i < maxShow; i++) {
+              if (y > 260) { doc.addPage(); y = 20 }
+              const text = `"${comments[i].comment!.trim()}"`
+              const lines = doc.splitTextToSize(text, pageW - 50)
+              doc.text(lines, 25, y)
+              y += lines.length * 3.5 + 3
+            }
+            if (comments.length > 30) {
+              doc.text(`... and ${comments.length - 30} more comments`, 25, y)
+              y += 5
+            }
+            y += 2
+          }
+
+          if (y > 240) { doc.addPage(); y = 20 }
+          doc.setFontSize(9)
+          doc.text("Interpretation", pageW / 2, y, { align: "center" })
+          y += 5
+          doc.setFontSize(8)
+
+          const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
+          const posCount = sentLabels.filter((l) => l === "positive").length
+          const negCount = sentLabels.filter((l) => l === "negative").length
+          const neutralCount = sentLabels.filter((l) => l === "neutral").length
+          const hasComments = comments.length > 0
+
+          let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
+          if (hasComments && posCount > negCount && posCount > 0) {
+            interp += `Student feedback was predominantly positive (${Math.round((posCount / comments.length) * 100)}% of comments), with many students expressing appreciation for the instructor's teaching approach and classroom management. `
+          } else if (hasComments && negCount > posCount && negCount > 0) {
+            interp += `Some students provided critical feedback (${Math.round((negCount / comments.length) * 100)}% of comments), suggesting areas for improvement in instructional delivery and student engagement. `
+          }
+          if (hasComments && neutralCount > 0) {
+            interp += `A portion of comments were neutral or mixed, reflecting balanced perspectives on the instructor's overall effectiveness. `
+          }
+          interp += `The results reflect the collective assessment of ${r.totalRespondents} student respondent(s).`
+
+          const interpLines = doc.splitTextToSize(interp, pageW - 50)
+          doc.text(interpLines, 25, y)
+        }
+
+        // Render first faculty on current page, rest on new pages
+        await renderFacultyReport(results[0])
+        for (let i = 1; i < results.length; i++) {
+          await renderFacultyReport(results[i])
+        }
       }
     }
 
     doc.autoPrint()
     doc.output("dataurlnewwindow")
-  }, [tab, deptResults, periodName, departmentName, facultyNames, selectedResult, selectedStudents, results])
+  }, [tab, deptResults, periodName, departmentName, facultyNames, selectedResult, selectedStudents, results, facultyStudentData])
 
   const handlePrintHTML = useCallback(() => {
     window.print()
@@ -554,17 +643,28 @@ export default function ReportModal({
         a.click()
         URL.revokeObjectURL(url)
       } else {
-        // Summary table — all faculty
-        const rows = [["Faculty", "General Rating", "Respondents", "Remark"]]
-        results.forEach((r) => {
-          rows.push([
-            facultyNames[r.facultyId] || r.facultyId,
-            r.generalRating?.toFixed(2) ?? "—",
-            String(r.totalRespondents),
-            r.remarks ?? "—",
-          ])
+        // Full individual reports for all faculty in one CSV
+        const allRows: string[][] = []
+        results.forEach((r, idx) => {
+          if (idx > 0) allRows.push([])
+          const fn = facultyNames[r.facultyId] || r.facultyId
+          allRows.push([`Faculty: ${fn}`])
+          allRows.push(["#", "Category", "Rating"])
+          allRows.push(["0", "OVERALL EVALUATION RESULT", r.generalRating?.toFixed(2) ?? "—"])
+          CATEGORIES_FULL.forEach((c, i) => {
+            allRows.push([String(i + 1), c.label, r[c.key] !== null ? r[c.key]!.toFixed(2) : "—"])
+          })
+          const students = facultyStudentData[r.facultyId] || []
+          const comments = students.filter((s) => s.comment?.trim())
+          if (comments.length > 0) {
+            allRows.push([])
+            allRows.push(["Student Comment", "Sentiment"])
+            comments.forEach((s) => {
+              allRows.push([s.comment!.trim(), s.sentimentLabel ?? ""])
+            })
+          }
         })
-        const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n")
+        const csv = allRows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n")
         const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
@@ -574,7 +674,7 @@ export default function ReportModal({
         URL.revokeObjectURL(url)
       }
     }
-  }, [tab, deptResults, facultyNames, periodName, selectedResult, selectedStudents, results])
+  }, [tab, deptResults, facultyNames, periodName, selectedResult, selectedStudents, results, facultyStudentData])
 
   if (!isOpen) return null
 
