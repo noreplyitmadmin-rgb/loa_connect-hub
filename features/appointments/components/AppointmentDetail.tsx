@@ -680,17 +680,30 @@ export default function AppointmentDetail() {
                 <label className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">
                   Screenshot proof (images only, up to 3)
                 </label>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  multiple
-                  disabled={completeFiles.length >= 3}
-                  onChange={(e) => {
-                    const newFiles = Array.from(e.target.files || [])
-                    setCompleteFiles((prev) => [...prev, ...newFiles].slice(0, 3))
-                  }}
-                  className="text-xs mt-1 w-full sm:w-auto"
-                />
+                <div className="relative mt-1">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    multiple
+                    disabled={completeFiles.length >= 3}
+                    onChange={(e) => {
+                      const newFiles = Array.from(e.target.files || [])
+                      setCompleteFiles((prev) => [...prev, ...newFiles].slice(0, 3))
+                    }}
+                    id="screenshot-upload"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <label
+                    htmlFor="screenshot-upload"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-sm font-medium cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 2.955a.75.75 0 101.5-1.5l-4.25-4.25a.75.75 0 00-1.06 0L5.295 6.09a.75.75 0 101.5 1.5L9.25 4.636V13.25z" />
+                      <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5a2.75 2.75 0 002.75-2.75v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                    </svg>
+                    {completeFiles.length === 0 ? "Choose files" : `${completeFiles.length} file(s) selected`}
+                  </label>
+                </div>
                 {completeFiles.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {completeFiles.map((f, i) => (
@@ -786,10 +799,12 @@ export default function AppointmentDetail() {
           )}
         </div>
 
-        {/* Back button — far right opposite actions */}
-        <SubmitButton onClick={() => router.push(isStudent ? "/student/meetings" : "/faculty/meetings")} variant="ios-plain" className="w-full sm:w-auto py-3 sm:py-2">
-          ← Back
-        </SubmitButton>
+        {/* Back button — hidden while complete form is open */}
+        {!showCompleteForm && (
+          <SubmitButton onClick={() => router.push(isStudent ? "/student/meetings" : "/faculty/meetings")} variant="ios-plain" className="w-full sm:w-auto py-3 sm:py-2">
+            ← Back
+          </SubmitButton>
+        )}
       </div>
     </div>
   </div>
