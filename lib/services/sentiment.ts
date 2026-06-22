@@ -3,7 +3,7 @@ import seedData from "./sentiment-seed.json"
 
 export interface SentimentResult {
   sentimentScore: number
-  sentimentLabel: "positive" | "negative" | "neutral"
+  sentimentLabel: "positive" | "negative" | "neutral" | "gibberish"
 }
 
 export interface SentimentSummary {

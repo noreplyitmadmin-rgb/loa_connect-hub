@@ -23,6 +23,7 @@ interface Result {
   facultyId: string
   departmentId: string | null
   totalRespondents: number
+  unenrolledCount?: number
   generalRating: number | null
   remarks: string | null
   professionalManner: number | null
@@ -110,7 +111,8 @@ function DepartmentView({
   const deptAvg = results.length > 0
     ? results.reduce((s, r) => s + (r.generalRating ?? 0), 0) / results.length
     : 0
-  const totalResp = results.reduce((s, r) => s + r.totalRespondents, 0)
+  const anyUnenrolled = results.some((r) => (r.unenrolledCount ?? 0) > 0)
+  const totalUnenrolled = results.reduce((s, r) => s + (r.unenrolledCount ?? 0), 0)
 
   return (
     <div className="space-y-6">
@@ -135,6 +137,11 @@ function DepartmentView({
         <div className="bg-surface-muted rounded-xl p-4">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary">Unique Respondents</p>
           <p className="text-base font-bold text-primary mt-1">{uniqueRespondents.toLocaleString()}</p>
+          {anyUnenrolled && (
+            <p className="text-[10px] text-tertiary mt-0.5">
+              Includes {totalUnenrolled} from past/unenrolled
+            </p>
+          )}
         </div>
       </div>
 
@@ -340,7 +347,6 @@ export default function ReportModal({
       const deptAvg = deptResults.length > 0
         ? deptResults.reduce((s, r) => s + (r.generalRating ?? 0), 0) / deptResults.length
         : 0
-      const totalResp = deptResults.reduce((s, r) => s + r.totalRespondents, 0)
 
       doc.setFontSize(11)
       doc.text("DEPARTMENT EVALUATION REPORT", pageW / 2, y, { align: "center" })
@@ -360,7 +366,15 @@ export default function ReportModal({
       doc.text(`Department Average: ${deptAvg.toFixed(2)}`, pageW / 2, y, { align: "center" })
       y += 5
       doc.text(`Unique Respondents: ${uniqueRespondents.toLocaleString()}`, pageW / 2, y, { align: "center" })
-      y += 8
+      y += 5
+      const anyUnenrolled = deptResults.some((r) => (r.unenrolledCount ?? 0) > 0)
+      if (anyUnenrolled) {
+        const totalUnenrolled = deptResults.reduce((s, r) => s + (r.unenrolledCount ?? 0), 0)
+        doc.setFontSize(7)
+        doc.text(`(Includes ${totalUnenrolled} from past/unenrolled)`, pageW / 2, y, { align: "center" })
+        y += 5
+      }
+      y += 3
 
       const dHead = [["Faculty", "General Rating", "Respondents", "Remark"]]
       const dBody = deptResults.map((r) => [
@@ -453,11 +467,12 @@ export default function ReportModal({
         y += 5
         doc.setFontSize(8)
 
-        const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
+        const sentLabels = comments.map((c) => c.sentimentLabel).filter((l): l is string => Boolean(l) && l !== "gibberish")
         const posCount = sentLabels.filter((l) => l === "positive").length
         const negCount = sentLabels.filter((l) => l === "negative").length
         const neutralCount = sentLabels.filter((l) => l === "neutral").length
         const hasComments = comments.length > 0
+        const unenrolled = selectedResult.unenrolledCount ?? 0
 
         let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
         if (hasComments && posCount > negCount && posCount > 0) {
@@ -468,7 +483,11 @@ export default function ReportModal({
         if (hasComments && neutralCount > 0) {
           interp += `A portion of comments were neutral or mixed, reflecting balanced perspectives on the instructor's overall effectiveness. `
         }
-        interp += `The results reflect the collective assessment of ${selectedResult.totalRespondents} student respondent(s).`
+        if (unenrolled > 0) {
+          interp += `The results reflect the collective assessment of ${selectedResult.totalRespondents} student respondent(s), including ${unenrolled} from past/unenrolled students.`
+        } else {
+          interp += `The results reflect the collective assessment of ${selectedResult.totalRespondents} student respondent(s) currently enrolled in the class.`
+        }
 
         const interpLines = doc.splitTextToSize(interp, pageW - 50)
         doc.text(interpLines, 25, y)
@@ -481,7 +500,7 @@ export default function ReportModal({
           const neutralPct = Math.round((neutralCount / comments.length) * 100)
           const sentimentScore = posPct // overall positive %
 
-          let sentGrade = SENTIMENT_THRESHOLDS.find((t) => sentimentScore >= t.min && sentimentScore <= t.max)?.grade ?? "Needs Improvement"
+          const sentGrade = SENTIMENT_THRESHOLDS.find((t) => sentimentScore >= t.min && sentimentScore <= t.max)?.grade ?? "Needs Improvement"
 
           if (y > 230) { doc.addPage(); y = 20 }
           doc.setFontSize(9)
@@ -516,7 +535,14 @@ export default function ReportModal({
         const renderFacultyReport = async (r: Result, isFirst: boolean) => {
           const overall = r.generalRating ?? 0
           const remarkLabel = getRemark(overall) ?? ""
-          const students = facultyStudentData[r.facultyId] || []
+          let students = facultyStudentData[r.facultyId]
+          if (!students) {
+            try {
+              const res = await fetch(`/api/dean/evaluation-results/details?periodId=${periodId}&facultyId=${r.facultyId}`)
+              const data = await res.json()
+              students = data.students || []
+            } catch { students = [] }
+          }
 
           if (!isFirst) {
             doc.addPage()
@@ -619,11 +645,12 @@ export default function ReportModal({
           y += 5
           doc.setFontSize(8)
 
-          const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
+          const sentLabels = comments.map((c) => c.sentimentLabel).filter((l): l is string => Boolean(l) && l !== "gibberish")
           const posCount = sentLabels.filter((l) => l === "positive").length
           const negCount = sentLabels.filter((l) => l === "negative").length
           const neutralCount = sentLabels.filter((l) => l === "neutral").length
           const hasComments = comments.length > 0
+          const unenrolled = r.unenrolledCount ?? 0
 
           let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
           if (hasComments && posCount > negCount && posCount > 0) {
@@ -634,7 +661,11 @@ export default function ReportModal({
           if (hasComments && neutralCount > 0) {
             interp += `A portion of comments were neutral or mixed, reflecting balanced perspectives on the instructor's overall effectiveness. `
           }
-          interp += `The results reflect the collective assessment of ${r.totalRespondents} student respondent(s).`
+          if (unenrolled > 0) {
+            interp += `The results reflect the collective assessment of ${r.totalRespondents} student respondent(s), including ${unenrolled} from past/unenrolled students.`
+          } else {
+            interp += `The results reflect the collective assessment of ${r.totalRespondents} student respondent(s) currently enrolled in the class.`
+          }
 
           const interpLines = doc.splitTextToSize(interp, pageW - 50)
           doc.text(interpLines, 25, y)
@@ -647,7 +678,7 @@ export default function ReportModal({
             const neutralPct = Math.round((neutralCount / comments.length) * 100)
             const sentimentScore = posPct
 
-            let sentGrade = SENTIMENT_THRESHOLDS.find((t) => sentimentScore >= t.min && sentimentScore <= t.max)?.grade ?? "Needs Improvement"
+            const sentGrade = SENTIMENT_THRESHOLDS.find((t) => sentimentScore >= t.min && sentimentScore <= t.max)?.grade ?? "Needs Improvement"
 
             if (y > 230) { doc.addPage(); y = 20 }
             doc.setFontSize(9)
@@ -1007,10 +1038,12 @@ function IndividualPreview({
   const remarkLabel = getRemark(overall) ?? ""
   const comments = students.filter((s) => s.comment?.trim())
 
-  const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
+  const sentLabels = comments.map((c) => c.sentimentLabel).filter((l): l is string => Boolean(l) && l !== "gibberish")
   const posCount = sentLabels.filter((l) => l === "positive").length
   const negCount = sentLabels.filter((l) => l === "negative").length
   const neutralCount = sentLabels.filter((l) => l === "neutral").length
+
+  const unenrolled = result.unenrolledCount ?? 0
 
   let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
   if (comments.length > 0 && posCount > negCount && posCount > 0) {
@@ -1021,7 +1054,11 @@ function IndividualPreview({
   if (comments.length > 0 && neutralCount > 0) {
     interp += `A portion of comments were neutral or mixed, reflecting balanced perspectives on the instructor's overall effectiveness. `
   }
-  interp += `The results reflect the collective assessment of ${result.totalRespondents} student respondent(s).`
+  if (unenrolled > 0) {
+    interp += `The results reflect the collective assessment of ${result.totalRespondents} student respondent(s), including ${unenrolled} from past/unenrolled students.`
+  } else {
+    interp += `The results reflect the collective assessment of ${result.totalRespondents} student respondent(s) currently enrolled in the class.`
+  }
 
   // Unique subjects
   const uniqueSubjects = subjects.filter((s, i, arr) => arr.findIndex((x) => x.subject?.id === s.subject?.id) === i)

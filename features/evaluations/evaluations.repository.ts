@@ -5,12 +5,36 @@ export const evaluationRepository: IEvaluationRepository = {
   async findPending(evaluatorId, semesterId) {
     const { data: enrollments, error: enrollErr } = await supabase
       .from("student_enrollments")
-      .select("section_id")
+      .select("section_id, faculty_subject_id")
       .eq("student_id", evaluatorId)
       .eq("semesterId", semesterId)
     if (enrollErr) throw enrollErr
     if (enrollments.length === 0) return []
 
+    // If any enrollment has a specific faculty_subject_id, use it directly
+    const directFacultyIds = enrollments
+      .filter((r) => r.faculty_subject_id)
+      .map((r) => r.faculty_subject_id)
+    if (directFacultyIds.length > 0) {
+      const { data: facultySubjects, error: fsErr } = await supabase
+        .from("faculty_subjects")
+        .select("faculty_id")
+        .in("id", directFacultyIds)
+      if (fsErr) throw fsErr
+      const allFacultyIds = [...new Set(facultySubjects.map((r) => r.faculty_id))]
+
+      const { data: existing, error: evErr } = await supabase
+        .from("evaluations")
+        .select("evaluateeId")
+        .eq("evaluatorId", evaluatorId)
+        .eq("semesterId", semesterId)
+      if (evErr) throw evErr
+      const submittedIds = new Set(existing.map((r) => r.evaluateeId))
+
+      return allFacultyIds.filter((id) => !submittedIds.has(id)).map((evaluateeId) => ({ evaluateeId }))
+    }
+
+    // Fallback: no faculty_subject_id — scope by section
     const sectionIds = enrollments.map((r) => r.section_id)
     const { data: facultySubjects, error: fsErr } = await supabase
       .from("faculty_subjects")
@@ -61,10 +85,10 @@ export const evaluationRepository: IEvaluationRepository = {
     return data as EvaluationData
   },
 
-  async create(semesterId, evaluatorId, evaluateeId) {
+  async create(semesterId, evaluatorId, evaluateeId, source) {
     const { data, error } = await supabase
       .from("evaluations")
-      .insert({ semesterId, evaluatorId, evaluateeId })
+      .insert({ semesterId, evaluatorId, evaluateeId, source: source ?? null })
       .select("*")
       .single()
     if (error) throw error

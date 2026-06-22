@@ -16,13 +16,14 @@ interface CommentRow {
   evaluation: { evaluateeId: string; semesterId: string }
 }
 
-const DISPLAY_ORDER = ["positive", "negative", "neutral", "mixed"]
+const DISPLAY_ORDER = ["positive", "negative", "neutral", "mixed", "gibberish"]
 
 const DISPLAY_LABELS: Record<string, string> = {
   positive: "Positive",
   negative: "Negative",
   neutral: "Needs Review",
   mixed: "Needs Review",
+  gibberish: "Gibberish",
 }
 
 const SENTIMENT_COLORS: Record<string, string> = {
@@ -30,6 +31,7 @@ const SENTIMENT_COLORS: Record<string, string> = {
   negative: "bg-red-100 text-red-700 border-red-300",
   neutral: "bg-amber-100 text-amber-700 border-amber-300",
   mixed: "bg-amber-100 text-amber-700 border-amber-300",
+  gibberish: "bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600",
 }
 
 const SENTIMENT_BG: Record<string, string> = {
@@ -37,6 +39,7 @@ const SENTIMENT_BG: Record<string, string> = {
   negative: "bg-red-500",
   neutral: "bg-amber-500",
   mixed: "bg-amber-500",
+  gibberish: "bg-slate-400",
 }
 
 interface Semester {

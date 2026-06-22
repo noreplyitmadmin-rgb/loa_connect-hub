@@ -19,10 +19,10 @@ export async function getEvaluationIfOwner(evaluationId: string, userId: string)
   return evaluation
 }
 
-export async function getOrCreateEvaluation(semesterId: string, evaluatorId: string, evaluateeId: string) {
+export async function getOrCreateEvaluation(semesterId: string, evaluatorId: string, evaluateeId: string, source?: string | null) {
   const existing = await evaluationRepository.findByComposite(semesterId, evaluatorId, evaluateeId)
   if (existing) return existing
-  return evaluationRepository.create(semesterId, evaluatorId, evaluateeId)
+  return evaluationRepository.create(semesterId, evaluatorId, evaluateeId, source)
 }
 
 export async function saveRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]) {

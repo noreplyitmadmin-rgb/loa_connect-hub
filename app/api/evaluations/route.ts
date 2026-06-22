@@ -2,9 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
-import { getMyEvaluations } from "@/features/evaluations/evaluations.service"
+import { getOrCreateEvaluation, getEvaluation, getMyEvaluations } from "@/features/evaluations/evaluations.service"
 import { getActiveSemester } from "@/features/admin-data/semesters.service"
-import { getOrCreateEvaluation } from "@/features/evaluations/evaluations.service"
 
 export async function GET() {
   const session = await auth()
@@ -47,31 +46,65 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { periodId, evaluateeId } = await request.json()
+    const { periodId, evaluateeId, source, id } = await request.json()
+
+    // If an evaluation id is provided, skip enrollment check and return it directly
+    if (id) {
+      const existing = await getEvaluation(id)
+      if (!existing || existing.evaluatorId !== userId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      const { data: facultyUser } = await supabase
+        .from("users")
+        .select("name")
+        .eq("id", existing.evaluateeId)
+        .single()
+      const evaluateeName = (facultyUser as { name: string } | null)?.name || "Unknown"
+      return NextResponse.json({ evaluation: { ...existing, evaluateeName } }, { status: 200 })
+    }
+
     const activeSemesterId = periodId || (await getActiveSemester())?.id
     if (!activeSemesterId) {
       return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
-    const { data: enrollment } = await supabase
-      .from("student_enrollments")
-      .select("section_id")
-      .eq("student_id", userId)
-      .eq("semesterId", activeSemesterId)
-      .limit(1)
-      .single()
-    if (enrollment) {
-      const { data: facultyLink } = await supabase
-        .from("faculty_subjects")
-        .select("faculty_id")
-        .eq("section_id", enrollment.section_id)
-        .eq("faculty_id", evaluateeId)
+    if (source !== "unenrolled") {
+      const { data: enrollments } = await supabase
+        .from("student_enrollments")
+        .select("section_id, faculty_subject_id")
+        .eq("student_id", userId)
         .eq("semesterId", activeSemesterId)
-        .maybeSingle()
-      if (!facultyLink) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    } else {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      let isEnrolled = false
+
+      // Check via faculty_subject_id first (more precise)
+      const directIds = (enrollments || []).filter((r) => r.faculty_subject_id).map((r) => r.faculty_subject_id)
+      if (directIds.length > 0) {
+        const { data: fs } = await supabase
+          .from("faculty_subjects")
+          .select("faculty_id")
+          .in("id", directIds)
+        if ((fs || []).some((r) => r.faculty_id === evaluateeId)) {
+          isEnrolled = true
+        }
+      }
+
+      // Fallback: check by section_id
+      if (!isEnrolled) {
+        const sectionIds = (enrollments || []).map((r) => r.section_id)
+        if (sectionIds.length > 0) {
+          const { data: fs } = await supabase
+            .from("faculty_subjects")
+            .select("faculty_id")
+            .in("section_id", sectionIds)
+            .eq("semesterId", activeSemesterId)
+          if ((fs || []).some((r) => r.faculty_id === evaluateeId)) {
+            isEnrolled = true
+          }
+        }
+      }
+
+      if (!isEnrolled) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-    const evaluation = await getOrCreateEvaluation(activeSemesterId, userId, evaluateeId)
+    const evaluation = await getOrCreateEvaluation(activeSemesterId, userId, evaluateeId, source)
 
     const { data: facultyUser } = await supabase
       .from("users")

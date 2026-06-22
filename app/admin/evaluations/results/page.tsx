@@ -8,6 +8,7 @@ export default function AdminEvaluationResultsPage() {
       apiBase="/api/admin/evaluation-results"
       showDepartmentFilter
       showVisibilityToggles
+      showUnenrolledToggle
       title="Evaluation Results"
       subtitle="View faculty evaluation results across departments"
     />

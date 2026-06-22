@@ -15,6 +15,7 @@ interface Result {
   facultyId: string
   departmentId: string | null
   totalRespondents: number
+  unenrolledCount?: number
   generalRating: number | null
   remarks: string | null
   professionalManner: number | null
@@ -53,6 +54,7 @@ interface EvaluationDashboardProps {
   apiBase: string
   showDepartmentFilter?: boolean
   showVisibilityToggles?: boolean
+  showUnenrolledToggle?: boolean
   title: string
   subtitle: string
 }
@@ -121,6 +123,7 @@ export default function EvaluationDashboard({
   apiBase,
   showDepartmentFilter = false,
   showVisibilityToggles = false,
+  showUnenrolledToggle = false,
   title,
   subtitle,
 }: EvaluationDashboardProps) {
@@ -128,6 +131,7 @@ export default function EvaluationDashboard({
   const [selectedPeriod, setSelectedPeriod] = useState("")
   const [departments, setDepartments] = useState<DepartmentData[]>([])
   const [selectedDept, setSelectedDept] = useState("")
+  const [showUnenrolled, setShowUnenrolled] = useState(false)
   const [results, setResults] = useState<Result[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedFaculty, setSelectedFaculty] = useState<string | null>(null)
@@ -187,6 +191,7 @@ export default function EvaluationDashboard({
       setPage(0)
       const params = new URLSearchParams({ periodId: selectedPeriod })
       if (selectedDept) params.set("departmentId", selectedDept)
+      if (showUnenrolled) params.set("source", "all")
       const endpoint = `${apiBase}?${params}&_=${Date.now()}`
       try {
         const res = await fetch(endpoint)
@@ -201,7 +206,7 @@ export default function EvaluationDashboard({
       }
       setLoading(false)
     })
-  }, [selectedPeriod, selectedDept, apiBase])
+  }, [selectedPeriod, selectedDept, showUnenrolled, apiBase])
 
   const selectFaculty = useCallback(async (facultyId: string) => {
     if (selectedFaculty === facultyId) { setSelectedFaculty(null); return }
@@ -472,11 +477,12 @@ export default function EvaluationDashboard({
     y += 5
     doc.setFontSize(9)
 
-    const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
+    const sentLabels = comments.map((c) => c.sentimentLabel).filter((l): l is string => Boolean(l) && l !== "gibberish")
     const posCount = sentLabels.filter((l) => l === "positive").length
     const negCount = sentLabels.filter((l) => l === "negative").length
     const neutralCount = sentLabels.filter((l) => l === "neutral").length
     const hasComments = comments.length > 0
+    const unenrolled = facultyResult.unenrolledCount ?? 0
 
     let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
     if (hasComments && posCount > negCount && posCount > 0) {
@@ -489,7 +495,11 @@ export default function EvaluationDashboard({
     if (hasComments && neutralCount > 0) {
       interp += `A portion of comments were neutral or mixed, reflecting balanced perspectives on the instructor's overall effectiveness. `
     }
-    interp += `The results reflect the collective assessment of ${facultyResult.totalRespondents} student respondent(s).`
+    if (unenrolled > 0) {
+      interp += `The results reflect the collective assessment of ${facultyResult.totalRespondents} student respondent(s), including ${unenrolled} from past/unenrolled students.`
+    } else {
+      interp += `The results reflect the collective assessment of ${facultyResult.totalRespondents} student respondent(s) currently enrolled in the class.`
+    }
 
     const interpLines = doc.splitTextToSize(interp, pageW - 50)
     doc.text(interpLines, 25, y)
@@ -605,11 +615,12 @@ export default function EvaluationDashboard({
     y += 5
     doc.setFontSize(9)
 
-    const sentLabels = comments.map((c) => c.sentimentLabel).filter(Boolean)
+    const sentLabels = comments.map((c) => c.sentimentLabel).filter((l): l is string => Boolean(l) && l !== "gibberish")
     const posCount = sentLabels.filter((l) => l === "positive").length
     const negCount = sentLabels.filter((l) => l === "negative").length
     const neutralCount = sentLabels.filter((l) => l === "neutral").length
     const hasComments = comments.length > 0
+    const unenrolled = facultyResult.unenrolledCount ?? 0
 
     let interp = `The instructor received an overall rating of ${overall.toFixed(2)}, indicating a ${remarkLabel.toLowerCase()} level of performance. `
     if (hasComments && posCount > negCount && posCount > 0) {
@@ -622,7 +633,11 @@ export default function EvaluationDashboard({
     if (hasComments && neutralCount > 0) {
       interp += `A portion of comments were neutral or mixed, reflecting balanced perspectives on the instructor's overall effectiveness. `
     }
-    interp += `The results reflect the collective assessment of ${facultyResult.totalRespondents} student respondent(s).`
+    if (unenrolled > 0) {
+      interp += `The results reflect the collective assessment of ${facultyResult.totalRespondents} student respondent(s), including ${unenrolled} from past/unenrolled students.`
+    } else {
+      interp += `The results reflect the collective assessment of ${facultyResult.totalRespondents} student respondent(s) currently enrolled in the class.`
+    }
 
     const interpLines = doc.splitTextToSize(interp, pageW - 50)
     doc.text(interpLines, 25, y)
@@ -728,6 +743,22 @@ export default function EvaluationDashboard({
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
+            </div>
+          )}
+          {showUnenrolledToggle && (
+            <div className="flex flex-col gap-1 sm:gap-1.5">
+              <label className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-tertiary">Unenrolled</label>
+              <button
+                type="button"
+                onClick={() => setShowUnenrolled(!showUnenrolled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                  showUnenrolled ? "bg-gold-500" : "bg-slate-300 dark:bg-slate-600"
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showUnenrolled ? "translate-x-6" : "translate-x-1"
+                }`} />
+              </button>
             </div>
           )}
           <div className="flex flex-col gap-1 sm:gap-1.5 w-full sm:w-auto">

@@ -35,6 +35,10 @@ export default function StudentEvaluationsPage() {
   const [errorMessage, setErrorMessage] = useState("")
   const evalTabRef = useRef<Window | null>(null)
   const evalTabIdRef = useRef<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<{ id: string; name: string; email: string; isEnrolled: boolean }[]>([])
+  const [searching, setSearching] = useState(false)
+  const [activeSemesterId, setActiveSemesterId] = useState("")
 
   function openEvalTab(id: string) {
     if (evalTabRef.current && !evalTabRef.current.closed) {
@@ -55,10 +59,12 @@ export default function StudentEvaluationsPage() {
         if (periodRes.status === 403) { setLockedEndpoint("/api/evaluation-periods"); return }
         const periodData = await periodRes.json()
         const active = (periodData.periods || []).find((p: { isActive: boolean }) => p.isActive)
-        if (active?.evalStartDate && active?.evalEndDate) {
+        if (active?.evalStartDate) {
           const now = Date.now()
           const start = new Date(active.evalStartDate).getTime()
-          const end = new Date(active.evalEndDate).getTime() + 86_399_999
+          const end = active.evalEndDate
+            ? new Date(active.evalEndDate).getTime() + 86_399_999
+            : Infinity
           if (now < start || now > end) {
             setOutOfRange(true)
           }
@@ -89,6 +95,14 @@ export default function StudentEvaluationsPage() {
         const [pendingData, evalData] = await Promise.all([pendingRes.json(), evalRes.json()])
         setPending(pendingData.pending || [])
         setEvaluations(evalData.evaluations || [])
+        if (active?.id) {
+          setActiveSemesterId(active.id)
+          // Fetch enrolled faculty suggestions for search
+          fetch(`/api/faculty/search?semesterId=${active.id}`)
+            .then((r) => r.json())
+            .then((d) => { if (d.faculty) setSearchResults(d.faculty) })
+            .catch(() => {})
+        }
       } catch {
         setErrorMessage("Failed to load evaluations")
       } finally {
@@ -104,8 +118,50 @@ export default function StudentEvaluationsPage() {
     } catch {}
   }, [])
 
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2) return // keep current suggestions when not typing
+    const timer = setTimeout(() => {
+      Promise.resolve().then(async () => {
+        setSearching(true)
+        try {
+          const params = new URLSearchParams({ q })
+          if (activeSemesterId) params.set("semesterId", activeSemesterId)
+          const res = await fetch(`/api/faculty/search?${params}`)
+          if (res.ok) {
+            const data = await res.json()
+            setSearchResults(data.faculty || [])
+          }
+        } catch {} finally {
+          setSearching(false)
+        }
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery, activeSemesterId])
+
+  async function startUnenrolledEval(evaluateeId: string, isEnrolled: boolean) {
+    setNavigatingId(evaluateeId)
+    try {
+      const body = isEnrolled ? { evaluateeId } : { evaluateeId, source: "unenrolled" }
+      const res = await fetch("/api/evaluations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
+      const data = await res.json()
+      if (data.evaluation?.id) { openEvalTab(data.evaluation.id); setNavigatingId(null) }
+    } catch {
+      setNavigatingId(null)
+    }
+  }
+
   const total = pending.length + evaluations.length
   const completed = evaluations.length
+  const pendingIds = new Set(pending.map((p) => p.evaluateeId))
+  const submittedIds = new Set(evaluations.filter((e) => e.status === "SUBMITTED").map((e) => e.evaluateeId))
+  const filteredSearchResults = searchResults.filter((f) => !pendingIds.has(f.id) && !submittedIds.has(f.id))
 
   if (lockedEndpoint) {
     return (
@@ -254,6 +310,72 @@ export default function StudentEvaluationsPage() {
         </div>
       )}
 
+      {!outOfRange && (
+        <div className="animate-fade-in" style={{ animationDelay: "0.22s" }}>
+          <h2 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+            <span>🔍</span> Search Faculty to Evaluate
+          </h2>
+          <div className="card p-4 bg-surface space-y-3">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type faculty name or email..."
+                className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 transition-all"
+              />
+              {searching && (
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin ios-spinner w-4 h-4 text-gold-600" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+                </svg>
+              )}
+            </div>
+            {filteredSearchResults.length > 0 && (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {filteredSearchResults.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => startUnenrolledEval(f.id, f.isEnrolled)}
+                    disabled={navigatingId === f.id}
+                    className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-left transition-all"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-primary">{f.name}</p>
+                        {f.isEnrolled && (
+                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">Enrolled</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-tertiary">{f.email}</p>
+                    </div>
+                    <div className="shrink-0 ml-3">
+                      {navigatingId === f.id ? (
+                        <svg className="animate-spin ios-spinner w-4 h-4 text-gold-600" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-gold-600 bg-gold-50 dark:bg-gold-900/30 px-3 py-1.5 rounded-full whitespace-nowrap">
+                          Evaluate
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searchQuery.trim().length >= 2 && !searching && searchResults.length > 0 && filteredSearchResults.length === 0 && (
+              <p className="text-xs text-tertiary text-center py-2">All matching faculty are already listed in Pending Evaluations</p>
+            )}
+            {searchQuery.trim().length >= 2 && !searching && searchResults.length === 0 && (
+              <p className="text-xs text-tertiary text-center py-2">No faculty found matching &quot;{searchQuery.trim()}&quot;</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {!outOfRange && evaluations.length > 0 && (
         <div className="animate-fade-in" style={{ animationDelay: "0.25s" }}>
           <h2 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
@@ -269,7 +391,7 @@ export default function StudentEvaluationsPage() {
                       const res = await fetch("/api/evaluations", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ evaluateeId: ev.evaluateeId }),
+                        body: JSON.stringify({ id: ev.id }),
                       })
                       if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
                       const data = await res.json()

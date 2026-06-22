@@ -63,6 +63,7 @@ export interface Evaluation {
   submittedAt: Date | null
   createdAt: Date
   updatedAt: Date
+  source: string | null
 }
 
 export interface EvaluationRating {
@@ -172,6 +173,7 @@ export interface EvaluationData {
   submittedAt: Date | null
   createdAt: Date
   updatedAt: Date
+  source: string | null
 }
 
 export interface EvaluationResultData {
@@ -282,7 +284,7 @@ export interface IEvaluationRepository {
   findByEvaluator(evaluatorId: string): Promise<EvaluationData[]>
   findById(id: string): Promise<EvaluationData | null>
   findByComposite(semesterId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData | null>
-  create(semesterId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData>
+  create(semesterId: string, evaluatorId: string, evaluateeId: string, source?: string | null): Promise<EvaluationData>
   setRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]): Promise<void>
   submit(evaluationId: string): Promise<EvaluationData>
   getRatings(evaluationId: string): Promise<{ itemId: string; rating: number }[]>

@@ -31,13 +31,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const semesterId = searchParams.get("periodId")
     const departmentId = searchParams.get("departmentId")
+    const sourceFilter = searchParams.get("source") // "all", "unenrolled", or undefined (default: normal only)
     if (!semesterId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
     let query = supabase
       .from("evaluations")
-      .select("id, evaluateeId")
+      .select("id, evaluateeId, source")
       .eq("semesterId", semesterId)
       .eq("status", "SUBMITTED")
+
+    if (sourceFilter === "unenrolled") {
+      query = query.eq("source", "unenrolled")
+    } else if (sourceFilter !== "all") {
+      query = query.is("source", null)
+    }
 
     if (departmentId) {
       const { data: deptUsers } = await supabase
@@ -59,6 +66,12 @@ export async function GET(request: NextRequest) {
       .eq("semesterId", semesterId)
       .eq("status", "SUBMITTED")
 
+    if (sourceFilter === "unenrolled") {
+      countQuery = countQuery.eq("source", "unenrolled")
+    } else if (sourceFilter !== "all") {
+      countQuery = countQuery.is("source", null)
+    }
+
     if (departmentId) {
       const { data: deptUsers } = await supabase
         .from("users")
@@ -73,9 +86,13 @@ export async function GET(request: NextRequest) {
     const uniqueRespondents = new Set((allEvals || []).map((e) => e.evaluatorId)).size
 
     const facultyEvalMap = new Map<string, string[]>()
+    const facultyUnenrolledMap = new Map<string, number>()
     for (const ev of evals || []) {
       if (!facultyEvalMap.has(ev.evaluateeId)) facultyEvalMap.set(ev.evaluateeId, [])
       facultyEvalMap.get(ev.evaluateeId)!.push(ev.id)
+      if (ev.source === "unenrolled") {
+        facultyUnenrolledMap.set(ev.evaluateeId, (facultyUnenrolledMap.get(ev.evaluateeId) ?? 0) + 1)
+      }
     }
 
     const allFacultyIds = [...facultyEvalMap.keys()]
@@ -125,6 +142,7 @@ export async function GET(request: NextRequest) {
         facultyId: facId,
         departmentId: null,
         totalRespondents: evaluationIds.length,
+        unenrolledCount: facultyUnenrolledMap.get(facId) ?? 0,
         generalRating: general !== null ? Math.round(general * 100) / 100 : null,
         remarks: getRemark(general),
         professionalManner: null,

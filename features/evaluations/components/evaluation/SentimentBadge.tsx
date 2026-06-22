@@ -10,6 +10,7 @@ const DISPLAY_LABELS: Record<string, string> = {
   negative: "Negative",
   neutral: "Needs Review",
   mixed: "Needs Review",
+  gibberish: "Gibberish",
 }
 
 const STYLES: Record<string, { bg: string; text: string }> = {
@@ -17,6 +18,7 @@ const STYLES: Record<string, { bg: string; text: string }> = {
   negative: { bg: "bg-rose-50", text: "text-rose-700" },
   neutral: { bg: "bg-amber-50", text: "text-amber-700" },
   mixed: { bg: "bg-amber-50", text: "text-amber-700" },
+  gibberish: { bg: "bg-slate-100 dark:bg-slate-700", text: "text-slate-500 dark:text-slate-400" },
 }
 
 export function SentimentBadge({ label }: SentimentBadgeProps) {

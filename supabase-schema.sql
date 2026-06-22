@@ -720,6 +720,15 @@ CREATE TABLE IF NOT EXISTS evaluations (
   UNIQUE("semesterId", "evaluatorId", "evaluateeId")
 );
 
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluations' AND column_name = 'source'
+  ) THEN
+    ALTER TABLE evaluations ADD COLUMN "source" TEXT DEFAULT NULL;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_evaluations_semester ON evaluations("semesterId");
 CREATE INDEX IF NOT EXISTS idx_evaluations_evaluator ON evaluations("evaluatorId");
 CREATE INDEX IF NOT EXISTS idx_evaluations_evaluatee ON evaluations("evaluateeId");
