@@ -1,5 +1,5 @@
 import DemandReportPage from "@/features/reports/components/pages/DemandReportPage"
 
-export default function AdminDemandReport(props: any) {
+export default function DeanDemandReport(props: any) {
   return <DemandReportPage {...props} />
 }

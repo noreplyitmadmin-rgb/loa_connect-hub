@@ -1,2 +1,2 @@
 import SentimentAnalysisPage from "@/features/evaluations/components/SentimentAnalysisPage"
-export default function AdminSentimentAnalysis() { return <SentimentAnalysisPage /> }
+export default function DeanSentimentAnalysis() { return <SentimentAnalysisPage /> }

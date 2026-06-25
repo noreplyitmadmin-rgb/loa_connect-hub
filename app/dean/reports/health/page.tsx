@@ -1,5 +1,5 @@
 import HealthReportPage from "@/features/reports/components/pages/HealthReportPage"
 
-export default function AdminHealthReport(props: any) {
+export default function DeanHealthReport(props: any) {
   return <HealthReportPage {...props} />
 }

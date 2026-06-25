@@ -213,15 +213,18 @@ const PAGE_ACCESS: Record<string, string[]> = {
   DEAN: [
     "/", "/dean", "/dean/upload", "/dean/departments",
     "/dean/reports", "/dean/reports/evaluation-results",
-    "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/faq",
+    "/dean/evaluations", "/dean/evaluations/rubrics",
+    "/dean/data/users", "/dean/data/academic-infrastructure",
+    "/dean/etl-hub",
+    "/faculty/meetings", "/faculty/availability", "/faculty/reports",
   ],
   FACULTY: [
     "/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload",
-    "/faculty/evaluations/results", "/faq",
+    "/faculty/evaluations", "/faculty/evaluations/results",
   ],
   STUDENT: [
     "/", "/student", "/student/book", "/student/meetings", "/student/history",
-    "/student/evaluations", "/faq",
+    "/student/evaluations",
   ],
   GUEST: [],
 }

@@ -2,6 +2,6 @@
 
 import DeletedUsersPage from "@/features/admin-data/components/DeletedUsersPage"
 
-export default function AdminDeletedUsersPage() {
+export default function DeanDeletedUsersPage() {
   return <DeletedUsersPage />
 }

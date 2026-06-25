@@ -2,6 +2,6 @@
 
 import AcademicInfrastructurePage from "@/features/admin-data/components/AcademicInfrastructurePage"
 
-export default function AdminAcademicInfrastructure() {
+export default function DeanAcademicInfrastructure() {
   return <AcademicInfrastructurePage />
 }

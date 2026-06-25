@@ -2,6 +2,6 @@
 
 import DataUsersPage from "@/features/admin-data/components/DataUsersPage"
 
-export default function AdminDataUsersPage() {
+export default function DeanDataUsersPage() {
   return <DataUsersPage />
 }
