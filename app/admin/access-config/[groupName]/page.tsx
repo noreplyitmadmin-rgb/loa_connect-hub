@@ -33,6 +33,7 @@ const badgeColors: Record<string, string> = {
 }
 
 const ADMIN_LOCKED_PAGES = new Set(["/admin", "/admin/users", "/admin/access-config"])
+const ALWAYS_LOCKED_PAGES = new Set(["/faq", "/403", "/admin/etl-hub", "/student/evaluations/thank-you"])
 
 export default function EditAccessGroupPage() {
   const params = useParams()
@@ -74,7 +75,7 @@ export default function EditAccessGroupPage() {
   }, [groupName])
 
   const isLockedPage = (p: string) =>
-    group?.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(p)
+    (group?.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(p)) || ALWAYS_LOCKED_PAGES.has(p)
 
   const togglePage = (path: string) => {
     if (isLockedPage(path) && selectedPages.includes(path)) return
@@ -205,7 +206,7 @@ export default function EditAccessGroupPage() {
               const matched = items.filter((item) => {
                 if (pageTab === "api" && !isApi(item.path)) return false
                 if (pageTab === "pages" && isApi(item.path)) return false
-                const lockedFilter = !(group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)) || selectedPages.includes(item.path)
+                const lockedFilter = !((group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)) || ALWAYS_LOCKED_PAGES.has(item.path)) || selectedPages.includes(item.path)
                 if (!lockedFilter) return false
                 if (!search.trim()) return true
                 const q = search.toLowerCase()
@@ -230,7 +231,7 @@ export default function EditAccessGroupPage() {
                       {category}
                     </p>
                     {items.map((item) => {
-                      const locked = group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)
+                      const locked = (group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)) || ALWAYS_LOCKED_PAGES.has(item.path)
                       return (
                         <label
                           key={item.path}

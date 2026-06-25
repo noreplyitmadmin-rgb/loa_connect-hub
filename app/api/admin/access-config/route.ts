@@ -70,7 +70,6 @@ function pageCategory(p: string): string {
   if (p.startsWith("/student")) return "Student"
   if (p.startsWith("/faculty")) return "Faculty"
   if (p.startsWith("/dean")) return "Dean"
-  if (p.startsWith("/faq")) return "Information"
   return "Other"
 }
 
@@ -80,6 +79,7 @@ function pageLabel(p: string): string {
     "/admin": "Admin Dashboard",
     "/admin/users": "Manage Users",
     "/admin/access-config": "Access Configuration",
+    "/admin/etl-hub": "ETL Hub",
     "/student": "Student Dashboard",
     "/student/book": "Book Consultation",
     "/student/meetings": "Student Consultations",
@@ -90,8 +90,8 @@ function pageLabel(p: string): string {
     "/faculty/reports": "Department Reports",
     "/dean": "Dean Dashboard",
     "/dean/upload": "Import Users",
-    "/faq": "FAQ",
     "/403": "Forbidden",
+    "/student/evaluations/thank-you": "Evaluation Thank You",
   }
   return map[p] || p.split("/").filter(Boolean).map(capitalize).join(" / ") || p
 }
@@ -152,6 +152,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({
         error: `Cannot remove required ADMIN pages: ${missing.join(", ")}`,
       }, { status: 400 })
+    }
+  }
+
+  if (pages !== undefined && groupName !== "ADMIN") {
+    for (const p of ["/faq", "/403", "/admin/etl-hub", "/student/evaluations/thank-you"]) {
+      if (!pages.includes(p)) pages.push(p)
     }
   }
 
