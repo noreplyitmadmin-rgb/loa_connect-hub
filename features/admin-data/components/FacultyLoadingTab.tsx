@@ -49,6 +49,25 @@ function FacultyTab() {
   const [activeSemesterId, setActiveSemesterId] = useState<string>("")
   const tableRef = useRef<HTMLDivElement>(null)
 
+  // ── CSV Import state ──────────────────────────────────────
+  const [importDeptId, setImportDeptId] = useState("")
+  const csvFileRef = useRef<HTMLInputElement>(null)
+  const [csvRows, setCsvRows] = useState<{ email: string; name: string; subjectCode: string; section: string }[] | null>(null)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvImportResult, setCsvImportResult] = useState<{
+    matched: number
+    errors: { row: number; email?: string; message: string }[]
+    createdSubjects: number
+    createdSections: number
+    parseErrors?: { row: number; message: string }[]
+  } | null>(null)
+  const [csvError, setCsvError] = useState("")
+  const [csvPreviewPage, setCsvPreviewPage] = useState(0)
+  const PREVIEW_PAGE_SIZE = 50
+
+  const TEMPLATE_HEADERS = "faculty email, name, subject code, section"
+  const TEMPLATE_SAMPLE = "juan.delacruz@lyceumalabang.edu.ph, Juan Dela Cruz, CS101, BSIT-32A3\nmaria.santos@lyceumalabang.edu.ph, Maria Santos, MATH201, BSCS-21B"
+
   // ── Department filter ────────────────────────────────────
   const [deptFilter, setDeptFilter] = useState("all")
   const [currentUserDept, setCurrentUserDept] = useState<string | null>(null)
@@ -169,6 +188,98 @@ function FacultyTab() {
     finally { setFormSaving(false) }
   }
 
+  // ── CSV Import handlers ──────────────────────────────────
+
+  function downloadBlob(csv: string, filename: string) {
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function parseFacultyCsv(text: string): { rows: { email: string; name: string; subjectCode: string; section: string }[]; error?: string } {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim())
+    if (lines.length < 2) return { rows: [], error: "CSV file is empty" }
+    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
+    const hasName = headers.length > 1 && headers[1] === "name"
+    const expected = hasName ? ["faculty email", "name", "subject code", "section"] : ["faculty email", "subject code", "section"]
+    if (headers.length < expected.length || headers[0] !== "faculty email") {
+      return { rows: [], error: `Expected headers: ${expected.join(", ")}` }
+    }
+    const rows: { email: string; name: string; subjectCode: string; section: string }[] = []
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",").map((c) => c.trim())
+      if (cols.length < expected.length) continue
+      rows.push({
+        email: cols[0].toLowerCase().trim(),
+        name: hasName ? cols[1] : "",
+        subjectCode: hasName ? cols[2] : cols[1],
+        section: cols.slice(hasName ? 3 : 2).join(", "),
+      })
+    }
+    return { rows }
+  }
+
+  const handleCsvFile = (file: File) => {
+    setCsvImportResult(null)
+    setCsvError("")
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      const { rows, error } = parseFacultyCsv(text)
+      if (error) { setCsvError(error); return }
+      if (rows.length === 0) { setCsvError("No valid rows found"); return }
+      setCsvRows(rows)
+      setCsvPreviewPage(0)
+    }
+    reader.readAsText(file)
+  }
+
+  const handleCsvImport = async () => {
+    if (!csvRows || csvRows.length === 0) return
+    if (!importDeptId) { setCsvError("Please select a department"); return }
+    setCsvImporting(true); setCsvImportResult(null); setCsvError("")
+    try {
+      const res = await fetch("/api/import/faculties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departmentId: importDeptId, semesterId: activeSemesterId || null, rows: csvRows }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Import failed") }
+      const result = await res.json()
+      setCsvImportResult(result)
+      if (result.matched > 0) { setCsvRows(null); fetchData(true) }
+    } catch (err) { setCsvError((err as Error).message) }
+    finally { setCsvImporting(false) }
+  }
+
+  const handleCsvFieldChange = (index: number, field: "name" | "subjectCode" | "section", value: string) => {
+    if (!csvRows) return
+    const next = [...csvRows]
+    next[index] = { ...next[index], [field]: value }
+    setCsvRows(next)
+  }
+
+  const handleCsvRowRemove = (index: number) => {
+    if (!csvRows) return
+    const next = csvRows.filter((_, i) => i !== index)
+    setCsvRows(next)
+    if (next.length > 0 && Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= csvPreviewPage) {
+      setCsvPreviewPage(Math.max(0, csvPreviewPage - 1))
+    }
+  }
+
+  const handleCsvReset = () => {
+    setCsvRows(null)
+    setCsvImportResult(null)
+    setCsvPreviewPage(0)
+    setCsvError("")
+    if (csvFileRef.current) csvFileRef.current.value = ""
+  }
+
   const hasNullSemesterId = data?.some((m) => !m.semesterId) ?? false
 
   const byDept = data?.filter((m) => {
@@ -276,6 +387,258 @@ function FacultyTab() {
         </div>
         <div className="pt-2"><IosButton type="submit" loading={formSaving} variant="primary">Create Faculty Load Entry</IosButton></div>
       </form>
+
+      {/* ═══════════════════════════════════════════════════
+          BULK IMPORT FACULTY VIA CSV
+         ═══════════════════════════════════════════════════ */}
+      <div className="card p-4 sm:p-6 bg-surface space-y-6">
+        <h2 className="text-sm font-bold text-secondary">Bulk Import Faculty via CSV</h2>
+
+        <div>
+          <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
+          <select
+            value={importDeptId}
+            onChange={(e) => { setImportDeptId(e.target.value); setCsvRows(null); setCsvImportResult(null); setCsvPreviewPage(0); setCsvError(""); if (csvFileRef.current) csvFileRef.current.value = "" }}
+            className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            <option value="">Select department...</option>
+            {departments.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
+          </select>
+        </div>
+
+        {!activeSemesterId && (
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
+            <span>⚠️</span>
+            <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
+          </div>
+        )}
+
+        {!importDeptId && (
+          <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+            Select a department above to begin.
+          </p>
+        )}
+
+        {importDeptId && (
+          <>
+            <div className="space-y-4 pt-2 border-t border-default/60">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-secondary">Upload CSV</h3>
+                {!csvRows && !csvImportResult && (
+                  <button type="button" onClick={() => downloadBlob(`${TEMPLATE_HEADERS}\n${TEMPLATE_SAMPLE}`, "faculty-import-template.csv")}
+                    className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+                  >
+                    <svg className="w-4 h-4 text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Template
+                  </button>
+                )}
+              </div>
+
+              {!csvRows && !csvImportResult && (
+                <div className="space-y-4">
+                  <div
+                    onClick={() => csvFileRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl bg-surface-dim/30 hover:bg-surface-dim/60 cursor-pointer transition-colors"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gold-100 dark:bg-gold-900/40 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-secondary">Tap to choose a CSV file</p>
+                    <p className="text-xs text-tertiary">Headers: <code className="bg-surface-dim px-1.5 py-0.5 rounded text-[10px]">{TEMPLATE_HEADERS}</code></p>
+                    <input
+                      ref={csvFileRef}
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFile(f) }}
+                    />
+                  </div>
+                  {csvError && <p className="text-xs font-medium text-red-600 text-center">{csvError}</p>}
+                </div>
+              )}
+
+              {csvRows && csvRows.length > 0 && (
+                <div className="flex flex-col h-full min-h-[24rem]">
+                  {csvImporting && (
+                    <div className="mb-3 space-y-1.5">
+                      <div className="w-full bg-slate-200 rounded-full h-2.5">
+                        <div className="bg-gold-500 h-2.5 rounded-full animate-pulse" style={{ width: "100%" }} />
+                      </div>
+                      <p className="text-[11px] text-tertiary text-center">Importing faculty mappings...</p>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-3 overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-secondary">
+                        {csvRows.length} row{csvRows.length !== 1 ? "s" : ""}
+                      </h4>
+                      <span className="text-[11px] text-tertiary">{TEMPLATE_HEADERS}</span>
+                    </div>
+
+                    {csvError && <p className="text-xs font-medium text-red-600">{csvError}</p>}
+
+                    <div className="max-h-72 overflow-y-auto tbl-container tbl">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th className="w-8">#</th>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Subject</th>
+                            <th>Section</th>
+                            <th className="w-12"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(csvRows ? csvRows.slice(csvPreviewPage * PREVIEW_PAGE_SIZE, (csvPreviewPage + 1) * PREVIEW_PAGE_SIZE) : []).map((row, i) => {
+                            const absIdx = csvPreviewPage * PREVIEW_PAGE_SIZE + i
+                            return (
+                              <tr key={`${csvPreviewPage}-${i}`}>
+                                <td className="text-tertiary">{absIdx + 1}</td>
+                                <td className="text-secondary">{row.email}</td>
+                                <td>
+                                  <input
+                                    value={row.name}
+                                    onChange={(e) => handleCsvFieldChange(absIdx, "name", e.target.value)}
+                                    disabled={csvImporting}
+                                    className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    value={row.subjectCode}
+                                    onChange={(e) => handleCsvFieldChange(absIdx, "subjectCode", e.target.value)}
+                                    disabled={csvImporting}
+                                    className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    value={row.section}
+                                    onChange={(e) => handleCsvFieldChange(absIdx, "section", e.target.value)}
+                                    disabled={csvImporting}
+                                    className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
+                                  />
+                                </td>
+                                <td className="text-center">
+                                  <button
+                                    type="button"
+                                    disabled={csvImporting}
+                                    onClick={() => handleCsvRowRemove(absIdx)}
+                                    className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Remove row"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {Math.ceil(csvRows.length / PREVIEW_PAGE_SIZE) > 1 && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-tertiary">
+                          Page {csvPreviewPage + 1} of {Math.ceil(csvRows.length / PREVIEW_PAGE_SIZE)}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={csvPreviewPage === 0 || csvImporting}
+                            onClick={() => setCsvPreviewPage((p) => p - 1)}
+                            className="px-4 py-1.5 bg-surface-dim text-secondary rounded-full text-xs font-semibold hover:bg-surface-dim/70 disabled:opacity-40 transition-colors"
+                          >
+                            Prev
+                          </button>
+                          <button
+                            type="button"
+                            disabled={(csvPreviewPage >= Math.ceil(csvRows.length / PREVIEW_PAGE_SIZE) - 1) || csvImporting}
+                            onClick={() => setCsvPreviewPage((p) => p + 1)}
+                            className="px-4 py-1.5 bg-surface-dim text-secondary rounded-full text-xs font-semibold hover:bg-surface-dim/70 disabled:opacity-40 transition-colors"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
+                    <IosButton variant="gray" type="button" disabled={csvImporting} onClick={handleCsvReset} className="flex-1">Cancel</IosButton>
+                    <IosButton variant="primary" type="button" disabled={csvImporting || csvRows.length === 0 || !importDeptId} onClick={handleCsvImport} className="flex-1">{csvImporting ? "Importing..." : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}</IosButton>
+                  </div>
+                </div>
+              )}
+
+              {csvImportResult && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-5 text-center">
+                      <p className="text-2xl font-bold text-emerald-600">{csvImportResult.matched}</p>
+                      <p className="text-[11px] font-semibold text-emerald-700/70 dark:text-emerald-300/70">Mappings Matched</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 text-center">
+                      <p className="text-2xl font-bold text-blue-600">{csvImportResult.createdSubjects}</p>
+                      <p className="text-[11px] font-semibold text-blue-700/70 dark:text-blue-300/70">Subjects Created</p>
+                    </div>
+                    <div className="bg-gold-50 dark:bg-gold-900/20 rounded-2xl p-5 text-center">
+                      <p className="text-2xl font-bold text-gold-600">{csvImportResult.createdSections}</p>
+                      <p className="text-[11px] font-semibold text-amber-700/70 dark:text-amber-300/70">Sections Created</p>
+                    </div>
+                  </div>
+
+                  {csvImportResult.parseErrors && csvImportResult.parseErrors.length > 0 && (
+                    <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-red-100 dark:border-red-800/30">
+                        <p className="text-sm font-semibold text-red-700 dark:text-red-300">{csvImportResult.parseErrors.length} Parse Error{csvImportResult.parseErrors.length !== 1 ? "s" : ""}</p>
+                      </div>
+                      <div className="px-5 py-3 space-y-2 max-h-40 overflow-y-auto">
+                        {csvImportResult.parseErrors.map((e, i) => (
+                          <p key={`pe-${i}`} className="text-xs text-red-600 dark:text-red-400">Row {e.row}: {e.message}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {csvImportResult.errors && csvImportResult.errors.length > 0 && (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-amber-100 dark:border-amber-800/30">
+                        <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{csvImportResult.errors.length} Import Error{csvImportResult.errors.length !== 1 ? "s" : ""}</p>
+                      </div>
+                      <div className="px-5 py-3 space-y-2 max-h-40 overflow-y-auto">
+                        {csvImportResult.errors.map((e, i) => (
+                          <p key={`e-${i}`} className="text-xs text-amber-700 dark:text-amber-400">Row {e.row}: {e.email ? `${e.email} — ` : ""}{e.message}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!csvImportResult.errors || csvImportResult.errors.length === 0) && csvImportResult.matched > 0 && (
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl px-5 py-4 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-200 dark:bg-emerald-700 flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-emerald-700 dark:text-emerald-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">All rows processed successfully.</p>
+                    </div>
+                  )}
+
+                  <IosButton variant="gray" type="button" onClick={handleCsvReset} className="w-full">Import Another File</IosButton>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Department Filter */}
       <div className="card p-4 sm:p-6 bg-surface space-y-3">
