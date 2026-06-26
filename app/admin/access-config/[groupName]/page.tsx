@@ -189,17 +189,50 @@ export default function EditAccessGroupPage() {
           </div>
 
           {catalog && (() => {
+            const rolePrefixes = ["/admin/", "/dean/", "/faculty/", "/student/"]
+            const suffixAfterRolePrefix = (p: string) => {
+              for (const prefix of rolePrefixes) {
+                if (p.startsWith(prefix)) return p.slice(prefix.length)
+              }
+              return null
+            }
+
+            const displayPath = (p: string) => suffixAfterRolePrefix(p) || p
+
+            const ownRoleCat = group.groupName === "ADMIN" ? "Admin" : group.groupName === "DEAN" ? "Dean" : null
+            const ownRoleSuffixes = new Set<string>()
+            if (ownRoleCat && catalog.pages[ownRoleCat]) {
+              for (const item of catalog.pages[ownRoleCat]) {
+                const suffix = suffixAfterRolePrefix(item.path)
+                if (suffix) ownRoleSuffixes.add(suffix)
+              }
+            }
+
+            const isMirroredDuplicate = (category: string, path: string) => {
+              if (group.groupName === "ADMIN" && category === "Dean") {
+                const s = suffixAfterRolePrefix(path)
+                return s !== null && ownRoleSuffixes.has(s)
+              }
+              if (group.groupName === "DEAN" && category === "Admin") {
+                const s = suffixAfterRolePrefix(path)
+                return s !== null && ownRoleSuffixes.has(s)
+              }
+              return false
+            }
+
             const filtered = Object.entries(catalog.pages).reduce<[string, CatalogItem[]][]>((acc, [category, items]) => {
               const isApi = (p: string) => p.startsWith("/api/")
               const matched = items.filter((item) => {
                 if (pageTab === "api" && !isApi(item.path)) return false
                 if (pageTab === "pages" && isApi(item.path)) return false
+                if (isMirroredDuplicate(category, item.path)) return false
                 const lockedFilter = !((group.groupName === "ADMIN" && ADMIN_LOCKED_PAGES.has(item.path)) || ALWAYS_LOCKED_PAGES.has(item.path)) || selectedPages.includes(item.path)
                 if (!lockedFilter) return false
                 if (!search.trim()) return true
                 const q = search.toLowerCase()
                 return (
                   item.label.toLowerCase().includes(q) ||
+                  displayPath(item.path).toLowerCase().includes(q) ||
                   item.path.toLowerCase().includes(q) ||
                   item.description.toLowerCase().includes(q)
                 )
@@ -235,7 +268,7 @@ export default function EditAccessGroupPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span>{item.label}</span>
-                              <span className="text-[10px] text-tertiary font-mono">{item.path}</span>
+                              <span className="text-[10px] text-tertiary font-mono">{displayPath(item.path)}</span>
                               {locked && (
                                 <span className="text-[10px] text-tertiary ml-0">(required)</span>
                               )}
