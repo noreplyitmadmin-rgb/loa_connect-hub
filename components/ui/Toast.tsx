@@ -12,11 +12,11 @@ interface ToastData {
 let toastId = 0
 
 const METHOD_COLORS: Record<string, string> = {
-  GET: "bg-blue-500/20 text-blue-300",
-  POST: "bg-emerald-500/20 text-emerald-300",
-  PATCH: "bg-amber-500/20 text-amber-300",
-  PUT: "bg-amber-500/20 text-amber-300",
-  DELETE: "bg-red-500/20 text-red-300",
+  GET: "bg-white/90 text-blue-700",
+  POST: "bg-white/90 text-emerald-700",
+  PATCH: "bg-white/90 text-amber-700",
+  PUT: "bg-white/90 text-amber-700",
+  DELETE: "bg-white/90 text-red-700",
 }
 
 export default function ToastContainer() {

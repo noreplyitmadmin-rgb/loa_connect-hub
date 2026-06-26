@@ -22,7 +22,7 @@ function RefreshListener({ children }: { children: React.ReactNode }) {
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <SWRConfig value={{ fetcher, revalidateOnFocus: false }}>
+      <SWRConfig value={{ fetcher, revalidateOnFocus: false, shouldRetryOnError: false }}>
         <SidebarProvider>
           <PageTitleProvider>
             <RefreshListener>

@@ -12,12 +12,20 @@ export function dispatch403(path: string, message: string, method?: string) {
 
 const origFetch = typeof window !== "undefined" ? window.fetch.bind(window) : undefined
 
+const recentToasts = new Set<string>()
+
 async function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const method = init?.method || (typeof input === "object" && "method" in input && (input as Request).method) || "GET"
+  const url = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url
   const res = await origFetch!(input, init)
   if (res.status === 403) {
-    const cloned = res.clone()
-    cloned.json().then((body) => dispatch403(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url, body.message || body.error || "Forbidden", method)).catch(() => {})
+    const key = `${method}:${url}`
+    if (!recentToasts.has(key)) {
+      recentToasts.add(key)
+      setTimeout(() => recentToasts.delete(key), 3000)
+      const cloned = res.clone()
+      cloned.json().then((body) => dispatch403(url, body.message || body.error || "Forbidden", method)).catch(() => {})
+    }
   }
   return res
 }
