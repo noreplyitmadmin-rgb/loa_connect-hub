@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
   }
 
   const role = (session.user as Record<string, unknown>).role as string
-  if (!hasRole(role, "STUDENT") && !hasRole(role, "FACULTY")) {
-    return NextResponse.json({ error: "Only students and faculty can check faculty availability" }, { status: 403 })
+  if (!hasRole(role, "STUDENT") && !hasRole(role, "FACULTY") && !hasRole(role, "DEAN")) {
+    return NextResponse.json({ error: "Only students, faculty, and deans can check faculty availability" }, { status: 403 })
   }
 
   const { searchParams } = new URL(request.url)
