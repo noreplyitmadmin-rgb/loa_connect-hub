@@ -1,7 +1,6 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { getRoleList } from "@/lib/utils/roles"
 
 const roleConfig: Record<string, { label: string; href: string; gradient: string; description: string }> = {
   ADMIN: { label: "Dashboard - Admin", href: "/admin", gradient: "from-purple-600 to-indigo-600", description: "System administration and user management" },
@@ -10,9 +9,8 @@ const roleConfig: Record<string, { label: string; href: string; gradient: string
   STUDENT: { label: "Dashboard - Student", href: "/student", gradient: "from-blue-500 to-cyan-600", description: "Book consultations and track appointments" },
 }
 
-export default function MultiRoleDashboard({ role }: { role: string }) {
+export default function MultiRoleDashboard({ roles }: { roles: string[] }) {
   const router = useRouter()
-  const roles = getRoleList(role).filter((r) => r !== "GUEST")
 
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-6">
