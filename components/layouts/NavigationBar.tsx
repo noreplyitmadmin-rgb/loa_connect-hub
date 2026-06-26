@@ -3,7 +3,8 @@
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
+import { getPrimaryRole } from "@/lib/utils/roles"
 
 const LABELS: Record<string, string> = {
   admin: "Admin",
@@ -39,6 +40,15 @@ export default function NavigationBar(_props: { title?: string }) {
   const { data: session } = useSession()
   const [mounted, setMounted] = useState(false)
   const [dark, setDark] = useState(false)
+  const role = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined
+  const primaryRole = role ? getPrimaryRole(role) : null
+  const sortedRoles = useMemo(() => {
+    if (!role) return []
+    const parts = role.split("|")
+    if (parts.length <= 1) return parts
+    const PRIORITY = ["ADMIN", "DEAN", "FACULTY", "STUDENT", "GUEST"]
+    return [...parts].sort((a, b) => PRIORITY.indexOf(a) - PRIORITY.indexOf(b))
+  }, [role])
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -123,6 +133,22 @@ export default function NavigationBar(_props: { title?: string }) {
               {getInitial(session?.user?.name || "")}
             </div>
             <span className="font-medium text-secondary">{session?.user?.name || "User"}</span>
+            {sortedRoles.length > 0 && (
+              <div className="flex items-baseline gap-x-1 ml-1">
+                {sortedRoles.map((r, i) => (
+                  <span
+                    key={r}
+                    className={
+                      i === 0
+                        ? "text-[11px] font-semibold text-gold-500"
+                        : "text-[10px] italic text-slate-400"
+                    }
+                  >
+                    {r}{i < sortedRoles.length - 1 ? "," : ""}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <Link
