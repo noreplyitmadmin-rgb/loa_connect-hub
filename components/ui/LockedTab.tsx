@@ -3,6 +3,7 @@ interface LockedTabProps {
 }
 
 export default function LockedTab({ endpoint }: LockedTabProps) {
+  const cleanEndpoint = endpoint.split('?')[0]
   return (
     <div className="card p-12 text-center space-y-4">
       <div className="text-4xl text-tertiary">&#x1f512;</div>
@@ -11,7 +12,7 @@ export default function LockedTab({ endpoint }: LockedTabProps) {
         This tab requires the <strong>ADMIN role</strong> or a user-permissions grant for
       </p>
       <code className="inline-block px-3 py-1.5 rounded-lg bg-surface-hover text-xs font-mono text-secondary max-w-full break-all">
-        {endpoint}
+        {cleanEndpoint}
       </code>
     </div>
   )

@@ -43,7 +43,7 @@ export async function GET(
 
   const { data: departments } = await supabase
     .from('departments')
-    .select('id, name, code')
+    .select('id, name, code, "deanId"')
 
   return NextResponse.json({ users: enriched, departments: departments || [] })
 }
