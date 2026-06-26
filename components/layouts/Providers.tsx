@@ -2,12 +2,20 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { SessionProvider } from "next-auth/react"
+import { SessionProvider, useSession } from "next-auth/react"
 import { SWRConfig } from "swr"
-import { fetcher } from "@/lib/api/client"
+import { fetcher, setUserRole } from "@/lib/api/client"
 import { SidebarProvider } from "@/lib/contexts/sidebar"
 import { PageTitleProvider } from "@/lib/contexts/page-title"
 import ToastContainer from "@/components/ui/Toast"
+
+function SessionRoleSetter({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession()
+  useEffect(() => {
+    setUserRole(((session?.user as Record<string, unknown> | undefined)?.role as string) ?? null)
+  }, [session])
+  return <>{children}</>
+}
 
 function RefreshListener({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -23,14 +31,16 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <SWRConfig value={{ fetcher, revalidateOnFocus: false, shouldRetryOnError: false }}>
-        <SidebarProvider>
-          <PageTitleProvider>
-            <RefreshListener>
-              {children}
-              <ToastContainer />
-            </RefreshListener>
-          </PageTitleProvider>
-        </SidebarProvider>
+        <SessionRoleSetter>
+          <SidebarProvider>
+            <PageTitleProvider>
+              <RefreshListener>
+                {children}
+                <ToastContainer />
+              </RefreshListener>
+            </PageTitleProvider>
+          </SidebarProvider>
+        </SessionRoleSetter>
       </SWRConfig>
     </SessionProvider>
   )

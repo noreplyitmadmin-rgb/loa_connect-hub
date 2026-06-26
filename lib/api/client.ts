@@ -10,6 +10,12 @@ export function dispatch403(path: string, message: string, method?: string) {
   }
 }
 
+let currentRole: string | null = null
+
+export function setUserRole(role: string | null) {
+  currentRole = role
+}
+
 const origFetch = typeof window !== "undefined" ? window.fetch.bind(window) : undefined
 
 const recentToasts = new Set<string>()
@@ -24,7 +30,20 @@ async function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
       recentToasts.add(key)
       setTimeout(() => recentToasts.delete(key), 3000)
       const cloned = res.clone()
-      cloned.json().then((body) => dispatch403(url, body.message || body.error || "Forbidden", method)).catch(() => {})
+      cloned.json()
+        .then(async (body) => {
+          const msg = body.message || body.error || "Forbidden"
+          await origFetch!("/api/audit/forbidden", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: url, method, message: msg }),
+          }).catch(() => {})
+          const isAdmin = currentRole?.includes("ADMIN")
+          dispatch403(url, isAdmin ? msg : "Access denied. Contact an administrator.", method)
+        })
+        .catch(() => {
+          dispatch403(url, "Access denied. Contact an administrator.", method)
+        })
     }
   }
   return res
