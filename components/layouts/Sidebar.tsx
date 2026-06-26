@@ -28,14 +28,25 @@ function getReportChildren(role: string | null): NavItem[] {
   ]
 }
 
-const evaluationChildren: NavItem[] = [
-  { href: "/student/evaluations", label: "My Evaluation", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
-  { href: "/faculty/evaluations/results", label: "Evaluation", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
-  { href: "/admin/evaluations", label: "Evaluation Hub", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" },
-  { href: "/admin/evaluations/periods", label: "Periods", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
-  { href: "/admin/evaluations/results", label: "Results", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
-  { href: "/admin/evaluations/rubrics", label: "Rubrics", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
-]
+const evalChartIcon = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+function getEvaluationChildren(role: string | null): NavItem[] {
+  const items: NavItem[] = [
+    { href: "/student/evaluations", label: "My Evaluation", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
+  ]
+  if (role === "DEAN") {
+    items.push({ href: "/dean/evaluations", label: "Evaluation Hub", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" })
+    items.push({ href: "/dean/evaluations/results", label: "Results", icon: evalChartIcon })
+    items.push({ href: "/dean/evaluations/rubrics", label: "Rubrics", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" })
+  } else if (role === "ADMIN") {
+    items.push({ href: "/admin/evaluations", label: "Evaluation Hub", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" })
+    items.push({ href: "/admin/evaluations/periods", label: "Periods", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" })
+    items.push({ href: "/admin/evaluations/results", label: "Results", icon: evalChartIcon })
+    items.push({ href: "/admin/evaluations/rubrics", label: "Rubrics", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" })
+  } else {
+    items.push({ href: "/faculty/evaluations/results", label: "Evaluation", icon: evalChartIcon })
+  }
+  return items
+}
 
 const dataChildren: NavItem[] = [
   { href: "/admin/data/users", label: "Manage Users", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
@@ -45,7 +56,6 @@ const dataChildren: NavItem[] = [
 ]
 
 const hiddenHrefs = new Set(['/admin/reports', '/admin/evaluations', '/admin/evaluations/periods', '/admin/evaluations/results', '/dean/reports'])
-const evaluationHrefs = new Set(evaluationChildren.map((c) => c.href!))
 const dataHrefs = new Set(dataChildren.map((c) => c.href!))
 
 export default function Sidebar() {
@@ -144,6 +154,8 @@ export default function Sidebar() {
   const primaryRole = role ? getPrimaryRole(role) : null
   const reportChildren = useMemo(() => getReportChildren(primaryRole), [primaryRole])
   const reportHrefs = useMemo(() => new Set(reportChildren.map((c) => c.href!)), [reportChildren])
+  const evaluationChildren = useMemo(() => getEvaluationChildren(primaryRole), [primaryRole])
+  const evaluationHrefs = useMemo(() => new Set(evaluationChildren.map((c) => c.href!)), [evaluationChildren])
   const dashHref = primaryRole ? `/${primaryRole.toLowerCase()}` : "/"
   const allRoles = role ? role.split("|") : []
   const VALID_DASHBOARD_ROLES = ["ADMIN", "DEAN", "FACULTY", "STUDENT"]
