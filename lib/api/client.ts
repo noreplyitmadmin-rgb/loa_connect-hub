@@ -29,19 +29,25 @@ async function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
     if (!recentToasts.has(key)) {
       recentToasts.add(key)
       setTimeout(() => recentToasts.delete(key), 3000)
+      const msg = "Forbidden"
       const cloned = res.clone()
       cloned.json()
         .then(async (body) => {
-          const msg = body.message || body.error || "Forbidden"
+          const m = body.message || body.error || msg
           await origFetch!("/api/audit/forbidden", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: url, method, message: m }),
+          }).catch(() => {})
+          const isAdmin = currentRole?.includes("ADMIN")
+          dispatch403(url, isAdmin ? m : "Access denied. Contact an administrator.", method)
+        })
+        .catch(() => {
+          origFetch!("/api/audit/forbidden", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ path: url, method, message: msg }),
           }).catch(() => {})
-          const isAdmin = currentRole?.includes("ADMIN")
-          dispatch403(url, isAdmin ? msg : "Access denied. Contact an administrator.", method)
-        })
-        .catch(() => {
           dispatch403(url, "Access denied. Contact an administrator.", method)
         })
     }
