@@ -266,6 +266,9 @@ export default function EditAccessGroupPage() {
             }
 
             const displayPath = (p: string) => suffixAfterRolePrefix(p) || p
+            const ROLE_CATS = ["Admin", "Dean", "Faculty", "Student"]
+            const displayLabel = (label: string, category: string) =>
+              ROLE_CATS.includes(category) && label.startsWith(category + " / ") ? label.slice(category.length + 3) : label
 
             const ownRoleCat = group.groupName === "ADMIN" ? "Admin" : group.groupName === "DEAN" ? "Dean" : null
             const ownRoleSuffixes = new Set<string>()
@@ -288,11 +291,24 @@ export default function EditAccessGroupPage() {
               return false
             }
 
-            const filtered = Object.entries(catalog.pages).reduce<[string, CatalogItem[]][]>((acc, [category, items]) => {
-              const isApi = (p: string) => p.startsWith("/api/")
+            const isApi = (p: string) => p.startsWith("/api/")
+
+            const catalogEntries = pageTab === "api"
+              ? Object.entries(catalog.pages).flatMap<[string, CatalogItem[]]>(([, items]) => {
+                  const grouped = new Map<string, CatalogItem[]>()
+                  for (const item of items) {
+                    if (!isApi(item.path)) continue
+                    const seg = item.path.split("/")[2]
+                    const key = `api/${seg}`
+                    if (!grouped.has(key)) grouped.set(key, [])
+                    grouped.get(key)!.push(item)
+                  }
+                  return Array.from(grouped.entries())
+                })
+              : Object.entries(catalog.pages).filter(([category]) => category !== "API")
+
+            const filtered = catalogEntries.reduce<[string, CatalogItem[]][]>((acc, [category, items]) => {
               const matched = items.filter((item) => {
-                if (pageTab === "api" && !isApi(item.path)) return false
-                if (pageTab === "pages" && isApi(item.path)) return false
                 if (isMirroredDuplicate(category, item.path)) return false
                 const lockedFilter = !isLockedPage(item.path) || selectedPages.includes(item.path)
                 if (!lockedFilter) return false
@@ -335,7 +351,7 @@ export default function EditAccessGroupPage() {
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span>{item.label}</span>
+                              <span>{displayLabel(item.label, category)}</span>
                               <span className="text-[10px] text-tertiary font-mono">{displayPath(item.path)}</span>
                               {locked && (
                                 <span className="text-[10px] text-tertiary ml-0">(required)</span>
