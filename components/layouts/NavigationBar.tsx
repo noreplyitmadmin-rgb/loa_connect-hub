@@ -117,16 +117,7 @@ export default function NavigationBar(_props: { title?: string }) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("app:refresh"))}
-            className="text-xs p-1.5 rounded-lg border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
-            title="Refresh page"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
+        
 
           <div className="flex items-center gap-2 border-l border-default pl-3">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gold-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-md shrink-0">
