@@ -1,5 +1,5 @@
 import { sendConsultationInvite, sendApprovedWithTeamsLink, sendPasswordChangedEmail, sendBookingAcknowledgement, sendMeetingInviteWithICS, sendStatusUpdateEmail, sendActivationEmail, sendForgotPasswordEmail } from "@/lib/services/email"
-import { auditLogRepository } from "@/lib/repositories/factory"
+import { logAuditEvent } from "@/lib/services/audit"
 
 export interface EmailRecipient {
   email: string
@@ -8,15 +8,11 @@ export interface EmailRecipient {
 }
 
 async function logEmailSend(email: string, action: string, status: "SUCCESS" | "FAILED", details?: string) {
-  try {
-    await auditLogRepository.create({
-      email,
-      action: status === "SUCCESS" ? "EMAIL_SENT" : "EMAIL_FAILED",
-      details: `${action}${details ? ` — ${details}` : ""}`,
-    })
-  } catch (err) {
-    console.error("[audit] Failed to log email send:", err)
-  }
+  await logAuditEvent({
+    email,
+    action: status === "SUCCESS" ? "EMAIL_SENT" : "EMAIL_FAILED",
+    details: `${action}${details ? ` — ${details}` : ""}`,
+  })
 }
 
 export async function sendConsultationInviteWorkflow(

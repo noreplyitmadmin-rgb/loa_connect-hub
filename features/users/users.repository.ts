@@ -5,19 +5,11 @@ import type {
 } from "@/lib/types"
 import { USER_SELECT, singleQueryWithRoles, toUsersWithRoles, toUserWithRole, isMissingUserrole } from "@/lib/db/common"
 import type { QueryError, DbRecord } from "@/lib/db/common"
-import { auditLogRepository } from "@/features/audit/audit.repository"
+import { logAuditEvent } from "@/lib/services/audit"
 
 // Helper to log user operations
 async function logUserAction(email: string, action: string, details?: string) {
-  try {
-    await auditLogRepository.create({
-      email,
-      action,
-      details,
-    })
-  } catch (err) {
-    console.error("[audit] Failed to log user action:", err)
-  }
+  await logAuditEvent({ email, action, details })
 }
 
 export const userRepository: IUserRepository = {

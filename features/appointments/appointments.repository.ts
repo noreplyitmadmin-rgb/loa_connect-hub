@@ -5,22 +5,14 @@ import type {
 } from "@/lib/types"
 import { appointmentSelect } from "@/lib/db/common"
 import type { DbRecord } from "@/lib/db/common"
-import { auditLogRepository } from "@/features/audit/audit.repository"
+import { logAuditEvent } from "@/lib/services/audit"
 
 const DEFAULT_PAGE = 1
 const DEFAULT_LIMIT = 50
 
 // Helper to log appointment operations
 async function logAppointmentAction(email: string | null, action: string, details?: string) {
-  try {
-    await auditLogRepository.create({
-      email: email || undefined,
-      action,
-      details,
-    })
-  } catch (err) {
-    console.error("[audit] Failed to log appointment action:", err)
-  }
+  await logAuditEvent({ email: email || undefined, action, details })
 }
 
 export const appointmentRepository: IAppointmentRepository = {
