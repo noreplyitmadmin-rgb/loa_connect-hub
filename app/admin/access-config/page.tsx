@@ -203,10 +203,7 @@ function RBACTab({ readOnly }: { readOnly?: boolean }) {
 
 function cat(p: string): string {
   if (p === "/") return "General"
-  if (p.startsWith("/api/")) {
-    const seg = p.split("/")[2]
-    return `API / ${seg.charAt(0).toUpperCase()}${seg.slice(1)}`
-  }
+  if (p.startsWith("/api/")) return `api/${p.split("/")[2]}`
   if (p.startsWith("/admin")) return "Admin"
   if (p.startsWith("/student")) return "Student"
   if (p.startsWith("/faculty")) return "Faculty"
