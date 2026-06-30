@@ -121,7 +121,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
     } catch { /* silent */ }
   }, [])
 
-  useEffect(() => { fetchReferenceData() }, [fetchReferenceData])
+  useEffect(() => { Promise.resolve().then(() => fetchReferenceData()) }, [fetchReferenceData])
 
   const blockedRows = useMemo(() => {
     if (!previewRows) return []
