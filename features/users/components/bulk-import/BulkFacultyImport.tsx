@@ -151,9 +151,13 @@ export default function BulkFacultyImport({ departmentId, semesterId }: { depart
     const removed = previewRows[index]
     setRemovedRows((prev) => [...prev, { row: removed.row, email: removed.email, name: removed.name, subjectCode: removed.subjectCode, subjectName: removed.subjectName, section: removed.section }])
     const next = previewRows.filter((_, i) => i !== index)
-    setPreviewRows(next)
-    if (next.length > 0 && Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= previewPage) {
-      setPreviewPage(Math.max(0, previewPage - 1))
+    if (next.length === 0) {
+      setPreviewRows(null)
+    } else {
+      setPreviewRows(next)
+      if (Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= previewPage) {
+        setPreviewPage(Math.max(0, previewPage - 1))
+      }
     }
   }
 
@@ -375,25 +379,6 @@ export default function BulkFacultyImport({ departmentId, semesterId }: { depart
             )}
           </div>
 
-          {removedRows.length > 0 && (
-            <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl px-5 py-4 space-y-2">
-              <p className="text-sm font-semibold text-secondary">{removedRows.length} row{removedRows.length !== 1 ? "s" : ""} removed — you can download them to correct and re-upload.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  const headers = ["faculty email", "name", "section", "subject code", "subject name"]
-                  const csv = [headers.join(","), ...removedRows.map((r) => [r.email, r.name, r.section, r.subjectCode, r.subjectName].map((v) => `"${v}"`).join(","))].join("\n")
-                  downloadBlob(csv, "removed-rows.csv")
-                }}
-                className="flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
-              >
-                <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download Removed (.csv)
-              </button>
-            </div>
-          )}
           <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
             <button
               type="button"
@@ -411,6 +396,26 @@ export default function BulkFacultyImport({ departmentId, semesterId }: { depart
               {loading ? "Importing..." : `Import ${previewRows.length} Row${previewRows.length !== 1 ? "s" : ""}`}
             </button>
           </div>
+        </div>
+      )}
+
+      {removedRows.length > 0 && (
+        <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl px-5 py-4 space-y-2">
+          <p className="text-sm font-semibold text-secondary">{removedRows.length} row{removedRows.length !== 1 ? "s" : ""} removed — you can download them to correct and re-upload.</p>
+          <button
+            type="button"
+            onClick={() => {
+              const headers = ["faculty email", "name", "section", "subject code", "subject name"]
+              const csv = [headers.join(","), ...removedRows.map((r) => [r.email, r.name, r.section, r.subjectCode, r.subjectName].map((v) => `"${v}"`).join(","))].join("\n")
+              downloadBlob(csv, "removed-rows.csv")
+            }}
+            className="flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+          >
+            <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Removed (.csv)
+          </button>
         </div>
       )}
 

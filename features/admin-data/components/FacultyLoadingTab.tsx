@@ -57,6 +57,7 @@ function FacultyTab() {
     isNewSubject: boolean
     isNewSection: boolean
     isNewTeacher: boolean
+    isExistingMapping: boolean
   }
   const [csvRows, setCsvRows] = useState<CsvRowWithFlags[] | null>(null)
   const [csvImporting, setCsvImporting] = useState(false)
@@ -70,6 +71,7 @@ function FacultyTab() {
   const [csvError, setCsvError] = useState("")
   const [csvPreviewPage, setCsvPreviewPage] = useState(0)
   const [csvProblemFilter, setCsvProblemFilter] = useState(false)
+  const [csvBlockedFilter, setCsvBlockedFilter] = useState(false)
   const [removedCsvRows, setRemovedCsvRows] = useState<CsvRow[]>([])
   const PREVIEW_PAGE_SIZE = 50
 
@@ -78,7 +80,19 @@ function FacultyTab() {
     return csvRows.filter((r) => r.isNewSubject || r.isNewSection || r.isNewTeacher)
   }, [csvRows])
 
-  const csvVisibleRows = csvProblemFilter ? csvProblemRows : csvRows ?? []
+  const blockedCsvRows = useMemo(() => {
+    if (!csvRows) return []
+    return csvRows.filter((r) => r.isExistingMapping)
+  }, [csvRows])
+
+  const csvVisibleRows = csvRows
+    ? csvRows.filter((r) => {
+        if (csvProblemFilter && csvBlockedFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isExistingMapping
+        if (csvProblemFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher
+        if (csvBlockedFilter) return r.isExistingMapping
+        return true
+      })
+    : []
 
   const TEMPLATE_HEADERS = "faculty email, name, section, subject code, subject name"
   const TEMPLATE_SAMPLE = "juan.delacruz@lyceumalabang.edu.ph, Juan Dela Cruz, BSIT-32A3, CS101, Introduction to Computer Science\nmaria.santos@lyceumalabang.edu.ph, Maria Santos, BSCS-21B, MATH201, Calculus II"
@@ -239,6 +253,9 @@ function FacultyTab() {
   }
 
   function deriveCsvFlags(rows: CsvRow[]): CsvRowWithFlags[] {
+    const existingKeys = new Set(
+      (data ?? []).map((m) => `${m.faculty.email}|${m.subject.code}|${m.section.program}-${m.section.name}`)
+    )
     return rows.map((r) => {
       const idx = r.section.indexOf("-")
       const sectionProgram = idx === -1 ? "" : r.section.slice(0, idx).trim()
@@ -248,6 +265,7 @@ function FacultyTab() {
         isNewSubject: !subjects.some((s) => s.code === r.subjectCode),
         isNewSection: !sections.some((s) => s.name === sectionName && s.program === sectionProgram),
         isNewTeacher: !faculties.some((f) => f.email === r.email),
+        isExistingMapping: existingKeys.has(`${r.email}|${r.subjectCode}|${r.section}`),
       }
     })
   }
@@ -287,16 +305,22 @@ function FacultyTab() {
 
   const handleCsvFieldChange = (index: number, field: "name" | "subjectCode" | "subjectName" | "section", value: string) => {
     if (!csvRows) return
+    const existingKeys = new Set(
+      (data ?? []).map((m) => `${m.faculty.email}|${m.subject.code}|${m.section.program}-${m.section.name}`)
+    )
     const next = [...csvRows]
     const updated = { ...next[index], [field]: value }
     if (field === "subjectCode") {
       updated.isNewSubject = !subjects.some((s) => s.code === value)
+      updated.isExistingMapping = false
     } else if (field === "section") {
       const idx = value.indexOf("-")
       const sectionProgram = idx === -1 ? "" : value.slice(0, idx).trim()
       const sectionName = idx === -1 ? value : value.slice(idx + 1).trim()
       updated.isNewSection = !sections.some((s) => s.name === sectionName && s.program === sectionProgram)
     }
+    const row = updated as CsvRowWithFlags
+    updated.isExistingMapping = existingKeys.has(`${row.email}|${row.subjectCode}|${row.section}`)
     next[index] = updated
     setCsvRows(next)
   }
@@ -306,9 +330,14 @@ function FacultyTab() {
     const removed = csvRows[index]
     setRemovedCsvRows((prev) => [...prev, { email: removed.email, name: removed.name, subjectCode: removed.subjectCode, subjectName: removed.subjectName, section: removed.section }])
     const next = csvRows.filter((_, i) => i !== index)
-    setCsvRows(next)
-    if (next.length > 0 && Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= csvPreviewPage) {
-      setCsvPreviewPage(Math.max(0, csvPreviewPage - 1))
+    if (next.length === 0) {
+      setRemovedCsvRows([])
+      handleCsvReset()
+    } else {
+      setCsvRows(next)
+      if (Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= csvPreviewPage) {
+        setCsvPreviewPage(Math.max(0, csvPreviewPage - 1))
+      }
     }
   }
 
@@ -317,6 +346,7 @@ function FacultyTab() {
     setCsvImportResult(null)
     setCsvPreviewPage(0)
     setCsvProblemFilter(false)
+    setCsvBlockedFilter(false)
     setCsvError("")
     if (csvFileRef.current) csvFileRef.current.value = ""
   }
@@ -523,10 +553,23 @@ function FacultyTab() {
 
                     <div className="flex items-center gap-3">
                       <p className="text-[11px] text-tertiary/70 italic">
-                        Items marked <span className="badge-amber not-italic">amber</span> will be newly created;
-                        existing subjects, sections, and faculty are reused as-is.
+                        <span className="badge-red not-italic">Red</span> items block import — remove those rows first.
+                        <span className="badge-amber not-italic ml-1">Amber</span> items will be newly created.
                       </p>
-                      <div className="ml-auto">
+                      <div className="ml-auto flex items-center gap-2">
+                        {blockedCsvRows.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => { setCsvBlockedFilter((p) => !p); setCsvPreviewPage(0) }}
+                            className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
+                              csvBlockedFilter
+                                ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                                : "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
+                            }`}
+                          >
+                            {csvBlockedFilter ? "Show all rows" : `Show ${blockedCsvRows.length} blocked only`}
+                          </button>
+                        )}
                         {csvProblemRows.length > 0 && (
                           <button
                             type="button"
@@ -577,14 +620,15 @@ function FacultyTab() {
                                     className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
                                   />
                                 </td>
-                                <td className="whitespace-nowrap">
-                                  <div className="flex flex-wrap gap-1">
-                                    {row.isNewSubject && <span className="badge-amber">Subject</span>}
-                                    {row.isNewSection && <span className="badge-amber">Section</span>}
-                                    {row.isNewTeacher && <span className="badge-amber">Teacher</span>}
-                                    {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && <span className="badge-emerald">Faculty Loading Only</span>}
-                                  </div>
-                                </td>
+                                  <td className="whitespace-nowrap">
+                                    <div className="flex flex-wrap gap-1">
+                                      {row.isNewSubject && <span className="badge-amber">Subject</span>}
+                                      {row.isNewSection && <span className="badge-amber">Section</span>}
+                                      {row.isNewTeacher && <span className="badge-amber">Teacher</span>}
+                                      {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && row.isExistingMapping && <span className="badge-red">Already loaded</span>}
+                                      {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && !row.isExistingMapping && <span className="badge-emerald">Faculty Loading Only</span>}
+                                    </div>
+                                  </td>
                                 <td className="text-center">
                                   <button
                                     type="button"
@@ -632,28 +676,11 @@ function FacultyTab() {
                     )}
                   </div>
 
-                  {removedCsvRows.length > 0 && (
-                    <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl px-5 py-4 space-y-2">
-                      <p className="text-sm font-semibold text-secondary">{removedCsvRows.length} row{removedCsvRows.length !== 1 ? "s" : ""} removed — you can download them to correct and re-upload.</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const headers = ["faculty email", "name", "section", "subject code", "subject name"]
-                          const csv = [headers.join(","), ...removedCsvRows.map((r) => [r.email, r.name, r.section, r.subjectCode, r.subjectName].map((v) => `"${v}"`).join(","))].join("\n")
-                          downloadBlob(csv, "removed-rows.csv")
-                        }}
-                        className="flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
-                      >
-                        <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Download Removed (.csv)
-                      </button>
-                    </div>
-                  )}
                   <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
                     <IosButton variant="gray" type="button" disabled={csvImporting} onClick={handleCsvReset} className="flex-1">Cancel</IosButton>
-                    <IosButton variant="primary" type="button" disabled={csvImporting || csvRows.length === 0 || !importDeptId} onClick={handleCsvImport} className="flex-1">{csvImporting ? "Importing..." : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}</IosButton>
+                    <IosButton variant="primary" type="button" disabled={csvImporting || csvRows.length === 0 || !importDeptId || blockedCsvRows.length > 0} onClick={handleCsvImport} className={`flex-1 ${blockedCsvRows.length > 0 ? "!bg-red-400 !text-white" : ""}`}>
+                      {csvImporting ? "Importing..." : blockedCsvRows.length > 0 ? `${blockedCsvRows.length} Already loaded — Remove to import` : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}
+                    </IosButton>
                   </div>
                 </div>
               )}
