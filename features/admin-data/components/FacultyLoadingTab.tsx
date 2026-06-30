@@ -69,7 +69,16 @@ function FacultyTab() {
   } | null>(null)
   const [csvError, setCsvError] = useState("")
   const [csvPreviewPage, setCsvPreviewPage] = useState(0)
+  const [csvProblemFilter, setCsvProblemFilter] = useState(false)
+  const [removedCsvRows, setRemovedCsvRows] = useState<CsvRow[]>([])
   const PREVIEW_PAGE_SIZE = 50
+
+  const csvProblemRows = useMemo(() => {
+    if (!csvRows) return []
+    return csvRows.filter((r) => r.isNewSubject || r.isNewSection || r.isNewTeacher)
+  }, [csvRows])
+
+  const csvVisibleRows = csvProblemFilter ? csvProblemRows : csvRows ?? []
 
   const TEMPLATE_HEADERS = "faculty email, name, section, subject code, subject name"
   const TEMPLATE_SAMPLE = "juan.delacruz@lyceumalabang.edu.ph, Juan Dela Cruz, BSIT-32A3, CS101, Introduction to Computer Science\nmaria.santos@lyceumalabang.edu.ph, Maria Santos, BSCS-21B, MATH201, Calculus II"
@@ -294,6 +303,8 @@ function FacultyTab() {
 
   const handleCsvRowRemove = (index: number) => {
     if (!csvRows) return
+    const removed = csvRows[index]
+    setRemovedCsvRows((prev) => [...prev, { email: removed.email, name: removed.name, subjectCode: removed.subjectCode, subjectName: removed.subjectName, section: removed.section }])
     const next = csvRows.filter((_, i) => i !== index)
     setCsvRows(next)
     if (next.length > 0 && Math.ceil(next.length / PREVIEW_PAGE_SIZE) <= csvPreviewPage) {
@@ -305,6 +316,7 @@ function FacultyTab() {
     setCsvRows(null)
     setCsvImportResult(null)
     setCsvPreviewPage(0)
+    setCsvProblemFilter(false)
     setCsvError("")
     if (csvFileRef.current) csvFileRef.current.value = ""
   }
@@ -503,15 +515,33 @@ function FacultyTab() {
                   <div className="flex-1 space-y-3 overflow-hidden">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-secondary">
-                        {csvRows.length} row{csvRows.length !== 1 ? "s" : ""}
+                        {csvVisibleRows.length} row{csvVisibleRows.length !== 1 ? "s" : ""}
+                        {csvProblemFilter && ` (filtered)`}
                       </h4>
                       <span className="text-[11px] text-tertiary">{TEMPLATE_HEADERS}</span>
                     </div>
 
-                    <p className="text-[11px] text-tertiary/70 italic">
-                      Items marked <span className="badge-amber not-italic">amber</span> will be newly created;
-                      existing subjects, sections, and faculty are reused as-is.
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-tertiary/70 italic">
+                        Items marked <span className="badge-amber not-italic">amber</span> will be newly created;
+                        existing subjects, sections, and faculty are reused as-is.
+                      </p>
+                      <div className="ml-auto">
+                        {csvProblemRows.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => { setCsvProblemFilter((p) => !p); setCsvPreviewPage(0) }}
+                            className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
+                              csvProblemFilter
+                                ? "bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                                : "border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
+                            }`}
+                          >
+                            {csvProblemFilter ? "Show all rows" : `Show ${csvProblemRows.length} flagged only`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
                     {csvError && <p className="text-xs font-medium text-red-600">{csvError}</p>}
 
@@ -520,46 +550,24 @@ function FacultyTab() {
                         <thead>
                           <tr>
                             <th className="w-8">#</th>
-                            <th>Email</th>
-                            <th>Name</th>
-                            <th>Subject Code</th>
-                            <th>Subject Name</th>
+                            <th>Faculty</th>
+                            <th>Subject</th>
                             <th>Section</th>
                             <th>Will Create</th>
                             <th className="w-12"></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(csvRows ? csvRows.slice(csvPreviewPage * PREVIEW_PAGE_SIZE, (csvPreviewPage + 1) * PREVIEW_PAGE_SIZE) : []).map((row, i) => {
+                          {(csvVisibleRows.slice(csvPreviewPage * PREVIEW_PAGE_SIZE, (csvPreviewPage + 1) * PREVIEW_PAGE_SIZE)).map((row, i) => {
                             const absIdx = csvPreviewPage * PREVIEW_PAGE_SIZE + i
                             return (
                               <tr key={`${csvPreviewPage}-${i}`}>
                                 <td className="text-tertiary">{absIdx + 1}</td>
-                                <td className="text-secondary">{row.email}</td>
-                                <td>
-                                  <input
-                                    value={row.name}
-                                    onChange={(e) => handleCsvFieldChange(absIdx, "name", e.target.value)}
-                                    disabled={csvImporting}
-                                    className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
-                                  />
+                                <td className="text-secondary text-[13px] whitespace-nowrap">
+                                  {row.name} <span className="text-tertiary">({row.email})</span>
                                 </td>
-                                <td>
-                                  <input
-                                    value={row.subjectCode}
-                                    onChange={(e) => handleCsvFieldChange(absIdx, "subjectCode", e.target.value)}
-                                    disabled={csvImporting}
-                                    className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
-                                  />
-                                </td>
-                                <td>
-                                  <input
-                                    value={row.subjectName}
-                                    onChange={(e) => handleCsvFieldChange(absIdx, "subjectName", e.target.value)}
-                                    disabled={csvImporting || !row.isNewSubject}
-                                    className="w-full bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] disabled:opacity-60"
-                                    title={!row.isNewSubject ? "Subject exists — name is read-only" : undefined}
-                                  />
+                                <td className="text-secondary text-[13px] whitespace-nowrap">
+                                  {row.subjectName} <span className="text-tertiary">({row.subjectCode})</span>
                                 </td>
                                 <td>
                                   <input
@@ -597,10 +605,10 @@ function FacultyTab() {
                       </table>
                     </div>
 
-                    {Math.ceil(csvRows.length / PREVIEW_PAGE_SIZE) > 1 && (
+                    {Math.ceil(csvVisibleRows.length / PREVIEW_PAGE_SIZE) > 1 && (
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-tertiary">
-                          Page {csvPreviewPage + 1} of {Math.ceil(csvRows.length / PREVIEW_PAGE_SIZE)}
+                          Page {csvPreviewPage + 1} of {Math.ceil(csvVisibleRows.length / PREVIEW_PAGE_SIZE)}
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -613,7 +621,7 @@ function FacultyTab() {
                           </button>
                           <button
                             type="button"
-                            disabled={(csvPreviewPage >= Math.ceil(csvRows.length / PREVIEW_PAGE_SIZE) - 1) || csvImporting}
+                            disabled={(csvPreviewPage >= Math.ceil(csvVisibleRows.length / PREVIEW_PAGE_SIZE) - 1) || csvImporting}
                             onClick={() => setCsvPreviewPage((p) => p + 1)}
                             className="px-4 py-1.5 bg-surface-dim text-secondary rounded-full text-xs font-semibold hover:bg-surface-dim/70 disabled:opacity-40 transition-colors"
                           >
@@ -624,6 +632,25 @@ function FacultyTab() {
                     )}
                   </div>
 
+                  {removedCsvRows.length > 0 && (
+                    <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl px-5 py-4 space-y-2">
+                      <p className="text-sm font-semibold text-secondary">{removedCsvRows.length} row{removedCsvRows.length !== 1 ? "s" : ""} removed — you can download them to correct and re-upload.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const headers = ["faculty email", "name", "section", "subject code", "subject name"]
+                          const csv = [headers.join(","), ...removedCsvRows.map((r) => [r.email, r.name, r.section, r.subjectCode, r.subjectName].map((v) => `"${v}"`).join(","))].join("\n")
+                          downloadBlob(csv, "removed-rows.csv")
+                        }}
+                        className="flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download Removed (.csv)
+                      </button>
+                    </div>
+                  )}
                   <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
                     <IosButton variant="gray" type="button" disabled={csvImporting} onClick={handleCsvReset} className="flex-1">Cancel</IosButton>
                     <IosButton variant="primary" type="button" disabled={csvImporting || csvRows.length === 0 || !importDeptId} onClick={handleCsvImport} className="flex-1">{csvImporting ? "Importing..." : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}</IosButton>
