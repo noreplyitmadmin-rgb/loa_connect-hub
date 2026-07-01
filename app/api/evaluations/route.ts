@@ -4,6 +4,42 @@ import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
 import { getOrCreateEvaluation, getEvaluation, getMyEvaluations } from "@/features/evaluations/evaluations.service"
 import { getActiveSemester } from "@/features/admin-data/semesters.service"
+import type { EvaluationData } from "@/lib/types"
+
+async function enrichEvaluation(evaluation: EvaluationData) {
+  const [facultyRes, subjectRes] = await Promise.all([
+    supabase.from("users").select("name").eq("id", evaluation.evaluateeId).single(),
+    evaluation.facultySubjectId
+      ? supabase
+          .from("faculty_subjects")
+          .select("subject_id")
+          .eq("id", evaluation.facultySubjectId)
+          .single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  let subjectName = ""
+  let subjectCode = ""
+  if (subjectRes.data?.subject_id) {
+    const { data: subj } = await supabase
+      .from("subjects")
+      .select("code, name")
+      .eq("id", subjectRes.data.subject_id)
+      .single()
+    if (subj) {
+      subjectCode = subj.code
+      subjectName = subj.name
+    }
+  }
+
+  return {
+    ...evaluation,
+    evaluateeName: (facultyRes.data as { name: string } | null)?.name || "Unknown",
+    subjectId: subjectRes.data?.subject_id || "",
+    subjectCode,
+    subjectName,
+  }
+}
 
 export async function GET() {
   const session = await auth()
@@ -18,16 +54,7 @@ export async function GET() {
 
   try {
     const evaluations = await getMyEvaluations(userId)
-    const facultyIds = [...new Set(evaluations.map((e) => e.evaluateeId))]
-    const { data: facultyUsers } = await supabase
-      .from("users")
-      .select("id, name")
-      .in("id", facultyIds)
-    const nameMap = new Map((facultyUsers || []).map((u) => [u.id, u.name]))
-    const result = evaluations.map((e) => ({
-      ...e,
-      evaluateeName: nameMap.get(e.evaluateeId) || "Unknown",
-    }))
+    const result = await Promise.all(evaluations.map(enrichEvaluation))
     return NextResponse.json({ evaluations: result })
   } catch {
     return NextResponse.json({ error: "Failed to fetch evaluations" }, { status: 500 })
@@ -46,7 +73,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { periodId, evaluateeId, source, id } = await request.json()
+    const { periodId, evaluateeId, facultySubjectId, source, id } = await request.json()
 
     // If an evaluation id is provided, skip enrollment check and return it directly
     if (id) {
@@ -54,66 +81,35 @@ export async function POST(request: Request) {
       if (!existing || existing.evaluatorId !== userId) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
-      const { data: facultyUser } = await supabase
-        .from("users")
-        .select("name")
-        .eq("id", existing.evaluateeId)
-        .single()
-      const evaluateeName = (facultyUser as { name: string } | null)?.name || "Unknown"
-      return NextResponse.json({ evaluation: { ...existing, evaluateeName } }, { status: 200 })
+      const enriched = await enrichEvaluation(existing)
+      return NextResponse.json({ evaluation: enriched }, { status: 200 })
     }
 
     const activeSemesterId = periodId || (await getActiveSemester())?.id
     if (!activeSemesterId) {
       return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
+
     if (source !== "unenrolled") {
-      const { data: enrollments } = await supabase
+      // Validate that the facultySubjectId belongs to one of the student's enrollments
+      const { data: enrollment } = await supabase
         .from("student_enrollments")
-        .select("section_id, faculty_subject_id")
+        .select("id")
         .eq("student_id", userId)
+        .eq("faculty_subject_id", facultySubjectId)
         .eq("semesterId", activeSemesterId)
-      let isEnrolled = false
+        .maybeSingle()
 
-      // Check via faculty_subject_id first (more precise)
-      const directIds = (enrollments || []).filter((r) => r.faculty_subject_id).map((r) => r.faculty_subject_id)
-      if (directIds.length > 0) {
-        const { data: fs } = await supabase
-          .from("faculty_subjects")
-          .select("faculty_id")
-          .in("id", directIds)
-        if ((fs || []).some((r) => r.faculty_id === evaluateeId)) {
-          isEnrolled = true
-        }
+      if (!enrollment) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
-
-      // Fallback: check by section_id
-      if (!isEnrolled) {
-        const sectionIds = (enrollments || []).map((r) => r.section_id)
-        if (sectionIds.length > 0) {
-          const { data: fs } = await supabase
-            .from("faculty_subjects")
-            .select("faculty_id")
-            .in("section_id", sectionIds)
-            .eq("semesterId", activeSemesterId)
-          if ((fs || []).some((r) => r.faculty_id === evaluateeId)) {
-            isEnrolled = true
-          }
-        }
-      }
-
-      if (!isEnrolled) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-    const evaluation = await getOrCreateEvaluation(activeSemesterId, userId, evaluateeId, source)
 
-    const { data: facultyUser } = await supabase
-      .from("users")
-      .select("name")
-      .eq("id", evaluateeId)
-      .single()
-    const evaluateeName = (facultyUser as { name: string } | null)?.name || "Unknown"
+    const fsId = facultySubjectId || null
+    const evaluation = await getOrCreateEvaluation(activeSemesterId, userId, evaluateeId, fsId, source)
+    const enriched = await enrichEvaluation(evaluation)
 
-    return NextResponse.json({ evaluation: { ...evaluation, evaluateeName } }, { status: 200 })
+    return NextResponse.json({ evaluation: enriched }, { status: 200 })
   } catch {
     return NextResponse.json({ error: "Failed to create evaluation" }, { status: 500 })
   }

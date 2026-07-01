@@ -59,6 +59,7 @@ export interface Evaluation {
   semesterId: string
   evaluatorId: string
   evaluateeId: string
+  facultySubjectId: string
   status: "DRAFT" | "SUBMITTED"
   submittedAt: Date | null
   createdAt: Date
@@ -87,6 +88,7 @@ export interface EvaluationResult {
   id: string
   semesterId: string
   facultyId: string
+  subjectId: string
   departmentId: string | null
   totalRespondents: number
   professionalManner: number | null
@@ -169,6 +171,7 @@ export interface EvaluationData {
   semesterId: string
   evaluatorId: string
   evaluateeId: string
+  facultySubjectId: string
   status: "DRAFT" | "SUBMITTED"
   submittedAt: Date | null
   createdAt: Date
@@ -176,10 +179,17 @@ export interface EvaluationData {
   source: string | null
 }
 
+export interface PendingEvaluationItem {
+  evaluateeId: string
+  facultySubjectId: string
+  subjectId: string
+}
+
 export interface EvaluationResultData {
   id: string
   semesterId: string
   facultyId: string
+  subjectId: string
   departmentId: string | null
   totalRespondents: number
   professionalManner: number | null
@@ -281,11 +291,11 @@ export interface IRubricRepository {
 }
 
 export interface IEvaluationRepository {
-  findPending(evaluatorId: string, semesterId: string): Promise<{ evaluateeId: string }[]>
+  findPending(evaluatorId: string, semesterId: string): Promise<PendingEvaluationItem[]>
   findByEvaluator(evaluatorId: string): Promise<EvaluationData[]>
   findById(id: string): Promise<EvaluationData | null>
-  findByComposite(semesterId: string, evaluatorId: string, evaluateeId: string): Promise<EvaluationData | null>
-  create(semesterId: string, evaluatorId: string, evaluateeId: string, source?: string | null): Promise<EvaluationData>
+  findByComposite(semesterId: string, evaluatorId: string, facultySubjectId: string): Promise<EvaluationData | null>
+  create(semesterId: string, evaluatorId: string, evaluateeId: string, facultySubjectId: string, source?: string | null): Promise<EvaluationData>
   setRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]): Promise<void>
   submit(evaluationId: string): Promise<EvaluationData>
   getRatings(evaluationId: string): Promise<{ itemId: string; rating: number }[]>

@@ -1290,6 +1290,81 @@ DO $$ BEGIN
 END $$;
 
 -- =========================================================
+-- Migration 26: Subject-level evaluations
+-- =========================================================
+--
+-- Links evaluations to a specific faculty-subject combo so
+-- students can evaluate the same faculty under different
+-- subjects. Adds isDisabled for faculty reassignment scenario.
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluations' AND column_name = 'facultySubjectId'
+  ) THEN
+    ALTER TABLE evaluations ADD COLUMN "facultySubjectId" TEXT REFERENCES faculty_subjects(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_evaluations_faculty_subject ON evaluations("facultySubjectId");
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'evaluations_semesterId_evaluatorId_evaluateeId_key'
+  ) THEN
+    ALTER TABLE evaluations DROP CONSTRAINT evaluations_semesterId_evaluatorId_evaluateeId_key;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'evaluations_semesterId_evaluatorId_facultySubjectId_key'
+  ) THEN
+    ALTER TABLE evaluations ADD CONSTRAINT evaluations_semesterId_evaluatorId_facultySubjectId_key
+      UNIQUE("semesterId", "evaluatorId", "facultySubjectId");
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluations' AND column_name = 'isDisabled'
+  ) THEN
+    ALTER TABLE evaluations ADD COLUMN "isDisabled" BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- =========================================================
+-- Migration 27: Subject-level evaluation_results
+-- =========================================================
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluation_results' AND column_name = 'subjectId'
+  ) THEN
+    ALTER TABLE evaluation_results ADD COLUMN "subjectId" TEXT REFERENCES subjects(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_eval_results_subject ON evaluation_results("subjectId");
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'evaluation_results_semesterId_facultyId_key'
+  ) THEN
+    ALTER TABLE evaluation_results DROP CONSTRAINT evaluation_results_semesterId_facultyId_key;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'evaluation_results_semesterId_facultyId_subjectId_key'
+  ) THEN
+    ALTER TABLE evaluation_results ADD CONSTRAINT evaluation_results_semesterId_facultyId_subjectId_key
+      UNIQUE("semesterId", "facultyId", "subjectId");
+  END IF;
+END $$;
+
+-- =========================================================
 -- SEED DATA
 --    Uses fixed UUIDs for idempotent re-runs.
 --    Placed after all migrations so all tables and

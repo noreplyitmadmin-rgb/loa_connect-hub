@@ -12,16 +12,31 @@ interface PendingItem {
   evaluateeId: string
   evaluateeName: string
   evaluateeEmail: string
+  facultySubjectId: string
+  subjectId: string
+  subjectCode: string
+  subjectName: string
 }
 
 interface ExistingEvaluation {
   id: string
   evaluateeId: string
   evaluateeName: string
+  subjectId: string
+  subjectCode: string
+  subjectName: string
   status: string
   submittedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+
+interface SearchFacultyResult {
+  id: string
+  name: string
+  email: string
+  isEnrolled: boolean
 }
 
 export default function StudentEvaluationsPage() {
@@ -36,7 +51,7 @@ export default function StudentEvaluationsPage() {
   const evalTabRef = useRef<Window | null>(null)
   const evalTabIdRef = useRef<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<{ id: string; name: string; email: string; isEnrolled: boolean }[]>([])
+  const [searchResults, setSearchResults] = useState<SearchFacultyResult[]>([])
   const [searching, setSearching] = useState(false)
   const [activeSemesterId, setActiveSemesterId] = useState("")
 
@@ -140,10 +155,12 @@ export default function StudentEvaluationsPage() {
     return () => clearTimeout(timer)
   }, [searchQuery, activeSemesterId])
 
-  async function startUnenrolledEval(evaluateeId: string, isEnrolled: boolean) {
+  async function startUnenrolledEval(evaluateeId: string, facultySubjectId: string, isEnrolled: boolean) {
     setNavigatingId(evaluateeId)
     try {
-      const body = isEnrolled ? { evaluateeId } : { evaluateeId, source: "unenrolled" }
+      const body = isEnrolled
+        ? { evaluateeId, facultySubjectId }
+        : { evaluateeId, facultySubjectId, source: "unenrolled" }
       const res = await fetch("/api/evaluations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -265,14 +282,14 @@ export default function StudentEvaluationsPage() {
           <div className="space-y-2">
             {pending.map((item) => (
               <button
-                key={item.evaluateeId}
+                key={item.facultySubjectId}
                   onClick={async () => {
                     setNavigatingId(item.evaluateeId)
                     try {
                       const res = await fetch("/api/evaluations", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ evaluateeId: item.evaluateeId }),
+                        body: JSON.stringify({ evaluateeId: item.evaluateeId, facultySubjectId: item.facultySubjectId }),
                       })
                       if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
                       const data = await res.json()
@@ -285,10 +302,10 @@ export default function StudentEvaluationsPage() {
                 className="card w-full p-4 bg-surface flex items-center justify-between hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 text-left"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-primary">{item.evaluateeName}</p>
-                  {item.evaluateeEmail && (
-                    <p className="text-xs text-tertiary mt-0.5">{item.evaluateeEmail}</p>
-                  )}
+                  <p className="text-sm font-bold text-primary">{item.subjectName || item.subjectCode}</p>
+                  <p className="text-xs text-tertiary mt-0.5">
+                    {item.evaluateeName}{item.subjectCode ? ` · ${item.subjectCode}` : ""}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {navigatingId === item.evaluateeId ? (
@@ -335,7 +352,7 @@ export default function StudentEvaluationsPage() {
                 {filteredSearchResults.map((f) => (
                   <button
                     key={f.id}
-                    onClick={() => startUnenrolledEval(f.id, f.isEnrolled)}
+                    onClick={() => startUnenrolledEval(f.id, "", f.isEnrolled)}
                     disabled={navigatingId === f.id}
                     className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-left transition-all"
                   >
@@ -412,11 +429,13 @@ export default function StudentEvaluationsPage() {
                 }`}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-primary">{ev.evaluateeName}</p>
+                  <p className="text-sm font-bold text-primary">{ev.subjectName || ev.evaluateeName}</p>
                   <p className="text-xs text-tertiary mt-0.5">
+                    {ev.evaluateeName}{ev.subjectCode ? ` · ${ev.subjectCode}` : ""}
+                    {" · "}
                     {ev.status === "SUBMITTED"
-                      ? `Submitted · ${new Date(ev.submittedAt!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-                      : `Last saved · ${new Date(ev.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
+                      ? `Submitted ${new Date(ev.submittedAt!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                      : `Draft · ${new Date(ev.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">

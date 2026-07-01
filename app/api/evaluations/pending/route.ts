@@ -22,20 +22,30 @@ export async function GET() {
       return NextResponse.json({ error: "No active semester" }, { status: 400 })
     }
     const pending = await getPendingEvaluations(userId, activeSemester.id)
-    const facultyIds = pending.map((p) => p.evaluateeId)
+    if (pending.length === 0) return NextResponse.json({ pending: [] })
 
-    const { data: facultyUsers } = await supabase
-      .from("users")
-      .select("id, name, email")
-      .in("id", facultyIds)
-    const facultyMap = new Map((facultyUsers || []).map((u) => [u.id, u]))
+    const facultyIds = [...new Set(pending.map((p) => p.evaluateeId))]
+    const subjectIds = [...new Set(pending.map((p) => p.subjectId))]
+
+    const [facultyRes, subjectRes] = await Promise.all([
+      supabase.from("users").select("id, name, email").in("id", facultyIds),
+      supabase.from("subjects").select("id, code, name").in("id", subjectIds),
+    ])
+
+    const facultyMap = new Map((facultyRes.data || []).map((u) => [u.id, u]))
+    const subjectMap = new Map((subjectRes.data || []).map((s) => [s.id, s]))
 
     const result = pending.map((p) => {
       const f = facultyMap.get(p.evaluateeId)
+      const s = subjectMap.get(p.subjectId)
       return {
         evaluateeId: p.evaluateeId,
         evaluateeName: f?.name || "Unknown",
         evaluateeEmail: f?.email || "",
+        facultySubjectId: p.facultySubjectId,
+        subjectId: p.subjectId,
+        subjectCode: s?.code || "",
+        subjectName: s?.name || "",
       }
     })
 
