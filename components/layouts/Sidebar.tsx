@@ -142,14 +142,25 @@ export default function Sidebar() {
         const res = await fetch("/api/semesters")
         const { data: semesters } = await res.json()
         const active = Array.isArray(semesters) ? semesters.find((s: { isActive: boolean }) => s.isActive) : null
-        if (!active?.evalStartDate || !active?.evalEndDate) {
+        if (!active?.evalStartDate) {
           setEvalAvailable(false)
           return
         }
-        const now = Date.now()
-        const start = new Date(active.evalStartDate).getTime()
-        const end = new Date(active.evalEndDate).getTime() + 86_399_999
-        setEvalAvailable(now >= start && now <= end)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const start = new Date(active.evalStartDate)
+        start.setHours(0, 0, 0, 0)
+        if (active.evalEndDate) {
+          const end = new Date(active.evalEndDate)
+          end.setHours(23, 59, 59, 999)
+          setEvalAvailable(today.getTime() >= start.getTime() && today.getTime() <= end.getTime())
+        } else {
+          const yesterday = new Date(today)
+          yesterday.setDate(yesterday.getDate() - 1)
+          setEvalAvailable(
+            start.getTime() === today.getTime() || start.getTime() === yesterday.getTime()
+          )
+        }
       } catch {
         setEvalAvailable(false)
       }
@@ -234,7 +245,7 @@ export default function Sidebar() {
   const reportsOpen = expandedGroups.has("reports") || isInReports
 
   const isInEvaluations = pathname.startsWith("/admin/evaluations") || pathname.startsWith("/faculty/evaluations") || pathname.startsWith("/student/evaluations")
-  const evaluationsVisible = evaluationChildren.some((c) => {
+  const evaluationsVisible = (evalAvailable !== false || isInEvaluations) && evaluationChildren.some((c) => {
     if (allowedPages && allowedPages.includes(c.href!)) {
       return !hiddenHrefs.has(c.href!)
     }

@@ -54,6 +54,8 @@ export default function StudentEvaluationsPage() {
   const [searchResults, setSearchResults] = useState<SearchFacultyResult[]>([])
   const [searching, setSearching] = useState(false)
   const [activeSemesterId, setActiveSemesterId] = useState("")
+  const [disputingFsId, setDisputingFsId] = useState<string | null>(null)
+  const [disputeMessage, setDisputeMessage] = useState("")
 
   function openEvalTab(id: string) {
     if (evalTabRef.current && !evalTabRef.current.closed) {
@@ -174,6 +176,34 @@ export default function StudentEvaluationsPage() {
     }
   }
 
+  async function handleDispute(item: PendingItem) {
+    if (!confirm(`Report "${item.evaluateeName}" as the wrong faculty for "${item.subjectName || item.subjectCode}"?\n\nThis evaluation will be disabled and an admin will review the assignment.`)) return
+    setDisputingFsId(item.facultySubjectId)
+    try {
+      const res = await fetch("/api/evaluations/dispute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          facultySubjectId: item.facultySubjectId,
+          evaluateeId: item.evaluateeId,
+          evaluateeName: item.evaluateeName,
+          subjectName: item.subjectName,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setDisputeMessage(data.error || "Failed to report dispute")
+        return
+      }
+      setPending((prev) => prev.filter((p) => p.facultySubjectId !== item.facultySubjectId))
+      setDisputeMessage(`Dispute reported for "${item.subjectName || item.subjectCode}". An admin will review.`)
+    } catch {
+      setDisputeMessage("Failed to report dispute")
+    } finally {
+      setDisputingFsId(null)
+    }
+  }
+
   const total = pending.length + evaluations.length
   const completed = evaluations.length
   const pendingIds = new Set(pending.map((p) => p.evaluateeId))
@@ -214,6 +244,13 @@ export default function StudentEvaluationsPage() {
           </div>
         </div>
       </div>
+
+      {disputeMessage && (
+        <div className="animate-fade-in flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+          <p className="text-sm text-emerald-700 dark:text-emerald-300">{disputeMessage}</p>
+          <button onClick={() => setDisputeMessage("")} className="text-emerald-500 hover:text-emerald-700 text-lg leading-none">&times;</button>
+        </div>
+      )}
 
       {errorMessage ? (
         <ErrorState message={errorMessage} onRetry={() => window.location.reload()} />
@@ -306,6 +343,13 @@ export default function StudentEvaluationsPage() {
                   <p className="text-xs text-tertiary mt-0.5">
                     {item.evaluateeName}{item.subjectCode ? ` · ${item.subjectCode}` : ""}
                   </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDispute(item) }}
+                    disabled={disputingFsId === item.facultySubjectId}
+                    className="mt-1 text-[11px] text-red-500 hover:text-red-700 underline decoration-dotted underline-offset-2 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                  >
+                    {disputingFsId === item.facultySubjectId ? "Reporting..." : "Wrong faculty?"}
+                  </button>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {navigatingId === item.evaluateeId ? (

@@ -1190,11 +1190,8 @@ DO $$ BEGIN
     CREATE INDEX IF NOT EXISTS idx_student_enrollments_faculty_subject ON student_enrollments(faculty_subject_id);
   END IF;
 
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'student_enrollments_student_id_section_id_semesterId_key'
-  ) THEN
-    ALTER TABLE student_enrollments DROP CONSTRAINT student_enrollments_student_id_section_id_semesterId_key;
-  END IF;
+  ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_student_id_section_id_semesterid_key;
+  ALTER TABLE student_enrollments DROP CONSTRAINT IF EXISTS "student_enrollments_student_id_section_id_semesterId_key";
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'student_enrollments_student_id_faculty_subject_id_key'
@@ -1307,13 +1304,8 @@ DO $$ BEGIN
   END IF;
 END $$;
 
-DO $$ BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'evaluations_semesterId_evaluatorId_evaluateeId_key'
-  ) THEN
-    ALTER TABLE evaluations DROP CONSTRAINT evaluations_semesterId_evaluatorId_evaluateeId_key;
-  END IF;
-END $$;
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_semesterid_evaluatorid_evaluateeid_key;
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS "evaluations_semesterId_evaluatorId_evaluateeId_key";
 
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -1347,13 +1339,8 @@ DO $$ BEGIN
   END IF;
 END $$;
 
-DO $$ BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'evaluation_results_semesterId_facultyId_key'
-  ) THEN
-    ALTER TABLE evaluation_results DROP CONSTRAINT evaluation_results_semesterId_facultyId_key;
-  END IF;
-END $$;
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_semesterid_facultyid_key;
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS "evaluation_results_semesterId_facultyId_key";
 
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -1375,6 +1362,10 @@ DO $$
 DECLARE
   _cat_id TEXT := 'e0000000-0000-0000-0000-000000000002';
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM rubric_categories WHERE id = _cat_id) THEN
+    RETURN;
+  END IF;
+
   -- Update existing item texts
   UPDATE rubric_items SET text = 'The professors appropriately/immediately responds when students communicate (timely response to the students).', weight = 1.00
   WHERE id = 'e0000002-0000-0000-0000-000000000001' AND "categoryId" = _cat_id;
@@ -1390,6 +1381,127 @@ BEGIN
     ('e0000002-0000-0000-0000-000000000004', _cat_id, 'He/she specifies how learning tasks will be evaluated (if appropriate).', 4, 1.00),
     ('e0000002-0000-0000-0000-000000000005', _cat_id, 'He/she seeks feedback from students on lesson and on ease of online technology and accessibility of course.', 5, 1.00),
     ('e0000002-0000-0000-0000-000000000006', _cat_id, 'He/she shows good subject knowledge and understanding which engages students'' creativity and sense of humor during the discussion.', 6, 1.00)
+  ON CONFLICT (id) DO NOTHING;
+END $$;
+
+-- =========================================================
+-- MIGRATION 29: Update all rubric items to match the new evaluation form.
+-- Updates 7 categories (all except Communication with Students which was
+-- already updated in Migration 28) with new item texts, adds new items
+-- where categories expanded (3→4 or 3→6), and renames 2 category names.
+-- =========================================================
+
+DO $$
+DECLARE
+  _cat1_id TEXT := 'e0000000-0000-0000-0000-000000000001'; -- Professional Manner
+  _cat3_id TEXT := 'e0000000-0000-0000-0000-000000000003'; -- Student Engagement
+  _cat4_id TEXT := 'e0000000-0000-0000-0000-000000000004'; -- Learning Materials
+  _cat5_id TEXT := 'e0000000-0000-0000-0000-000000000005'; -- Time Management
+  _cat6_id TEXT := 'e0000000-0000-0000-0000-000000000006'; -- Experiential Learning
+  _cat7_id TEXT := 'e0000000-0000-0000-0000-000000000007'; -- Respect for Uniqueness
+  _cat8_id TEXT := 'e0000000-0000-0000-0000-000000000008'; -- Assessment and Feedback
+BEGIN
+  -- Only run on existing databases where seed data already populated categories
+  IF NOT EXISTS (SELECT 1 FROM rubric_categories WHERE id = _cat1_id) THEN
+    RETURN;
+  END IF;
+  -- ── Rename categories ────────────────────────────────
+  UPDATE rubric_categories SET name = 'Experiential Learning Provided to Students'
+  WHERE id = _cat6_id AND name = 'Experiential Learning';
+
+  UPDATE rubric_categories SET name = 'Respect the Uniqueness of the Students'
+  WHERE id = _cat7_id AND name = 'Respect for Uniqueness';
+
+  -- ── I. PROFESSIONAL MANNER (3 items, update in-place) ──
+  UPDATE rubric_items SET text = 'The professor has always dressed appropriately and is well groomed.', weight = 1.00
+  WHERE id = 'e0000001-0000-0000-0000-000000000001' AND "categoryId" = _cat1_id;
+
+  UPDATE rubric_items SET text = 'He/she behaves appropriately at all times.', weight = 1.00
+  WHERE id = 'e0000001-0000-0000-0000-000000000002' AND "categoryId" = _cat1_id;
+
+  UPDATE rubric_items SET text = 'He/she shows composure, exude confidence, and displays a good sense of humor.', weight = 1.00
+  WHERE id = 'e0000001-0000-0000-0000-000000000003' AND "categoryId" = _cat1_id;
+
+  -- ── III. STUDENT ENGAGEMENT (3→4, update 3 + insert 1) ──
+  UPDATE rubric_items SET text = 'The professor uses active-learning exercises in balance with a teacher-led presentation appropriate to the lesson.', weight = 1.00
+  WHERE id = 'e0000003-0000-0000-0000-000000000001' AND "categoryId" = _cat3_id;
+
+  UPDATE rubric_items SET text = 'Before sending students to active learning tasks (group work, paired discussions, polling, team problem-solving, in-class writing), the professor provides explicit modeling and clear instructions (eg rationale, duration, product).', weight = 1.00
+  WHERE id = 'e0000003-0000-0000-0000-000000000002' AND "categoryId" = _cat3_id;
+
+  UPDATE rubric_items SET text = 'Instructor creates opportunities for interaction between students (breakout rooms, use of chat, collaborative google docs).', weight = 1.00
+  WHERE id = 'e0000003-0000-0000-0000-000000000003' AND "categoryId" = _cat3_id;
+
+  INSERT INTO rubric_items (id, "categoryId", text, "displayOrder", weight) VALUES
+    ('e0000003-0000-0000-0000-000000000004', _cat3_id, 'It is evident that professor is present, proactive, and engaged (if webcam on, is clearly visible and facing camera, keeps an eye on chat or Q&A, monitors waiting room, turns on/off mute as needed, minimal distractions).', 4, 1.00)
+  ON CONFLICT (id) DO NOTHING;
+
+  -- ── IV. LEARNING MATERIALS (3→4, update 3 + insert 1) ──
+  UPDATE rubric_items SET text = 'The professor prepared and uses technology appropriate for the lesson, and gathers needed links and presentations before the start of class.', weight = 1.00
+  WHERE id = 'e0000004-0000-0000-0000-000000000001' AND "categoryId" = _cat4_id;
+
+  UPDATE rubric_items SET text = 'The professor provides relevant instructional materials with clear instructions.', weight = 1.00
+  WHERE id = 'e0000004-0000-0000-0000-000000000002' AND "categoryId" = _cat4_id;
+
+  UPDATE rubric_items SET text = 'The materials are made available to help students who cannot attend online classes or have technical difficulties.', weight = 1.00
+  WHERE id = 'e0000004-0000-0000-0000-000000000003' AND "categoryId" = _cat4_id;
+
+  INSERT INTO rubric_items (id, "categoryId", text, "displayOrder", weight) VALUES
+    ('e0000004-0000-0000-0000-000000000004', _cat4_id, 'The professor presents course material in a clear manner that facilitates understanding.', 4, 1.00)
+  ON CONFLICT (id) DO NOTHING;
+
+  -- ── V. TIME MANAGEMENT (3→4, update 3 + insert 1) ──
+  UPDATE rubric_items SET text = 'The professor starts and ends the class session on time.', weight = 1.00
+  WHERE id = 'e0000005-0000-0000-0000-000000000001' AND "categoryId" = _cat5_id;
+
+  UPDATE rubric_items SET text = 'He/she allows time for questions, discussion and/or summarizing the session''s lesson.', weight = 1.00
+  WHERE id = 'e0000005-0000-0000-0000-000000000002' AND "categoryId" = _cat5_id;
+
+  UPDATE rubric_items SET text = 'He/she maximizes in-class time, using active learning or applications.', weight = 1.00
+  WHERE id = 'e0000005-0000-0000-0000-000000000003' AND "categoryId" = _cat5_id;
+
+  INSERT INTO rubric_items (id, "categoryId", text, "displayOrder", weight) VALUES
+    ('e0000005-0000-0000-0000-000000000004', _cat5_id, 'He/she clearly indicates time limits for all student activities, using a time-based agenda, or visual and auditory prompts.', 4, 1.00)
+  ON CONFLICT (id) DO NOTHING;
+
+  -- ── VI. EXPERIENTIAL LEARNING PROVIDED TO STUDENTS (3→4, update 3 + insert 1) ──
+  UPDATE rubric_items SET text = 'The professor utilizes appropriate tools and materials to motivate learners (e.g. interactive or competitive games, music, video, etc).', weight = 1.00
+  WHERE id = 'e0000006-0000-0000-0000-000000000001' AND "categoryId" = _cat6_id;
+
+  UPDATE rubric_items SET text = 'He/she builds in-pauses in the lesson to provide opportunities for students to ask questions and promptly responds to questions.', weight = 1.00
+  WHERE id = 'e0000006-0000-0000-0000-000000000002' AND "categoryId" = _cat6_id;
+
+  UPDATE rubric_items SET text = 'He/she arouses students'' interest with relevant life-learning skills (relatable stories).', weight = 1.00
+  WHERE id = 'e0000006-0000-0000-0000-000000000003' AND "categoryId" = _cat6_id;
+
+  INSERT INTO rubric_items (id, "categoryId", text, "displayOrder", weight) VALUES
+    ('e0000006-0000-0000-0000-000000000004', _cat6_id, 'He/she provides opportunities for students to take responsibility.', 4, 1.00)
+  ON CONFLICT (id) DO NOTHING;
+
+  -- ── VII. RESPECT THE UNIQUENESS OF THE STUDENTS (3 items, update in-place) ──
+  UPDATE rubric_items SET text = 'The professor shows consideration and provides opportunities to students.', weight = 1.00
+  WHERE id = 'e0000007-0000-0000-0000-000000000001' AND "categoryId" = _cat7_id;
+
+  UPDATE rubric_items SET text = 'He/she draws non-participating students into activities/discussions and prevents specific students from dominating/monopolizing activities/discussions.', weight = 1.00
+  WHERE id = 'e0000007-0000-0000-0000-000000000002' AND "categoryId" = _cat7_id;
+
+  UPDATE rubric_items SET text = 'Addresses potentially disruptive behaviours before they impact learning environment.', weight = 1.00
+  WHERE id = 'e0000007-0000-0000-0000-000000000003' AND "categoryId" = _cat7_id;
+
+  -- ── VIII. ASSESSMENT AND FEEDBACK (3→6, update 3 + insert 3) ──
+  UPDATE rubric_items SET text = 'The professor provides class generalized constructive and encouraging feedback on how to improve their comprehension or performance in class.', weight = 1.00
+  WHERE id = 'e0000008-0000-0000-0000-000000000001' AND "categoryId" = _cat8_id;
+
+  UPDATE rubric_items SET text = 'He/she attends respectfully to student''s comprehension or confusion.', weight = 1.00
+  WHERE id = 'e0000008-0000-0000-0000-000000000002' AND "categoryId" = _cat8_id;
+
+  UPDATE rubric_items SET text = 'He/she shows evidence of reinforcement (such as token or certificate, positive points) appropriate to remote or online contexts.', weight = 1.00
+  WHERE id = 'e0000008-0000-0000-0000-000000000003' AND "categoryId" = _cat8_id;
+
+  INSERT INTO rubric_items (id, "categoryId", text, "displayOrder", weight) VALUES
+    ('e0000008-0000-0000-0000-000000000004', _cat8_id, 'His/her assessments are suitable for distance learning environment (different tools, roleplay, written activity and others).', 4, 1.00),
+    ('e0000008-0000-0000-0000-000000000005', _cat8_id, 'He/she assesses students both informally and formally within the online or remote classroom through use of games, quizzes, online tests, etc.', 5, 1.00),
+    ('e0000008-0000-0000-0000-000000000006', _cat8_id, 'He/she provides immediate feedback.', 6, 1.00)
   ON CONFLICT (id) DO NOTHING;
 END $$;
 
@@ -1470,17 +1582,17 @@ BEGIN
     ('e0000000-0000-0000-0000-000000000003', _sem_id, 'Student Engagement',               3),
     ('e0000000-0000-0000-0000-000000000004', _sem_id, 'Learning Materials',               4),
     ('e0000000-0000-0000-0000-000000000005', _sem_id, 'Time Management',                  5),
-    ('e0000000-0000-0000-0000-000000000006', _sem_id, 'Experiential Learning',            6),
-    ('e0000000-0000-0000-0000-000000000007', _sem_id, 'Respect for Uniqueness',           7),
+    ('e0000000-0000-0000-0000-000000000006', _sem_id, 'Experiential Learning Provided to Students', 6),
+    ('e0000000-0000-0000-0000-000000000007', _sem_id, 'Respect the Uniqueness of the Students',    7),
     ('e0000000-0000-0000-0000-000000000008', _sem_id, 'Assessment and Feedback',          8)
   ON CONFLICT (id) DO NOTHING;
 
   -- ── RUBRIC ITEMS (27 total, 3-6 per category) ────────────
   INSERT INTO rubric_items (id, "categoryId", text, "displayOrder", weight) VALUES
     -- Professional Manner
-    ('e0000001-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', 'Demonstrates professionalism in conduct and appearance', 1, 1.00),
-    ('e0000001-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000001', 'Shows enthusiasm and dedication to teaching', 2, 1.00),
-    ('e0000001-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000001', 'Maintains ethical standards in dealing with students', 3, 1.00),
+    ('e0000001-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', 'The professor has always dressed appropriately and is well groomed.', 1, 1.00),
+    ('e0000001-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000001', 'He/she behaves appropriately at all times.', 2, 1.00),
+    ('e0000001-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000001', 'He/she shows composure, exude confidence, and displays a good sense of humor.', 3, 1.00),
     -- Communication with Students
     ('e0000002-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000002', 'The professors appropriately/immediately responds when students communicate (timely response to the students).', 1, 1.00),
     ('e0000002-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000002', 'He/she gives positive and specific feedback to students, which reinforces behaviour and helps them understand how to improve and makes progress.', 2, 1.00),
@@ -1489,29 +1601,36 @@ BEGIN
     ('e0000002-0000-0000-0000-000000000005', 'e0000000-0000-0000-0000-000000000002', 'He/she seeks feedback from students on lesson and on ease of online technology and accessibility of course.', 5, 1.00),
     ('e0000002-0000-0000-0000-000000000006', 'e0000000-0000-0000-0000-000000000002', 'He/she shows good subject knowledge and understanding which engages students'' creativity and sense of humor during the discussion.', 6, 1.00),
     -- Student Engagement
-    ('e0000003-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000003', 'Encourages student participation and classroom interaction', 1, 1.00),
-    ('e0000003-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000003', 'Uses teaching methods that promote active learning', 2, 1.00),
-    ('e0000003-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000003', 'Motivates students to think critically and ask questions', 3, 1.00),
+    ('e0000003-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000003', 'The professor uses active-learning exercises in balance with a teacher-led presentation appropriate to the lesson.', 1, 1.00),
+    ('e0000003-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000003', 'Before sending students to active learning tasks (group work, paired discussions, polling, team problem-solving, in-class writing), the professor provides explicit modeling and clear instructions (eg rationale, duration, product).', 2, 1.00),
+    ('e0000003-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000003', 'Instructor creates opportunities for interaction between students (breakout rooms, use of chat, collaborative google docs).', 3, 1.00),
+    ('e0000003-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000003', 'It is evident that professor is present, proactive, and engaged (if webcam on, is clearly visible and facing camera, keeps an eye on chat or Q&A, monitors waiting room, turns on/off mute as needed, minimal distractions).', 4, 1.00),
     -- Learning Materials
-    ('e0000004-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000004', 'Provides relevant and up-to-date learning materials', 1, 1.00),
-    ('e0000004-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000004', 'Uses instructional materials that enhance understanding', 2, 1.00),
-    ('e0000004-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000004', 'Makes learning resources accessible to students', 3, 1.00),
+    ('e0000004-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000004', 'The professor prepared and uses technology appropriate for the lesson, and gathers needed links and presentations before the start of class.', 1, 1.00),
+    ('e0000004-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000004', 'The professor provides relevant instructional materials with clear instructions.', 2, 1.00),
+    ('e0000004-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000004', 'The materials are made available to help students who cannot attend online classes or have technical difficulties.', 3, 1.00),
+    ('e0000004-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000004', 'The professor presents course material in a clear manner that facilitates understanding.', 4, 1.00),
     -- Time Management
-    ('e0000005-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000005', 'Starts and ends classes on time', 1, 1.00),
-    ('e0000005-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000005', 'Covers prescribed course content within the term', 2, 1.00),
-    ('e0000005-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000005', 'Manages class time effectively', 3, 1.00),
-    -- Experiential Learning
-    ('e0000006-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000006', 'Connects lessons to real-world applications', 1, 1.00),
-    ('e0000006-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000006', 'Provides practical activities and exercises', 2, 1.00),
-    ('e0000006-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000006', 'Encourages hands-on learning experiences', 3, 1.00),
-    -- Respect for Uniqueness
-    ('e0000007-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000007', 'Respects diverse student backgrounds and perspectives', 1, 1.00),
-    ('e0000007-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000007', 'Accommodates different learning needs and styles', 2, 1.00),
-    ('e0000007-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000007', 'Creates an inclusive and welcoming learning environment', 3, 1.00),
+    ('e0000005-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000005', 'The professor starts and ends the class session on time.', 1, 1.00),
+    ('e0000005-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000005', 'He/she allows time for questions, discussion and/or summarizing the session''s lesson.', 2, 1.00),
+    ('e0000005-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000005', 'He/she maximizes in-class time, using active learning or applications.', 3, 1.00),
+    ('e0000005-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000005', 'He/she clearly indicates time limits for all student activities, using a time-based agenda, or visual and auditory prompts.', 4, 1.00),
+    -- Experiential Learning Provided to Students
+    ('e0000006-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000006', 'The professor utilizes appropriate tools and materials to motivate learners (e.g. interactive or competitive games, music, video, etc).', 1, 1.00),
+    ('e0000006-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000006', 'He/she builds in-pauses in the lesson to provide opportunities for students to ask questions and promptly responds to questions.', 2, 1.00),
+    ('e0000006-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000006', 'He/she arouses students'' interest with relevant life-learning skills (relatable stories).', 3, 1.00),
+    ('e0000006-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000006', 'He/she provides opportunities for students to take responsibility.', 4, 1.00),
+    -- Respect the Uniqueness of the Students
+    ('e0000007-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000007', 'The professor shows consideration and provides opportunities to students.', 1, 1.00),
+    ('e0000007-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000007', 'He/she draws non-participating students into activities/discussions and prevents specific students from dominating/monopolizing activities/discussions.', 2, 1.00),
+    ('e0000007-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000007', 'Addresses potentially disruptive behaviours before they impact learning environment.', 3, 1.00),
     -- Assessment and Feedback
-    ('e0000008-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000008', 'Provides fair and transparent assessments', 1, 1.00),
-    ('e0000008-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000008', 'Returns graded work in a timely manner', 2, 1.00),
-    ('e0000008-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000008', 'Gives constructive feedback to help students improve', 3, 1.00)
+    ('e0000008-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000008', 'The professor provides class generalized constructive and encouraging feedback on how to improve their comprehension or performance in class.', 1, 1.00),
+    ('e0000008-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000008', 'He/she attends respectfully to student''s comprehension or confusion.', 2, 1.00),
+    ('e0000008-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000008', 'He/she shows evidence of reinforcement (such as token or certificate, positive points) appropriate to remote or online contexts.', 3, 1.00),
+    ('e0000008-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000008', 'His/her assessments are suitable for distance learning environment (different tools, roleplay, written activity and others).', 4, 1.00),
+    ('e0000008-0000-0000-0000-000000000005', 'e0000000-0000-0000-0000-000000000008', 'He/she assesses students both informally and formally within the online or remote classroom through use of games, quizzes, online tests, etc.', 5, 1.00),
+    ('e0000008-0000-0000-0000-000000000006', 'e0000000-0000-0000-0000-000000000008', 'He/she provides immediate feedback.', 6, 1.00)
   ON CONFLICT (id) DO NOTHING;
 
   -- ── STUDENT ─────────────────────────────────────────────

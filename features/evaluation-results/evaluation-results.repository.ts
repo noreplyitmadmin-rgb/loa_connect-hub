@@ -99,8 +99,8 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
         "Student Engagement": "studentEngagement",
         "Learning Materials": "learningMaterials",
         "Time Management": "timeManagement",
-        "Experiential Learning": "experientialLearning",
-        "Respect for Uniqueness": "respectUniqueness",
+        "Experiential Learning Provided to Students": "experientialLearning",
+        "Respect the Uniqueness of the Students": "respectUniqueness",
         "Assessment and Feedback": "assessmentAndFeedback",
       }
 
@@ -184,8 +184,8 @@ const nameToColumn: Record<string, keyof StudentBreakdownItem> = {
   "Student Engagement": "studentEngagement",
   "Learning Materials": "learningMaterials",
   "Time Management": "timeManagement",
-  "Experiential Learning": "experientialLearning",
-  "Respect for Uniqueness": "respectUniqueness",
+  "Experiential Learning Provided to Students": "experientialLearning",
+  "Respect the Uniqueness of the Students": "respectUniqueness",
   "Assessment and Feedback": "assessmentAndFeedback",
 }
 

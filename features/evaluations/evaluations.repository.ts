@@ -23,6 +23,9 @@ export const evaluationRepository: IEvaluationRepository = {
     const activeExistingFsIds = new Set(
       existing.filter((r) => r.facultySubjectId && !r.isDisabled).map((r) => r.facultySubjectId),
     )
+    const disabledFsIds = new Set(
+      existing.filter((r) => r.facultySubjectId && r.isDisabled).map((r) => r.facultySubjectId),
+    )
 
     const directIds = enrollments.filter((r) => r.faculty_subject_id).map((r) => r.faculty_subject_id)
 
@@ -47,8 +50,14 @@ export const evaluationRepository: IEvaluationRepository = {
         for (const id of staleIds) activeExistingFsIds.delete(existingByFsId.get(id)!.facultySubjectId)
       }
 
+      const skipFsIds = new Set([...Array.from(activeExistingFsIds), ...Array.from(disabledFsIds)])
+      for (const id of staleIds) {
+        const fsId = existingByFsId.get(id)?.facultySubjectId
+        if (fsId) skipFsIds.delete(fsId)
+      }
+
       return facultySubjects
-        .filter((fs) => !activeExistingFsIds.has(fs.id))
+        .filter((fs) => !skipFsIds.has(fs.id))
         .map(
           (fs): PendingEvaluationItem => ({
             evaluateeId: fs.faculty_id,
@@ -81,8 +90,14 @@ export const evaluationRepository: IEvaluationRepository = {
       for (const id of staleIds) activeExistingFsIds.delete(existingByFsId.get(id)!.facultySubjectId)
     }
 
+    const skipFsIds = new Set([...Array.from(activeExistingFsIds), ...Array.from(disabledFsIds)])
+    for (const id of staleIds) {
+      const fsId = existingByFsId.get(id)?.facultySubjectId
+      if (fsId) skipFsIds.delete(fsId)
+    }
+
     return facultySubjects
-      .filter((fs) => !activeExistingFsIds.has(fs.id))
+      .filter((fs) => !skipFsIds.has(fs.id))
       .map(
         (fs): PendingEvaluationItem => ({
           evaluateeId: fs.faculty_id,
@@ -97,6 +112,7 @@ export const evaluationRepository: IEvaluationRepository = {
       .from("evaluations")
       .select("*")
       .eq("evaluatorId", evaluatorId)
+      .eq("isDisabled", false)
       .order("createdAt", { ascending: false })
     if (error) throw error
     return data as EvaluationData[]
