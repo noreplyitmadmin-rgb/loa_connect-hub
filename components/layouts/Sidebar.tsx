@@ -64,7 +64,7 @@ function getDataChildren(role: string | null): NavItem[] {
   return items
 }
 
-const hiddenHrefs = new Set(['/admin/reports', '/admin/evaluations', '/admin/evaluations/periods', '/admin/evaluations/results', '/dean/reports'])
+const hiddenHrefs = new Set(['/admin/reports', '/admin/evaluations', '/admin/evaluations/periods', '/dean/reports'])
 
 export default function Sidebar() {
   const { data: session, status } = useSession()
