@@ -29,9 +29,11 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     const filterFaculty = facultyId ? { evaluateeId: facultyId } : {}
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
-      .select("id, evaluateeId")
+      .select("id, evaluateeId, facultySubjectId")
       .eq("semesterId", semesterId)
       .eq("status", "SUBMITTED")
+      .eq("isDisabled", false)
+      .not("facultySubjectId", "is", null)
       .match(filterFaculty)
     if (evErr) throw evErr
     if (!evals || evals.length === 0) return
@@ -207,6 +209,8 @@ export async function getStudentBreakdownsForFaculty(
     .eq("semesterId", semesterId)
     .eq("evaluateeId", facultyId)
     .eq("status", "SUBMITTED")
+    .eq("isDisabled", false)
+    .not("facultySubjectId", "is", null)
   if (evErr) throw evErr
   if (!evals || evals.length === 0) return []
 

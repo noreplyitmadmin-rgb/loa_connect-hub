@@ -1302,7 +1302,7 @@ DO $$ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'evaluations' AND column_name = 'facultySubjectId'
   ) THEN
-    ALTER TABLE evaluations ADD COLUMN "facultySubjectId" TEXT REFERENCES faculty_subjects(id) ON DELETE CASCADE;
+    ALTER TABLE evaluations ADD COLUMN "facultySubjectId" TEXT REFERENCES faculty_subjects(id) ON DELETE SET NULL;
     CREATE INDEX IF NOT EXISTS idx_evaluations_faculty_subject ON evaluations("facultySubjectId");
   END IF;
 END $$;
