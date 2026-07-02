@@ -216,7 +216,7 @@ function lab(p: string): string {
   const m: Record<string, string> = {
     "/": "Dashboard (root)", "/admin": "Admin Dashboard", "/admin/users": "Manage Users",
     "/admin/access-config": "Access Configuration", "/admin/user-permissions": "User Permissions",
-    "/admin/data-management": "Data Management", "/admin/data/academic-infrastructure": "Academic Infrastructure",
+    "/admin/data-management": "Data Management", "/admin/data/academic-infrastructure": "Academic Configurations",
     "/admin/reports/health": "Health Report", "/admin/reports/demand": "Demand Report",
     "/admin/reports/responsiveness": "Responsiveness Report", "/admin/reports/backlog": "Backlog Report",
     "/admin/reports/evaluation-results": "Evaluation Results", "/admin/etl-hub": "ETL Hub",

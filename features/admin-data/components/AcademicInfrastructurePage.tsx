@@ -21,9 +21,12 @@ export default function AcademicInfrastructurePage() {
   return (
     <div className="w-full space-y-6 pb-12 px-4 sm:px-0 animate-ios-slide-in">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">Academic Infrastructure</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">Academic Configurations</h1>
         <p className="text-xs sm:text-sm text-tertiary mt-0.5 sm:mt-1">
           Manage departments, courses, subjects, sections, faculty mappings, student enrollments, and semesters.
+        </p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+          Note: This module is intended for administrative configuration purposes only and is not meant to replace any internal application used by the institution.
         </p>
       </div>
 
