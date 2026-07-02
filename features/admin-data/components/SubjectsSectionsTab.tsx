@@ -261,6 +261,7 @@ function SubjectsTab() {
 // ═══ SECTIONS TAB ═══════════════════════════════════════════════════════════
 
 function SectionsTab() {
+  const [showImport, setShowImport] = useState(false)
   const [data, setData] = useState<Section[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -429,6 +430,23 @@ function SectionsTab() {
       {!locked && error && <p className="text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
       {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
 
+      {/* Collapsible Import */}
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowImport((s) => !s)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Importer: Sections</span>
+          <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
+        </button>
+        {showImport && (
+          <div className="border-t border-default px-3 pb-3">
+            <BulkSectionImport onImportComplete={() => setShowImport(false)} />
+          </div>
+        )}
+      </div>
+
       <form onSubmit={handleAdd} className="card p-4 sm:p-6 bg-surface space-y-4">
         <h2 className="text-sm font-bold text-secondary">Add New Section</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -441,7 +459,7 @@ function SectionsTab() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-tertiary mb-1">Course / Program</label>
-            <select value={newCourseId} onChange={(e) => setNewCourseId(e.target.value)} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required disabled={!newDeptId}>
+            <select value={newCourseId} onChange={(e) => { setNewCourseId(e.target.value) }} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required disabled={!newDeptId}>
               <option value="">{newDeptId ? "Select course..." : "Select department first"}</option>
               {newCourses.map((c) => (<option key={c.id} value={c.id}>{c.code} — {c.name}</option>))}
             </select>
@@ -458,11 +476,6 @@ function SectionsTab() {
         )}
         <div><IosButton type="submit" loading={saving} variant="primary">Add Section</IosButton></div>
       </form>
-
-      <div className="card p-4 sm:p-6 bg-surface space-y-6">
-        <h2 className="text-sm font-bold text-secondary">Bulk Import Sections via CSV</h2>
-        <BulkSectionImport onImportComplete={() => fetchData(true)} />
-      </div>
 
       <div className="card p-4 sm:p-6 bg-surface space-y-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Search by section name, program, or department..." />

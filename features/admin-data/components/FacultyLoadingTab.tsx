@@ -48,6 +48,7 @@ function FacultyTab() {
 
   const [activeSemesterId, setActiveSemesterId] = useState<string>("")
   const tableRef = useRef<HTMLDivElement>(null)
+  const [showImport, setShowImport] = useState(false)
 
   // ── CSV Import state ──────────────────────────────────────
   const csvFileRef = useRef<HTMLInputElement>(null)
@@ -473,7 +474,8 @@ function FacultyTab() {
       {locked && <LockedTab endpoint={locked} />}
       {!locked && error && <p className="text-xs font-medium text-red-600">{error}</p>}
 
-      {/* Add Form */}
+      {/* Collapsible Import */}
+
       <form onSubmit={handleAdd} className="card p-6 sm:p-8 bg-surface space-y-5">
         <h2 className="text-lg font-bold text-primary">Faculty Loading</h2>
         {formError && <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded">{formError}</p>}
@@ -483,11 +485,11 @@ function FacultyTab() {
           <div>
             <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
             <select value={formDept} onChange={(e) => { setFormDept(e.target.value); setFormFaculty(""); setFacultySearch("") }} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
-              <option value="all">All</option>
+              <option value="all">All Departments</option>
               {departments.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
             </select>
           </div>
-          <div className="relative" ref={facultyDropdownRef}>
+          <div>
             <label className="block text-xs font-semibold text-tertiary mb-1">Faculty</label>
             <input
               value={facultySearch || selectedFacultyName}
@@ -535,12 +537,17 @@ function FacultyTab() {
         </div>
         <div className="pt-2"><IosButton type="submit" loading={formSaving} variant="primary">Create Faculty Load Entry</IosButton></div>
       </form>
-
-      {/* ═══════════════════════════════════════════════════
-          BULK IMPORT FACULTY VIA CSV
-         ═══════════════════════════════════════════════════ */}
-      <div className="card p-4 sm:p-6 bg-surface space-y-6">
-        <h2 className="text-sm font-bold text-secondary">Bulk Import Faculty via CSV</h2>
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowImport((s) => !s)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Importer: Faculty</span>
+          <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
+        </button>
+        {showImport && (
+        <div className="border-t border-default px-3 pb-3 space-y-4">
 
         {!activeSemesterId && (
           <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
@@ -549,7 +556,7 @@ function FacultyTab() {
           </div>
         )}
 
-        <div className="space-y-4 border-t border-default/60 pt-4">
+        <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-secondary">Upload CSV</h3>
                 {!csvRows && !csvImportResult && (
@@ -810,6 +817,8 @@ function FacultyTab() {
                 </div>
               )}
             </div>
+        </div>
+      )}
       </div>
 
       {/* Department Filter */}

@@ -12,7 +12,7 @@ import type { InfraTab, DepartmentCourse } from "./types"
 
 export function DepartmentsCoursesTab() {
   const [infraTab, setInfraTab] = useState<InfraTab>("departments")
-  const [importMode, setImportMode] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -155,28 +155,30 @@ export function DepartmentsCoursesTab() {
       )}
       {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
 
-      {/* Sub-tabs & Import toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <SegmentedControl
-          options={[{ key: "departments" as const, label: "Departments Management" }, { key: "courses" as const, label: "Courses Mapping" }]}
-          selected={infraTab}
-          onSelect={(key) => { setInfraTab(key); setError("") }}
-        />
-        <IosButton
-          variant={importMode ? "primary" : "tinted"}
-          size="sm"
-          onClick={() => { setImportMode((m) => !m); setError("") }}
+      {/* Sub-tabs */}
+      <SegmentedControl
+        options={[{ key: "departments" as const, label: "Departments Management" }, { key: "courses" as const, label: "Courses Mapping" }]}
+        selected={infraTab}
+        onSelect={(key) => { setInfraTab(key); setError("") }}
+      />
+
+      {/* Collapsible Import */}
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => { setShowImport((s) => !s); setError("") }}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
         >
-          {importMode ? "Manual Entry" : "Import CSV"}
-        </IosButton>
+          <span>Importer: Departments &amp; Courses</span>
+          <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
+        </button>
+        {showImport && (
+          <div className="border-t border-default px-3 pb-3">
+            <BulkDepartmentsCoursesImport onImportComplete={() => { refresh(); setShowImport(false) }} />
+          </div>
+        )}
       </div>
 
-      {importMode ? (
-        <div className="card p-4 sm:p-6 bg-surface">
-          <BulkDepartmentsCoursesImport onImportComplete={() => { refresh(); setImportMode(false) }} />
-        </div>
-      ) : (
-        <>
       {/* ── Departments Sub-tab ──────────────────────────────────────────── */}
       {infraTab === "departments" && (
         <div className="space-y-8">
@@ -378,8 +380,6 @@ export function DepartmentsCoursesTab() {
             ))}
           </div>
         </div>
-      )}
-        </>
       )}
     </div>
   )

@@ -18,6 +18,7 @@ export function EnrollmentsTab() {
   const [search, setSearch] = useState("")
 
   const [activeSemesterId, setActiveSemesterId] = useState<string>("")
+  const [showImport, setShowImport] = useState(false)
 
   // ── Quick Add state ──────────────────────────────────────
   const [showQuickAdd, setShowQuickAdd] = useState(false)
@@ -112,34 +113,49 @@ export function EnrollmentsTab() {
       {locked && <LockedTab endpoint={locked} />}
       {!locked && error && <p className="text-xs font-medium text-red-600">{error}</p>}
 
-      {/* ═══════════════════════════════════════════════════
-          IMPORT STUDENTS (Bulk CSV via BulkStudentImport + Quick Add)
-         ═══════════════════════════════════════════════════ */}
-      <div className="card p-4 sm:p-6 bg-surface space-y-6">
-        <h2 className="text-sm font-bold text-secondary">Import Students</h2>
-
-        {!activeSemesterId && (
-          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
-            <span>⚠️</span>
-            <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
-          </div>
-        )}
-
-        {/* ── Bulk CSV Import ──────────────────────────────── */}
-        <div className="pt-2 border-t border-default/60">
+      {/* Collapsible Import */}
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowImport((s) => !s)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Importer: Students</span>
+          <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
+        </button>
+        {showImport && (
+        <div className="border-t border-default px-3 pb-3 space-y-4">
+          {!activeSemesterId && (
+            <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
+              <span>⚠️</span>
+              <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
+            </div>
+          )}
           <BulkStudentImport previewOnly semesterId={activeSemesterId || null} />
         </div>
+        )}
+      </div>
 
-        {/* ── Quick Add ────────────────────────────────────── */}
-        <div className="space-y-3 pt-2 border-t border-default/60">
-          <button
-            onClick={() => setShowQuickAdd(!showQuickAdd)}
-            className="flex items-center justify-between w-full text-left"
-          >
-            <h3 className="text-sm font-semibold text-secondary">Quick Add Single Student</h3>
-            <span className="text-xs text-tertiary">{showQuickAdd ? "▲" : "▼"}</span>
-          </button>
-          {showQuickAdd && (
+      {!activeSemesterId && (
+        <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
+          <span>⚠️</span>
+          <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
+        </div>
+      )}
+
+      {/* ── Quick Add ────────────────────────────────────── */}
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          onClick={() => setShowQuickAdd(!showQuickAdd)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Quick Add Single Student</span>
+          <span className="text-tertiary">{showQuickAdd ? "▲" : "▼"}</span>
+        </button>
+        {showQuickAdd && (
+          <div className="border-t border-default px-3 pb-3 space-y-4">
+            {formError && <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded">{formError}</p>}
+            {formSuccess && <p className="text-xs font-medium text-green-600 bg-green-50 p-2 rounded">{formSuccess}</p>}
             <form onSubmit={handleQuickAdd} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-tertiary mb-1">Faculty-Subject</label>
@@ -157,8 +173,6 @@ export function EnrollmentsTab() {
                   ))}
                 </select>
               </div>
-              {formError && <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded">{formError}</p>}
-              {formSuccess && <p className="text-xs font-medium text-green-600 bg-green-50 p-2 rounded">{formSuccess}</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-tertiary mb-1">Student Name</label>
@@ -171,8 +185,8 @@ export function EnrollmentsTab() {
               </div>
               <IosButton type="submit" loading={formSaving} variant="primary">Add Enrollment</IosButton>
             </form>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════
