@@ -11,6 +11,11 @@ export const departmentRepository: IDepartmentRepository = {
   async findById(id) {
     return singleQuery<DepartmentData>(supabase.from("departments").select("*").eq("id", id) as unknown as { single(): Promise<{ data: unknown; error: { code?: string; message?: string } | null }> })
   },
+  async findByCode(code) {
+    const { data, error } = await supabase.from("departments").select("*").eq("code", code)
+    if (error) throw error
+    return (data?.[0] as DepartmentData) ?? null
+  },
   async findByDeanId(deanId) {
     const { data, error } = await supabase.from("departments").select("*").eq("deanId", deanId)
     if (error) throw error

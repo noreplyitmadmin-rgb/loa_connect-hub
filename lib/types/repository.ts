@@ -78,9 +78,25 @@ export interface DepartmentData {
 export interface IDepartmentRepository {
   listAll(): Promise<DepartmentData[]>
   findById(id: string): Promise<DepartmentData | null>
+  findByCode(code: string): Promise<DepartmentData | null>
   findByDeanId(deanId: string): Promise<DepartmentData | null>
   create(data: { name: string; code: string; deanId?: string | null }): Promise<DepartmentData>
   update(id: string, data: Partial<DepartmentData>): Promise<DepartmentData>
+}
+
+// ── Department Course ───────────────────────────────────
+
+export interface DepartmentCourseData {
+  id: string
+  departmentId: string
+  name: string
+  code: string
+  createdAt: string
+}
+
+export interface IDepartmentCourseRepository {
+  findByDepartmentAndCode(departmentId: string, code: string): Promise<DepartmentCourseData | null>
+  create(data: { departmentId: string; name: string; code: string }): Promise<DepartmentCourseData>
 }
 
 // ── Appointment ─────────────────────────────────────────

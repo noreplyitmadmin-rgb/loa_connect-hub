@@ -5,12 +5,14 @@ import { useApiGet, invalidate } from "@/lib/api/client"
 import { SkeletonTable, SkeletonCard } from "@/components/ui/Skeleton"
 import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
+import BulkDepartmentsCoursesImport from "@/features/users/components/bulk-import/BulkDepartmentsCoursesImport"
 import { SegmentedControl } from "./shared"
 import type { DepartmentData, UserData } from "@/lib/types"
 import type { InfraTab, DepartmentCourse } from "./types"
 
 export function DepartmentsCoursesTab() {
   const [infraTab, setInfraTab] = useState<InfraTab>("departments")
+  const [importMode, setImportMode] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -153,13 +155,28 @@ export function DepartmentsCoursesTab() {
       )}
       {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
 
-      {/* Sub-tabs */}
-      <SegmentedControl
-        options={[{ key: "departments" as const, label: "Departments Management" }, { key: "courses" as const, label: "Courses Mapping" }]}
-        selected={infraTab}
-        onSelect={(key) => { setInfraTab(key); setError("") }}
-      />
+      {/* Sub-tabs & Import toggle */}
+      <div className="flex items-center justify-between gap-4">
+        <SegmentedControl
+          options={[{ key: "departments" as const, label: "Departments Management" }, { key: "courses" as const, label: "Courses Mapping" }]}
+          selected={infraTab}
+          onSelect={(key) => { setInfraTab(key); setError("") }}
+        />
+        <IosButton
+          variant={importMode ? "primary" : "tinted"}
+          size="sm"
+          onClick={() => { setImportMode((m) => !m); setError("") }}
+        >
+          {importMode ? "Manual Entry" : "Import CSV"}
+        </IosButton>
+      </div>
 
+      {importMode ? (
+        <div className="card p-4 sm:p-6 bg-surface">
+          <BulkDepartmentsCoursesImport onImportComplete={() => { refresh(); setImportMode(false) }} />
+        </div>
+      ) : (
+        <>
       {/* ── Departments Sub-tab ──────────────────────────────────────────── */}
       {infraTab === "departments" && (
         <div className="space-y-8">
@@ -361,6 +378,8 @@ export function DepartmentsCoursesTab() {
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

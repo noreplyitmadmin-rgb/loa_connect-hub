@@ -1,6 +1,7 @@
 import type {
   IUserRepository,
   IDepartmentRepository,
+  IDepartmentCourseRepository,
   IAppointmentRepository,
   IAvailabilityRuleRepository,
   IPasswordResetTokenRepository,
@@ -18,6 +19,7 @@ import type {
 
 import { userRepository as supabaseUserRepo } from "@/features/users/users.repository"
 import { departmentRepository as supabaseDeptRepo } from "@/features/admin-data/department.repository"
+import { departmentCourseRepository as supabaseDeptCourseRepo } from "@/features/admin-data/department-course.repository"
 import { appointmentRepository as supabaseApptRepo } from "@/features/appointments/appointments.repository"
 import { availabilityRuleRepository as supabaseAvailRepo } from "@/features/appointments/availability.repository"
 import { passwordResetTokenRepository as supabaseTokenRepo } from "@/features/users/password-reset.repository"
@@ -34,6 +36,7 @@ import { evaluationResultRepository as supabaseEvalResultRepo } from "@/features
 
 export const userRepository: IUserRepository = supabaseUserRepo
 export const departmentRepository: IDepartmentRepository = supabaseDeptRepo
+export const departmentCourseRepository: IDepartmentCourseRepository = supabaseDeptCourseRepo
 export const appointmentRepository: IAppointmentRepository = supabaseApptRepo
 export const availabilityRuleRepository: IAvailabilityRuleRepository = supabaseAvailRepo
 export const passwordResetTokenRepository: IPasswordResetTokenRepository = supabaseTokenRepo
