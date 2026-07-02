@@ -205,6 +205,17 @@ function FacultyTab() {
   const [reassignError, setReassignError] = useState("")
   const [reassignSuccess, setReassignSuccess] = useState("")
 
+  const reassignFaculties = useMemo(() => {
+    if (!selectedSsMapping) return []
+    return faculties.filter((f) => f.departmentId === selectedSsMapping.faculty.departmentId && f.id !== selectedSsMapping.faculty.id)
+  }, [faculties, selectedSsMapping])
+
+  const filteredReassignFaculties = useMemo(() => {
+    if (!reassignFacultySearch) return reassignFaculties
+    const q = reassignFacultySearch.toLowerCase()
+    return reassignFaculties.filter((f) => f.name.toLowerCase().includes(q) || f.email.toLowerCase().includes(q))
+  }, [reassignFaculties, reassignFacultySearch])
+
   const handleReassign = async () => {
     if (!selectedSsMapping || !reassignFacultyId) return
     setReassignSaving(true); setReassignError(""); setReassignSuccess("")
@@ -1040,20 +1051,19 @@ function FacultyTab() {
                 <div className="relative" ref={reassignDropdownRef}>
                   <label className="block text-xs font-semibold text-tertiary mb-1">New Faculty</label>
                   <input
-                    value={reassignFacultySearch || (reassignFacultyId ? faculties.find((f) => f.id === reassignFacultyId)?.name ?? "" : "")}
+                    value={reassignFacultySearch || (reassignFacultyId ? reassignFaculties.find((f) => f.id === reassignFacultyId)?.name ?? "" : "")}
                     onChange={(e) => { setReassignFacultySearch(e.target.value); setReassignFacultyId(""); setReassignDropdownOpen(true) }}
                     onFocus={() => setReassignDropdownOpen(true)}
-                    placeholder="Search faculty..."
+                    placeholder="Search faculty in same department..."
                     className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400"
                     autoComplete="off"
                   />
                   {reassignDropdownOpen && (
                     <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-surface border border-strong rounded-lg shadow-xl max-h-52 overflow-y-auto">
-                      {filteredFaculties.length === 0 ? (
-                        <p className="text-xs text-tertiary text-center py-4">No faculty found</p>
+                      {filteredReassignFaculties.length === 0 ? (
+                        <p className="text-xs text-tertiary text-center py-4">No other faculty in this department</p>
                       ) : (
-                        filteredFaculties
-                          .filter((f) => f.id !== selectedSsMapping.faculty.id)
+                        filteredReassignFaculties
                           .map((f) => (
                             <button
                               key={f.id}
@@ -1069,6 +1079,20 @@ function FacultyTab() {
                     </div>
                   )}
                 </div>
+                {reassignFacultyId && !reassignSuccess && (
+                  <div className="rounded-lg border border-default bg-surface-dim/50 px-3 py-2.5 space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-semibold text-tertiary">From:</span>
+                      <span className="font-medium text-secondary">{selectedSsMapping.faculty.name}</span>
+                      <span className="text-tertiary">({selectedSsMapping.faculty.email})</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-semibold text-tertiary">To:</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">{reassignFaculties.find((f) => f.id === reassignFacultyId)?.name}</span>
+                      <span className="text-tertiary">({reassignFaculties.find((f) => f.id === reassignFacultyId)?.email})</span>
+                    </div>
+                  </div>
+                )}
                 {reassignFacultyId && !reassignSuccess && (
                   <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5">
                     <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
