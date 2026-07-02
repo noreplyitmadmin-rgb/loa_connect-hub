@@ -43,6 +43,7 @@ function SubjectsTab() {
 
   const [newCode, setNewCode] = useState("")
   const [newName, setNewName] = useState("")
+  const [showAddSubject, setShowAddSubject] = useState(false)
 
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -150,20 +151,33 @@ function SubjectsTab() {
       {!locked && error && <p className="text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
       {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
 
-      <form onSubmit={handleAdd} className="card p-4 sm:p-6 bg-surface space-y-4">
-        <h2 className="text-sm font-bold text-secondary">Add New Subject</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-tertiary mb-1">Code</label>
-            <input value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} maxLength={20} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. CS101" required />
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAddSubject((s) => !s)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Add Subject</span>
+          <span className="text-tertiary">{showAddSubject ? "▲" : "▼"}</span>
+        </button>
+        {showAddSubject && (
+          <div className="border-t border-default px-3 pb-3">
+            <form onSubmit={handleAdd} className="space-y-4 pt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-tertiary mb-1">Code</label>
+                  <input value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} maxLength={20} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. CS101" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-tertiary mb-1">Name</label>
+                  <input value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. Introduction to Programming" required />
+                </div>
+              </div>
+              <div><IosButton type="submit" loading={saving} variant="primary">Add Subject</IosButton></div>
+            </form>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-tertiary mb-1">Name</label>
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. Introduction to Programming" required />
-          </div>
-        </div>
-        <div><IosButton type="submit" loading={saving} variant="primary">Add Subject</IosButton></div>
-      </form>
+        )}
+      </div>
 
       <div className="card p-4 sm:p-6 bg-surface space-y-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Search by code or name..." />
@@ -262,6 +276,7 @@ function SubjectsTab() {
 
 function SectionsTab() {
   const [showImport, setShowImport] = useState(false)
+  const [showAddSection, setShowAddSection] = useState(false)
   const [data, setData] = useState<Section[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -447,35 +462,48 @@ function SectionsTab() {
         )}
       </div>
 
-      <form onSubmit={handleAdd} className="card p-4 sm:p-6 bg-surface space-y-4">
-        <h2 className="text-sm font-bold text-secondary">Add New Section</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
-            <select value={newDeptId} onChange={(e) => { setNewDeptId(e.target.value); setNewCourseId("") }} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required>
-              <option value="">Select department...</option>
-              {departments.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.code})</option>))}
-            </select>
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAddSection((s) => !s)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Add Section</span>
+          <span className="text-tertiary">{showAddSection ? "▲" : "▼"}</span>
+        </button>
+        {showAddSection && (
+          <div className="border-t border-default px-3 pb-3">
+            <form onSubmit={handleAdd} className="space-y-4 pt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
+                  <select value={newDeptId} onChange={(e) => { setNewDeptId(e.target.value); setNewCourseId("") }} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required>
+                    <option value="">Select department...</option>
+                    {departments.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.code})</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-tertiary mb-1">Course / Program</label>
+                  <select value={newCourseId} onChange={(e) => { setNewCourseId(e.target.value) }} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required disabled={!newDeptId}>
+                    <option value="">{newDeptId ? "Select course..." : "Select department first"}</option>
+                    {newCourses.map((c) => (<option key={c.id} value={c.id}>{c.code} — {c.name}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-tertiary mb-1">Section Name</label>
+                  <input value={newName} onChange={(e) => setNewName(e.target.value.toUpperCase())} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. 31E1" required />
+                </div>
+              </div>
+              {selectedNewCourse && newName.trim() && (
+                <p className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Preview: <span className="font-mono text-amber-800">{clusteredPreview(selectedNewCourse.code, newName)}</span>
+                </p>
+              )}
+              <div><IosButton type="submit" loading={saving} variant="primary">Add Section</IosButton></div>
+            </form>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-tertiary mb-1">Course / Program</label>
-            <select value={newCourseId} onChange={(e) => { setNewCourseId(e.target.value) }} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required disabled={!newDeptId}>
-              <option value="">{newDeptId ? "Select course..." : "Select department first"}</option>
-              {newCourses.map((c) => (<option key={c.id} value={c.id}>{c.code} — {c.name}</option>))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-tertiary mb-1">Section Name</label>
-            <input value={newName} onChange={(e) => setNewName(e.target.value.toUpperCase())} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. 31E1" required />
-          </div>
-        </div>
-        {selectedNewCourse && newName.trim() && (
-          <p className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Preview: <span className="font-mono text-amber-800">{clusteredPreview(selectedNewCourse.code, newName)}</span>
-          </p>
         )}
-        <div><IosButton type="submit" loading={saving} variant="primary">Add Section</IosButton></div>
-      </form>
+      </div>
 
       <div className="card p-4 sm:p-6 bg-surface space-y-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Search by section name, program, or department..." />

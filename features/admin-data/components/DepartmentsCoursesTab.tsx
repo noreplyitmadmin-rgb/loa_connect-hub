@@ -13,6 +13,8 @@ import type { InfraTab, DepartmentCourse } from "./types"
 export function DepartmentsCoursesTab() {
   const [infraTab, setInfraTab] = useState<InfraTab>("departments")
   const [showImport, setShowImport] = useState(false)
+  const [showAddDept, setShowAddDept] = useState(false)
+  const [showAddCourse, setShowAddCourse] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -208,27 +210,40 @@ export function DepartmentsCoursesTab() {
               <div><IosButton type="submit" loading={saving} variant="primary">Save Changes</IosButton></div>
             </form>
           ) : (
-            <form onSubmit={handleAddDept} className="card p-6 bg-surface space-y-4">
-              <h2 className="text-sm font-bold text-secondary">Add New Academic Department</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-tertiary mb-1">Department Name</label>
-                  <input value={newDeptName} onChange={(e) => setNewDeptName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. College of Liberal Arts" required />
+            <div className="border border-default rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowAddDept((s) => !s)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+              >
+                <span>Add Department</span>
+                <span className="text-tertiary">{showAddDept ? "▲" : "▼"}</span>
+              </button>
+              {showAddDept && (
+                <div className="border-t border-default px-3 pb-3">
+                  <form onSubmit={handleAddDept} className="space-y-4 pt-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-tertiary mb-1">Department Name</label>
+                        <input value={newDeptName} onChange={(e) => setNewDeptName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. College of Liberal Arts" required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-tertiary mb-1">Code</label>
+                        <input value={newDeptCode} onChange={(e) => setNewDeptCode(e.target.value.toUpperCase())} maxLength={10} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. CLA" required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-tertiary mb-1">Assigned Dean (Optional)</label>
+                        <select value={newDeptDeanId} onChange={(e) => setNewDeptDeanId(e.target.value)} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                          <option value="">Select Dean...</option>
+                          {deans.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.email})</option>))}
+                        </select>
+                      </div>
+                    </div>
+                    <div><IosButton type="submit" loading={saving} variant="primary">Create Department</IosButton></div>
+                  </form>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-tertiary mb-1">Code</label>
-                  <input value={newDeptCode} onChange={(e) => setNewDeptCode(e.target.value.toUpperCase())} maxLength={10} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. CLA" required />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-tertiary mb-1">Assigned Dean (Optional)</label>
-                  <select value={newDeptDeanId} onChange={(e) => setNewDeptDeanId(e.target.value)} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400">
-                    <option value="">Select Dean...</option>
-                    {deans.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.email})</option>))}
-                  </select>
-                </div>
-              </div>
-              <div><IosButton type="submit" loading={saving} variant="primary">Create Department</IosButton></div>
-            </form>
+              )}
+            </div>
           )}
 
           <div className="card bg-surface overflow-hidden">
@@ -311,27 +326,40 @@ export function DepartmentsCoursesTab() {
       {/* ── Courses Sub-tab ──────────────────────────────────────────────── */}
       {infraTab === "courses" && (
         <div className="space-y-8">
-          <form onSubmit={handleAddCourse} className="card p-6 bg-surface space-y-4">
-            <h2 className="text-sm font-bold text-secondary">Add Course to Department</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
-                <select value={newCourseDeptId} onChange={(e) => setNewCourseDeptId(e.target.value)} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required>
-                  <option value="">Select department...</option>
-                  {departments.filter((d) => !d.isDisabled).map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.code})</option>))}
-                </select>
+          <div className="border border-default rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowAddCourse((s) => !s)}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+            >
+              <span>Add Course to Department</span>
+              <span className="text-tertiary">{showAddCourse ? "▲" : "▼"}</span>
+            </button>
+            {showAddCourse && (
+              <div className="border-t border-default px-3 pb-3">
+                <form onSubmit={handleAddCourse} className="space-y-4 pt-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
+                      <select value={newCourseDeptId} onChange={(e) => setNewCourseDeptId(e.target.value)} className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required>
+                        <option value="">Select department...</option>
+                        {departments.filter((d) => !d.isDisabled).map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.code})</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-tertiary mb-1">Course Name</label>
+                      <input value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. Bachelor of Science in IT" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-tertiary mb-1">Course Code</label>
+                      <input value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value.toUpperCase())} maxLength={10} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. BSIT" required />
+                    </div>
+                  </div>
+                  <div><IosButton type="submit" loading={saving} variant="primary">Add Course</IosButton></div>
+                </form>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Course Name</label>
-                <input value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. Bachelor of Science in IT" required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Course Code</label>
-                <input value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value.toUpperCase())} maxLength={10} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. BSIT" required />
-              </div>
-            </div>
-            <div><IosButton type="submit" loading={saving} variant="primary">Add Course</IosButton></div>
-          </form>
+            )}
+          </div>
 
           <div className="space-y-6">
             {grouped.map((dept) => (
