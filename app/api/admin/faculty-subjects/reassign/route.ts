@@ -42,6 +42,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 })
     }
 
+    // Invalidate all existing evaluations for this faculty-subject mapping
+    const adminName = (session!.user as Record<string, unknown>).name as string || "Unknown"
+    const remarks = `Invalidated by user: ${adminName} - change of faculty assigned for the subject/section`
+    await supabase
+      .from("evaluations")
+      .update({ status: "INVALID", remarks, isDisabled: true, updatedAt: new Date().toISOString() })
+      .eq("facultySubjectId", oldFacultySubjectId)
+
     const currentUserId = (session!.user as Record<string, unknown>).id as string
     await logAuditEvent({
       userId: currentUserId,
