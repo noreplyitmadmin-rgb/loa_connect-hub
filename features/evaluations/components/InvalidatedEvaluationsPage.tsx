@@ -10,6 +10,7 @@ interface DisabledEval {
   id: string
   source: string | null
   status: "DRAFT" | "SUBMITTED"
+  remarks: string | null
   createdAt: string
   updatedAt: string
   evaluator: { id: string; name: string; email: string } | null
@@ -20,14 +21,6 @@ interface DisabledEval {
     subject: { id: string; code: string; name: string } | null
     section: { id: string; name: string; program: string } | null
   } | null
-}
-
-function getReason(ev: DisabledEval): { label: string; variant: string } {
-  if (ev.source === "dispute") return { label: "Disputed by Student", variant: "amber" }
-  if (!ev.faculty_subject) return { label: "Mapping Deleted", variant: "red" }
-  if (ev.evaluatee && ev.faculty_subject.faculty && ev.evaluatee.id !== ev.faculty_subject.faculty.id)
-    return { label: "Faculty Re-assigned", variant: "blue" }
-  return { label: "Stale", variant: "gray" }
 }
 
 export default function InvalidatedEvaluationsPage() {
@@ -107,14 +100,13 @@ export default function InvalidatedEvaluationsPage() {
                     <th>Faculty (Evaluatee)</th>
                     <th>Subject</th>
                     <th>Section</th>
-                    <th>Reason</th>
+                    <th>Remarks</th>
                     <th>Status</th>
                     <th>Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedItems.map((ev) => {
-                    const reason = getReason(ev)
                     return (
                       <tr key={ev.id}>
                         <td className="font-medium text-secondary">{ev.evaluator?.name ?? <span className="text-tertiary italic">Deleted</span>}</td>
@@ -130,7 +122,7 @@ export default function InvalidatedEvaluationsPage() {
                             : <span className="text-tertiary italic">—</span>}
                         </td>
                         <td>
-                          <span className={`badge-${reason.variant === "gray" ? "blue" : reason.variant}`}>{reason.label}</span>
+                          <span className="text-xs text-tertiary">{ev.remarks ?? "—"}</span>
                         </td>
                         <td>
                           <span className={`badge-${ev.status === "SUBMITTED" ? "emerald" : "blue"}`}>{ev.status}</span>
@@ -146,7 +138,6 @@ export default function InvalidatedEvaluationsPage() {
             </div>
             <div className="mobile-only space-y-2">
               {paginatedItems.map((ev) => {
-                const reason = getReason(ev)
                 return (
                   <div key={ev.id} className="p-4 rounded-xl bg-surface border border-default">
                     <div className="flex items-start justify-between gap-2">
@@ -163,8 +154,8 @@ export default function InvalidatedEvaluationsPage() {
                         </p>
                       </div>
                       <div className="shrink-0 text-right flex flex-col items-end gap-1">
-                        <span className={`badge-${reason.variant === "gray" ? "blue" : reason.variant}`}>{reason.label}</span>
-                            <span className={`badge-${ev.status === "SUBMITTED" ? "emerald" : "blue"}`}>{ev.status}</span>
+                        <span className="text-xs text-tertiary">{ev.remarks ?? "—"}</span>
+                        <span className={`badge-${ev.status === "SUBMITTED" ? "emerald" : "blue"}`}>{ev.status}</span>
                         <span className="text-[11px] text-tertiary">{new Date(ev.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                       </div>
                     </div>
