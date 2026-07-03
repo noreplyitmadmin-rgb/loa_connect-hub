@@ -9,6 +9,7 @@ export default function AdminEvaluationResultsPage() {
       showDepartmentFilter
       showVisibilityToggles
       showUnenrolledToggle
+      perSubject
       title="Evaluation Results"
       subtitle="View faculty evaluation results across departments"
     />

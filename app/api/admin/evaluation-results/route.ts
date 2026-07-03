@@ -56,6 +56,8 @@ export async function GET(request: NextRequest) {
       query = query.in("evaluateeId", ids)
     }
 
+    const perSubject = searchParams.get("perSubject") === "1" || searchParams.get("perSubject") === "true"
+
     const { data: evals, error: evErr } = await query
     if (evErr) throw evErr
 
@@ -85,31 +87,43 @@ export async function GET(request: NextRequest) {
     if (countErr) throw countErr
     const uniqueRespondents = new Set((allEvals || []).map((e) => e.evaluatorId)).size
 
+    // support per-subject view: group by facultySubjectId when requested
     const facultyEvalMap = new Map<string, string[]>()
     const facultyUnenrolledMap = new Map<string, number>()
+    const subjectMap = new Map<string, { facultyId: string; subjectId?: string }>()
+
     for (const ev of evals || []) {
-      if (!facultyEvalMap.has(ev.evaluateeId)) facultyEvalMap.set(ev.evaluateeId, [])
-      facultyEvalMap.get(ev.evaluateeId)!.push(ev.id)
+      const key = perSubject && ev.facultySubjectId ? ev.facultySubjectId : ev.evaluateeId
+      if (!facultyEvalMap.has(key)) facultyEvalMap.set(key, [])
+      facultyEvalMap.get(key)!.push(ev.id)
       if (ev.source === "unenrolled") {
-        facultyUnenrolledMap.set(ev.evaluateeId, (facultyUnenrolledMap.get(ev.evaluateeId) ?? 0) + 1)
+        const facKey = perSubject && ev.facultySubjectId ? ev.facultySubjectId : ev.evaluateeId
+        facultyUnenrolledMap.set(facKey, (facultyUnenrolledMap.get(facKey) ?? 0) + 1)
+      }
+      if (perSubject && ev.facultySubjectId) {
+        subjectMap.set(ev.facultySubjectId, { facultyId: ev.evaluateeId, subjectId: ev.facultySubjectId })
       }
     }
 
-    const allFacultyIds = [...facultyEvalMap.keys()]
-    if (allFacultyIds.length === 0) return NextResponse.json({ results: [], facultyNames: {} })
+    const allKeys = [...facultyEvalMap.keys()]
+    if (allKeys.length === 0) return NextResponse.json({ results: [], facultyNames: {} })
 
+    // fetch faculty names for any faculty ids involved
+    const facultyIds = Array.from(new Set((perSubject ? [...subjectMap.values()].map((s) => s.facultyId) : allKeys)))
     const { data: users, error: uErr } = await supabase
       .from("users")
       .select("id, name")
-      .in("id", allFacultyIds)
+      .in("id", facultyIds)
     if (uErr) throw uErr
 
     const nameMap = new Map((users || []).map((u) => [u.id, u.name]))
     const facultyNames: Record<string, string> = {}
 
     const results: Record<string, unknown>[] = []
-    for (const [facId, evaluationIds] of facultyEvalMap) {
-      facultyNames[facId] = nameMap.get(facId) || facId
+    for (const key of allKeys) {
+      const evaluationIds = facultyEvalMap.get(key) || []
+      const facultyId = perSubject && subjectMap.has(key) ? subjectMap.get(key)!.facultyId : key
+      facultyNames[facultyId] = nameMap.get(facultyId) || facultyId
 
       const { data: ratings, error: rErr } = await supabase
         .from("evaluation_ratings")
@@ -137,12 +151,13 @@ export async function GET(request: NextRequest) {
         : null
 
       const row: Record<string, unknown> = {
-        id: `${semesterId}_${facId}`,
+        id: `${semesterId}_${key}`,
         semesterId,
-        facultyId: facId,
+        facultyId: facultyId,
+        facultySubjectId: perSubject ? key : undefined,
         departmentId: null,
         totalRespondents: evaluationIds.length,
-        unenrolledCount: facultyUnenrolledMap.get(facId) ?? 0,
+        unenrolledCount: facultyUnenrolledMap.get(key) ?? 0,
         generalRating: general !== null ? Math.round(general * 100) / 100 : null,
         remarks: getRemark(general),
         professionalManner: null,

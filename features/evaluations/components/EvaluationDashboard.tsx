@@ -7,12 +7,14 @@ import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import type { DepartmentData } from "@/lib/types"
 import { SentimentBadge } from "./evaluation/SentimentBadge"
+import ReasonModal from "@/components/ui/ReasonModal"
 import ReportModal from "./ReportModal"
 
 interface Result {
   id: string
   semesterId: string
   facultyId: string
+  facultySubjectId?: string
   departmentId: string | null
   totalRespondents: number
   unenrolledCount?: number
@@ -57,6 +59,7 @@ interface EvaluationDashboardProps {
   showUnenrolledToggle?: boolean
   title: string
   subtitle: string
+  perSubject?: boolean
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
@@ -126,6 +129,7 @@ export default function EvaluationDashboard({
   showUnenrolledToggle = false,
   title,
   subtitle,
+  perSubject = false,
 }: EvaluationDashboardProps) {
   const [periods, setPeriods] = useState<Period[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState("")
@@ -145,6 +149,8 @@ export default function EvaluationDashboard({
   const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showReasonModal, setShowReasonModal] = useState(false)
+  const [pendingInvalidate, setPendingInvalidate] = useState<{ facultyId?: string; facultySubjectId?: string } | null>(null)
 
   useEffect(() => {
     const endpoint = "/api/evaluation-periods"
@@ -190,6 +196,7 @@ export default function EvaluationDashboard({
       const params = new URLSearchParams({ periodId: selectedPeriod })
       if (selectedDept) params.set("departmentId", selectedDept)
       if (showUnenrolled) params.set("source", "all")
+      if (perSubject) params.set("perSubject", "1")
       const endpoint = `${apiBase}?${params}&_=${Date.now()}`
       try {
         const res = await fetch(endpoint)
@@ -586,6 +593,33 @@ export default function EvaluationDashboard({
     URL.revokeObjectURL(url)
   }, [facultyNames, fetchStudentsForFaculty, selectedPeriod])
 
+  const invalidateResult = useCallback(async (facultyId?: string, facultySubjectId?: string, reason?: string) => {
+    if (!selectedPeriod) return
+    try {
+      const res = await fetch(`/api/admin/evaluation-results/invalidate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodId: selectedPeriod, facultyId, facultySubjectId, reason }),
+      })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/evaluation-results/invalidate"); return }
+      const data = await res.json()
+      if (!data.success) throw new Error("Invalidate failed")
+      // refresh
+      const params = new URLSearchParams({ periodId: selectedPeriod })
+      if (selectedDept) params.set("departmentId", selectedDept)
+      if (showUnenrolled) params.set("source", "all")
+      if (perSubject) params.set("perSubject", "1")
+      const endpoint = `${apiBase}?${params}&_=${Date.now()}`
+      const r2 = await fetch(endpoint)
+      if (r2.status === 403) { setLockedEndpoint(endpoint); return }
+      const j = await r2.json()
+      setResults(j.results || [])
+    } catch (e) {
+      console.error(e)
+      setErrorMessage("Failed to invalidate result")
+    }
+  }, [selectedPeriod, selectedDept, showUnenrolled, apiBase, perSubject])
+
   const allVisible = useMemo(() => {
     if (results.length === 0) return false
     return results.every((r) => visibilityMap[r.facultyId] === true)
@@ -762,13 +796,14 @@ export default function EvaluationDashboard({
                     <table>
                       <thead>
                         <tr>
-                          <th className="text-left">Faculty</th>
+                                <th className="text-left">Faculty</th>
+                                {perSubject && <th className="text-left">Subject</th>}
                           <th className="text-center whitespace-nowrap">General</th>
                           <th className="text-center whitespace-nowrap">Respondents</th>
                           <th className="text-center">Remark</th>
                           {showVisibilityToggles && <th className="text-center whitespace-nowrap">Allow User To View Results</th>}
-                          {/* <th className="text-center w-16">Quick Actions</th> */}
-                          <th className="text-center w-10"></th>
+                                <th className="text-center w-12">Actions</th>
+                                <th className="text-center w-10"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -778,6 +813,9 @@ export default function EvaluationDashboard({
                           return (
                             <tr key={r.id} className={`${isSelected ? "bg-brand-50 dark:bg-brand-500/10" : ""}`} onClick={() => selectFaculty(r.facultyId)}>
                               <td className="font-semibold text-primary whitespace-nowrap">{name}</td>
+                              {perSubject && (
+                                <td className="text-secondary max-w-xs truncate">{(r as any).facultySubjectId ?? "—"}</td>
+                              )}
                               <td className="text-center font-bold text-primary">{r.generalRating !== null ? r.generalRating.toFixed(2) : "—"}</td>
                               <td className="text-center text-secondary">{r.totalRespondents}</td>
                               <td className="text-center">{r.remarks && <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getRemarkColor(r.remarks)}`}>{r.remarks}</span>}</td>
@@ -802,6 +840,20 @@ export default function EvaluationDashboard({
                                 </td>
                               )}
                               {/* <td className="text-center whitespace-nowrap">
+                              <td className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setPendingInvalidate({ facultyId: r.facultyId, facultySubjectId: (r as any).facultySubjectId }); setShowReasonModal(true) }}
+                                    className="inline-flex items-center justify-center w-8 h-8 rounded-md text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                                    title="Invalidate Result"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M10 3h4l1 4H9l1-4z" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </td>
                                 <div className="flex items-center justify-center gap-1">
                                   <button
                                     type="button"
@@ -851,7 +903,7 @@ export default function EvaluationDashboard({
 
                 {/* Main table — mobile cards */}
                 <div className="mobile-only space-y-3">
-                  {results.map((r) => {
+                      {results.map((r) => {
                     const name = facultyNames[r.facultyId] || r.facultyId
                     const isSelected = selectedFaculty === r.facultyId
                     return (
@@ -862,7 +914,10 @@ export default function EvaluationDashboard({
                       >
                         <div className="flex items-start justify-between gap-3" onClick={() => selectFaculty(r.facultyId)}>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-primary truncate">{name}</p>
+                              <p className="text-sm font-bold text-primary truncate">{name}</p>
+                              {perSubject && (
+                                <p className="text-xs text-tertiary truncate mt-1">{(r as any).facultySubjectId ?? "—"}</p>
+                              )}
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <span className="text-base font-bold tabular-nums text-primary">{r.generalRating !== null ? r.generalRating.toFixed(2) : "—"}</span>
                               {r.remarks && (
@@ -964,6 +1019,19 @@ export default function EvaluationDashboard({
         initialFacultyNames={facultyNames}
         initialStudentData={studentData}
         initialUniqueRespondents={uniqueRespondents}
+      />
+      <ReasonModal
+        isOpen={showReasonModal}
+        title="Invalidate Evaluations"
+        initialReason=""
+        confirmLabel="Invalidate"
+        onClose={() => { setShowReasonModal(false); setPendingInvalidate(null) }}
+        onConfirm={(reason) => {
+          if (pendingInvalidate) {
+            invalidateResult(pendingInvalidate.facultyId, pendingInvalidate.facultySubjectId, reason)
+            setPendingInvalidate(null)
+          }
+        }}
       />
     </ErrorBoundary>
   )

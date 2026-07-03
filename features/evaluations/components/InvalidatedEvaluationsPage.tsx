@@ -113,6 +113,25 @@ export default function InvalidatedEvaluationsPage() {
     }
   }, [selectedIds, fetchData])
 
+  // Add ability to move an invalidated evaluation back to active (restore)
+  const restoreSelected = useCallback(async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Restore ${selectedIds.size} selected evaluation${selectedIds.size > 1 ? "s" : ""}?`)) return
+    try {
+      const res = await fetch("/api/admin/evaluations/disabled/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      })
+      if (res.status === 403) { setLocked("/api/admin/evaluations/disabled"); return }
+      if (!res.ok) throw new Error("Failed to restore")
+      setSelectedIds(new Set())
+      fetchData(true)
+    } catch {
+      setError("Failed to restore selected evaluations")
+    }
+  }, [selectedIds, fetchData])
+
   const deleteAll = useCallback(async () => {
     if (!sorted.length) return
     if (!confirm(`Delete ALL ${sorted.length} invalidated evaluation${sorted.length > 1 ? "s" : ""}? This cannot be undone.`)) return
