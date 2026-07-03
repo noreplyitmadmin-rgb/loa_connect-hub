@@ -343,13 +343,17 @@ export default function StudentEvaluationsPage() {
                   <p className="text-xs text-tertiary mt-0.5">
                     {item.evaluateeName}{item.subjectCode ? ` · ${item.subjectCode}` : ""}
                   </p>
-                  <button
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); handleDispute(item) }}
-                    disabled={disputingFsId === item.facultySubjectId}
-                    className="mt-1 text-[11px] text-red-500 hover:text-red-700 underline decoration-dotted underline-offset-2 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleDispute(item) } }}
+                    aria-disabled={disputingFsId === item.facultySubjectId}
+                    className="mt-1 text-[11px] text-red-500 hover:text-red-700 underline decoration-dotted underline-offset-2 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30 cursor-pointer"
+                    style={disputingFsId === item.facultySubjectId ? { opacity: 0.3, pointerEvents: 'none' } : {}}
                   >
                     {disputingFsId === item.facultySubjectId ? "Reporting..." : "Wrong faculty?"}
-                  </button>
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {navigatingId === item.evaluateeId ? (
