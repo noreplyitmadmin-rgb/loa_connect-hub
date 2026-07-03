@@ -181,7 +181,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (groupName !== "ADMIN") {
-      for (const p of ["/faq", "/403", "/admin/etl-hub", "/student/evaluations/thank-you"]) {
+      for (const p of ["/faq", "/403", "/student/evaluations/thank-you"]) {
         if (!dedupedPages.includes(p)) dedupedPages.push(p)
       }
     }
