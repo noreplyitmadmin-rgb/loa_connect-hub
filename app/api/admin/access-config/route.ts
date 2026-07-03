@@ -175,9 +175,9 @@ export async function PATCH(request: NextRequest) {
     }
     let dedupedPages = [...new Set(pages.map(normalizePath).map(stripMobile).filter(Boolean))]
 
-    // ADMIN access is hardcoded — only persist additional non-admin pages
+    // ADMIN access is hardcoded — /admin/access-config and /admin/user-permissions are always granted
     if (groupName === "ADMIN") {
-      dedupedPages = dedupedPages.filter((p: string) => !p.startsWith("/admin"))
+      dedupedPages = dedupedPages.filter((p: string) => p !== "/admin/access-config" && p !== "/admin/user-permissions")
     }
 
     if (groupName !== "ADMIN") {

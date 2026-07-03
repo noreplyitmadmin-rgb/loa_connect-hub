@@ -35,6 +35,21 @@ const badgeColors: Record<string, string> = {
 }
 
 const ALWAYS_LOCKED_PAGES = new Set(["/faq", "/403", "/student/evaluations/thank-you"])
+const ADMIN_MIRROR_STUBS = new Set([
+  "/dean/data/users",
+  "/dean/data/users/deleted",
+  "/dean/data/academic-infrastructure",
+  "/dean/etl-hub",
+  "/dean/reports",
+  "/dean/reports/health",
+  "/dean/reports/demand",
+  "/dean/reports/responsiveness",
+  "/dean/reports/backlog",
+  "/dean/reports/coverage",
+  "/dean/reports/distribution",
+  "/dean/evaluations/rubrics",
+  "/dean/evaluations/reports",
+])
 
 type OverrideMap = Record<string, Record<string, boolean>>
 
@@ -79,7 +94,7 @@ export default function EditAccessGroupPage() {
   }, [groupName])
 
   const isLockedPage = (p: string) =>
-    (group?.groupName === "ADMIN" && p.startsWith("/admin") && p !== "/admin/etl-hub") || ALWAYS_LOCKED_PAGES.has(p)
+    (group?.groupName === "ADMIN" && (p === "/admin/access-config" || p === "/admin/user-permissions")) || ALWAYS_LOCKED_PAGES.has(p)
 
   const togglePage = (path: string) => {
     if (readOnly || isLockedPage(path)) return
@@ -150,7 +165,7 @@ export default function EditAccessGroupPage() {
     setSaved(false)
     let deduped = [...new Set(selectedPages.map(normalizePath))]
     if (group.groupName === "ADMIN") {
-      deduped = deduped.filter((p) => !p.startsWith("/admin"))
+      deduped = deduped.filter((p) => p !== "/admin/access-config" && p !== "/admin/user-permissions")
     }
 
     try {
@@ -193,8 +208,15 @@ export default function EditAccessGroupPage() {
 
   const catalogEntries = useMemo(() => {
     if (!catalog) return []
-    return Object.entries(catalog.pages).filter(([category]) => category !== "API")
-  }, [catalog])
+    let entries = Object.entries(catalog.pages).filter(([category]) => category !== "API")
+    if (group?.groupName === "ADMIN") {
+      entries = entries.map(([category, items]) => [
+        category,
+        items.filter((item) => !ADMIN_MIRROR_STUBS.has(item.path)),
+      ] as [string, typeof items]).filter(([, items]) => items.length > 0)
+    }
+    return entries
+  }, [catalog, group])
 
   if (loading) {
     return (
