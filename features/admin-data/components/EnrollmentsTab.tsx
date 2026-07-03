@@ -124,7 +124,7 @@ export function EnrollmentsTab() {
           <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
         </button>
         {showImport && (
-        <div className="border-t border-default px-3 pb-3 space-y-4">
+          <div className="border-t border-gray-200 dark:border-gray-800 px-4 pb-4 space-y-4">
           {!activeSemesterId && (
             <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
               <span>⚠️</span>
