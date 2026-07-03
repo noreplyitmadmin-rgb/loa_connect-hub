@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
 import { supabase } from "@/lib/supabase"
 import { clearAccessConfigCache, loadAccessConfig } from "@/lib/access"
+import { pageApiMap } from "@/lib/page-api-map"
 import fs from "fs"
 import path from "path"
 
@@ -125,7 +126,31 @@ export async function GET() {
   const catalog = buildCatalog()
   const mergedConfig = await loadAccessConfig()
 
-  return NextResponse.json({ groups: data || [], catalog, config: mergedConfig })
+  return NextResponse.json({ groups: data || [], catalog, config: mergedConfig, pageApiMap })
+}
+
+function expandApiPaths(
+  selectedPages: string[],
+  api_overrides: Record<string, Record<string, boolean>>,
+): string[] {
+  const paths = new Set(selectedPages)
+  for (const pagePath of selectedPages) {
+    const defaultApis = pageApiMap[pagePath]?.apis ?? []
+    for (const api of defaultApis) {
+      paths.add(api)
+    }
+  }
+  // Apply overrides: false → remove, true → add
+  for (const [_pagePath, overrides] of Object.entries(api_overrides)) {
+    for (const [apiPath, value] of Object.entries(overrides)) {
+      if (value === true) {
+        paths.add(apiPath)
+      } else {
+        paths.delete(apiPath)
+      }
+    }
+  }
+  return Array.from(paths)
 }
 
 export async function PATCH(request: NextRequest) {
@@ -133,33 +158,46 @@ export async function PATCH(request: NextRequest) {
   if (authErr) return authErr
 
   const body = await request.json()
-  const { groupName, pages } = body
+  const { groupName, pages, api_overrides } = body
 
   if (!groupName) {
     return NextResponse.json({ error: "groupName is required" }, { status: 400 })
   }
 
-  if (pages !== undefined && !Array.isArray(pages)) {
-    return NextResponse.json({ error: "pages must be an array" }, { status: 400 })
-  }
-
   const normalizePath = (p: string) => p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p
   const stripMobile = (p: string) => p.includes("/m/") ? "" : p
-  let dedupedPages = pages ? [...new Set(pages.map(normalizePath).map(stripMobile).filter(Boolean))] : pages
-
-  // ADMIN access is hardcoded — only persist additional non-admin pages
-  if (groupName === "ADMIN" && dedupedPages !== undefined) {
-    dedupedPages = dedupedPages.filter((p: string) => !p.startsWith("/admin"))
-  }
-
-  if (dedupedPages !== undefined && groupName !== "ADMIN") {
-    for (const p of ["/faq", "/403", "/admin/etl-hub", "/student/evaluations/thank-you"]) {
-      if (!dedupedPages.includes(p)) dedupedPages.push(p)
-    }
-  }
 
   const updateData: Record<string, unknown> = { updatedAt: new Date().toISOString() }
-  if (dedupedPages !== undefined) updateData.pages = dedupedPages
+
+  if (pages !== undefined) {
+    if (!Array.isArray(pages)) {
+      return NextResponse.json({ error: "pages must be an array" }, { status: 400 })
+    }
+    let dedupedPages = [...new Set(pages.map(normalizePath).map(stripMobile).filter(Boolean))]
+
+    // ADMIN access is hardcoded — only persist additional non-admin pages
+    if (groupName === "ADMIN") {
+      dedupedPages = dedupedPages.filter((p: string) => !p.startsWith("/admin"))
+    }
+
+    if (groupName !== "ADMIN") {
+      for (const p of ["/faq", "/403", "/admin/etl-hub", "/student/evaluations/thank-you"]) {
+        if (!dedupedPages.includes(p)) dedupedPages.push(p)
+      }
+    }
+
+    // If api_overrides is provided (new page-centric UI), expand page paths into full flat list.
+    // If api_overrides is NOT provided (legacy UI), pages is already a flat list — keep as-is.
+    if (api_overrides !== undefined) {
+      dedupedPages = expandApiPaths(dedupedPages, api_overrides)
+    }
+
+    updateData.pages = dedupedPages
+  }
+
+  if (api_overrides !== undefined) {
+    updateData.api_overrides = api_overrides
+  }
 
   const { data, error } = await supabase
     .from("group_access")

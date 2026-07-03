@@ -92,7 +92,7 @@ export default function StudentEvaluationsPage() {
         if (active) {
           fetch(`/api/evaluation-periods/${active.id}/rubric`)
             .then((r) => {
-              if (r.status === 403) { setErrorMessage("Access denied to rubric endpoint"); return null }
+              if (r.status === 403) { setLockedEndpoint(`/api/evaluation-periods/${active.id}/rubric`); return null }
               return r.json()
             })
             .then((rubricData) => {
@@ -168,7 +168,7 @@ export default function StudentEvaluationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
+      if (res.status === 403) { setLockedEndpoint("/api/evaluations"); setNavigatingId(null); return }
       const data = await res.json()
       if (data.evaluation?.id) { openEvalTab(data.evaluation.id); setNavigatingId(null) }
     } catch {
@@ -328,7 +328,7 @@ export default function StudentEvaluationsPage() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ evaluateeId: item.evaluateeId, facultySubjectId: item.facultySubjectId }),
                       })
-                      if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
+                      if (res.status === 403) { setLockedEndpoint("/api/evaluations"); setNavigatingId(null); return }
                       const data = await res.json()
                       if (data.evaluation?.id) { openEvalTab(data.evaluation.id); setNavigatingId(null) }
                   } catch {
@@ -454,7 +454,7 @@ export default function StudentEvaluationsPage() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ id: ev.id }),
                       })
-                      if (res.status === 403) { setErrorMessage("Access denied"); setNavigatingId(null); return }
+                      if (res.status === 403) { setLockedEndpoint("/api/evaluations"); setNavigatingId(null); return }
                       const data = await res.json()
                     if (data.evaluation?.id) {
                       if (ev.status === "SUBMITTED") {

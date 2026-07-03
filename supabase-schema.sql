@@ -591,6 +591,7 @@ COMMIT;
 CREATE TABLE IF NOT EXISTS group_access (
   "groupName" TEXT PRIMARY KEY,
   pages JSONB NOT NULL DEFAULT '[]',
+  "api_overrides" JSONB NOT NULL DEFAULT '{}',
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -1663,3 +1664,10 @@ BEGIN
 
   END;
 END $$;
+
+-- =========================================================
+-- Migration 22: Add api_overrides column to group_access
+-- Stores per-page API override state: {"pagePath": {"/api/...": true|false}}
+-- true = granted, false = denied, absent = inherit from page selection
+-- =========================================================
+ALTER TABLE group_access ADD COLUMN IF NOT EXISTS "api_overrides" JSONB NOT NULL DEFAULT '{}';

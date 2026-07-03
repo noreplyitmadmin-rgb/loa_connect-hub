@@ -22,7 +22,7 @@ export default async function Home() {
       const allowed = roles.filter(r => granted.has(`/${r.toLowerCase()}`))
 
       if (allowed.length === 0) {
-        redirect("/403")
+        redirect(`/${getPrimaryRole(role).toLowerCase()}`)
       }
       if (allowed.length === 1) {
         redirect(`/${allowed[0].toLowerCase()}`)

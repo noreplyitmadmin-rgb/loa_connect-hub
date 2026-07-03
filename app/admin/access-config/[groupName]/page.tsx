@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import Skeleton from "@/components/ui/Skeleton"
@@ -8,10 +8,12 @@ import SubmitButton from "@/components/ui/SubmitButton"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import { invalidate } from "@/lib/api/client"
+import type { PageApiEntry } from "@/lib/page-api-map"
 
 interface GroupAccess {
   groupName: string
   pages: string[]
+  api_overrides: Record<string, Record<string, boolean>>
 }
 
 interface CatalogItem {
@@ -34,20 +36,23 @@ const badgeColors: Record<string, string> = {
 
 const ALWAYS_LOCKED_PAGES = new Set(["/faq", "/403", "/student/evaluations/thank-you"])
 
+type OverrideMap = Record<string, Record<string, boolean>>
+
 export default function EditAccessGroupPage() {
   const params = useParams()
   const groupName = params.groupName as string
 
   const [group, setGroup] = useState<GroupAccess | null>(null)
   const [catalog, setCatalog] = useState<Catalog | null>(null)
+  const [pageApiMap, setPageApiMap] = useState<Record<string, PageApiEntry> | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
   const [selectedPages, setSelectedPages] = useState<string[]>([])
+  const [overrides, setOverrides] = useState<OverrideMap>({})
   const [search, setSearch] = useState("")
-  const [pageTab, setPageTab] = useState<"pages" | "api">("pages")
   const [readOnly, setReadOnly] = useState(true)
 
   useEffect(() => {
@@ -59,21 +64,13 @@ export default function EditAccessGroupPage() {
         const g = (data.groups || []).find((grp: GroupAccess) => grp.groupName === groupName)
         if (g) {
           setGroup(g)
-          if (g.groupName === "ADMIN" && data.catalog?.pages) {
-            // Admin paths are mandatory (locked) — pulled from catalog.
-            // Non-admin paths come from saved DB pages (toggleable).
-            const adminCatalogPaths: string[] = []
-            for (const items of Object.values(data.catalog.pages as Record<string, CatalogItem[]>)) {
-              for (const item of items) {
-                if (item.path.startsWith("/admin")) adminCatalogPaths.push(item.path)
-              }
-            }
-            setSelectedPages([...new Set([...g.pages, ...adminCatalogPaths])])
-          } else {
-            setSelectedPages(g.pages)
-          }
+          // API paths are expanded in stored pages — extract only page paths for selections
+          const isApiPath = (p: string) => p.startsWith("/api/")
+          setSelectedPages((g.pages || []).filter((p: string) => !isApiPath(p)))
+          setOverrides(g.api_overrides || {})
         }
         if (data.catalog) setCatalog(data.catalog)
+        if (data.pageApiMap) setPageApiMap(data.pageApiMap)
         const role = me?.user?.role ?? ""
         setReadOnly(!role.split("|").includes("ADMIN"))
       })
@@ -85,11 +82,64 @@ export default function EditAccessGroupPage() {
     (group?.groupName === "ADMIN" && p.startsWith("/admin") && p !== "/admin/etl-hub") || ALWAYS_LOCKED_PAGES.has(p)
 
   const togglePage = (path: string) => {
+    if (readOnly || isLockedPage(path)) return
+    setSelectedPages((prev) => {
+      const on = prev.includes(path)
+      if (on) {
+        const newOverrides = { ...overrides }
+        delete newOverrides[path]
+        setOverrides(newOverrides)
+        return prev.filter((p) => p !== path)
+      }
+      return [...prev, path]
+    })
+  }
+
+  const toggleApiOverride = (pagePath: string, apiPath: string) => {
     if (readOnly) return
-    if (isLockedPage(path)) return
-    setSelectedPages((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
-    )
+    setOverrides((prev) => {
+      const pageOverrides = { ...(prev[pagePath] || {}) }
+      const current = pageOverrides[apiPath]
+      if (current === true) {
+        delete pageOverrides[apiPath]
+      } else if (current === false) {
+        pageOverrides[apiPath] = true
+      } else {
+        pageOverrides[apiPath] = false
+      }
+      const next = { ...prev }
+      if (Object.keys(pageOverrides).length === 0) {
+        delete next[pagePath]
+      } else {
+        next[pagePath] = pageOverrides
+      }
+      return next
+    })
+  }
+
+  const isApiEffective = (pagePath: string, apiPath: string): boolean => {
+    if (!selectedPages.includes(pagePath)) return false
+    const o = overrides[pagePath]?.[apiPath]
+    if (o === false) return false
+    return true
+  }
+
+  const isApiOverridden = (pagePath: string, apiPath: string): "granted" | "denied" | null => {
+    const o = overrides[pagePath]?.[apiPath]
+    if (o === true) return "granted"
+    if (o === false) return "denied"
+    return null
+  }
+
+  const getSharedPages = (apiPath: string, currentPage: string): string[] => {
+    if (!pageApiMap) return []
+    const pages: string[] = []
+    for (const [page, entry] of Object.entries(pageApiMap)) {
+      if (page !== currentPage && entry.apis.includes(apiPath)) {
+        pages.push(entry.label)
+      }
+    }
+    return pages
   }
 
   const normalizePath = (p: string) => p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p
@@ -99,7 +149,6 @@ export default function EditAccessGroupPage() {
     setSaving(true)
     setSaved(false)
     let deduped = [...new Set(selectedPages.map(normalizePath))]
-    // ADMIN access is hardcoded — only persist additional non-admin pages
     if (group.groupName === "ADMIN") {
       deduped = deduped.filter((p) => !p.startsWith("/admin"))
     }
@@ -108,14 +157,20 @@ export default function EditAccessGroupPage() {
       const res = await fetch("/api/admin/access-config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupName: group.groupName, pages: deduped }),
+        body: JSON.stringify({
+          groupName: group.groupName,
+          pages: deduped,
+          api_overrides: overrides,
+        }),
       })
 
       if (res.ok) {
         const data = await res.json()
         if (data.group) {
           setGroup(data.group)
-          setSelectedPages(data.group.pages)
+          const isApiPath = (p: string) => p.startsWith("/api/")
+          setSelectedPages((data.group.pages || []).filter((p: string) => !isApiPath(p)))
+          setOverrides(data.group.api_overrides || {})
         }
         invalidate("/api/auth/access")
         setSaved(true)
@@ -130,9 +185,16 @@ export default function EditAccessGroupPage() {
   }
 
   const norm = (a: string[]) => [...new Set(a.map(normalizePath))].sort()
+  const isApiPath = (p: string) => p.startsWith("/api/")
   const hasChanges =
     group &&
-    JSON.stringify(norm(selectedPages)) !== JSON.stringify(norm(group.pages))
+    (JSON.stringify(norm(selectedPages)) !== JSON.stringify(norm((group.pages || []).filter((p) => !isApiPath(p)))) ||
+      JSON.stringify(overrides) !== JSON.stringify(group.api_overrides || {}))
+
+  const catalogEntries = useMemo(() => {
+    if (!catalog) return []
+    return Object.entries(catalog.pages).filter(([category]) => category !== "API")
+  }, [catalog])
 
   if (loading) {
     return (
@@ -161,6 +223,19 @@ export default function EditAccessGroupPage() {
 
   const badgeColor = badgeColors[group.groupName] || "bg-surface text-secondary"
 
+  const rolePrefixes = ["/admin/", "/dean/", "/faculty/", "/student/"]
+  const displayPath = (p: string) => {
+    for (const prefix of rolePrefixes) {
+      if (p.startsWith(prefix)) return p.slice(prefix.length)
+    }
+    return p
+  }
+
+  const displayLabel = (label: string, category: string) => {
+    const ROLE_CATS = ["Admin", "Dean", "Faculty", "Student"]
+    return ROLE_CATS.includes(category) && label.startsWith(category + " / ") ? label.slice(category.length + 3) : label
+  }
+
   return (
     <ErrorBoundary>
     <div className="w-full space-y-8 pb-12">
@@ -176,201 +251,189 @@ export default function EditAccessGroupPage() {
           <span className="text-xs text-tertiary">Access Group</span>
         </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex gap-1 p-1 bg-surface-tertiary rounded-xl">
-                <button
-                  onClick={() => setPageTab("pages")}
-                  className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 ${
-                    pageTab === "pages"
-                      ? "bg-surface text-amber-600 shadow-ios-sm"
-                      : "text-tertiary hover:text-secondary"
-                  }`}
-                >
-                  Pages
-                </button>
-                <button
-                  onClick={() => setPageTab("api")}
-                  className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 ${
-                    pageTab === "api"
-                      ? "bg-surface text-amber-600 shadow-ios-sm"
-                      : "text-tertiary hover:text-secondary"
-                  }`}
-                >
-                  API
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                {catalog && (() => {
-                  const rolePrefixes = ["/admin/", "/dean/", "/faculty/", "/student/"]
-                  const suffixAfterRolePrefix = (p: string) => {
-                    for (const prefix of rolePrefixes) {
-                      if (p.startsWith(prefix)) return p.slice(prefix.length)
-                    }
-                    return null
-                  }
-                  const isApi = (p: string) => p.startsWith("/api/")
-                  const visibleToggleable = Object.entries(catalog.pages).reduce<string[]>((acc, [category, items]) => {
-                    for (const item of items) {
-                  if (isLockedPage(item.path) || readOnly) continue
-                      if (pageTab === "api" && !isApi(item.path)) continue
-                      if (pageTab === "pages" && isApi(item.path)) continue
-                      if (search.trim()) {
-                        const q = search.toLowerCase()
-                        if (!item.label.toLowerCase().includes(q) && !item.path.toLowerCase().includes(q) && !item.description.toLowerCase().includes(q)) continue
-                      }
-                      acc.push(item.path)
-                    }
-                    return acc
-                  }, [])
-                  const allSelected = visibleToggleable.length > 0 && visibleToggleable.every((v) => selectedPages.includes(v))
-                  if (visibleToggleable.length > 0) {
-                    return (
-                      <button
-                        onClick={() => {
-                          if (allSelected) {
-                            setSelectedPages((prev) => prev.filter((p) => !visibleToggleable.includes(p)))
-                          } else {
-                            setSelectedPages((prev) => {
-                              const next = new Set(prev)
-                              for (const v of visibleToggleable) next.add(v)
-                              return Array.from(next)
-                            })
-                          }
-                        }}
-                        className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-surface text-amber-600 hover:bg-surface-hover border border-strong transition-colors"
-                      >
-                        {allSelected ? "Deselect all" : "Select all"}
-                      </button>
-                    )
-                  }
-                  return null
-                })()}
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Filter pages..."
-                  className="input text-xs w-48 px-3 py-1.5 rounded-lg border border-strong"
-                />
-              </div>
-            </div>
-
-          {catalog && (() => {
-            const rolePrefixes = ["/admin/", "/dean/", "/faculty/", "/student/"]
-            const suffixAfterRolePrefix = (p: string) => {
-              for (const prefix of rolePrefixes) {
-                if (p.startsWith(prefix)) return p.slice(prefix.length)
-              }
-              return null
-            }
-
-            const displayPath = (p: string) => suffixAfterRolePrefix(p) || p
-            const ROLE_CATS = ["Admin", "Dean", "Faculty", "Student"]
-            const displayLabel = (label: string, category: string) =>
-              ROLE_CATS.includes(category) && label.startsWith(category + " / ") ? label.slice(category.length + 3) : label
-
-            const ownRoleCat = group.groupName === "ADMIN" ? "Admin" : group.groupName === "DEAN" ? "Dean" : null
-            const ownRoleSuffixes = new Set<string>()
-            if (ownRoleCat && catalog.pages[ownRoleCat]) {
-              for (const item of catalog.pages[ownRoleCat]) {
-                const suffix = suffixAfterRolePrefix(item.path)
-                if (suffix) ownRoleSuffixes.add(suffix)
-              }
-            }
-
-            const isMirroredDuplicate = (category: string, path: string) => {
-              if (group.groupName === "ADMIN" && category === "Dean") {
-                const s = suffixAfterRolePrefix(path)
-                return s !== null && ownRoleSuffixes.has(s)
-              }
-              if (group.groupName === "DEAN" && category === "Admin") {
-                const s = suffixAfterRolePrefix(path)
-                return s !== null && ownRoleSuffixes.has(s)
-              }
-              return false
-            }
-
-            const isApi = (p: string) => p.startsWith("/api/")
-
-            const catalogEntries = pageTab === "api"
-              ? Object.entries(catalog.pages).flatMap<[string, CatalogItem[]]>(([, items]) => {
-                  const grouped = new Map<string, CatalogItem[]>()
-                  for (const item of items) {
-                    if (!isApi(item.path)) continue
-                    const seg = item.path.split("/")[2]
-                    const key = `api/${seg}`
-                    if (!grouped.has(key)) grouped.set(key, [])
-                    grouped.get(key)!.push(item)
-                  }
-                  return Array.from(grouped.entries())
-                })
-              : Object.entries(catalog.pages).filter(([category]) => category !== "API")
-
-            const filtered = catalogEntries.reduce<[string, CatalogItem[]][]>((acc, [category, items]) => {
-              const matched = items.filter((item) => {
-                if (isMirroredDuplicate(category, item.path)) return false
-                const lockedFilter = !isLockedPage(item.path) || selectedPages.includes(item.path)
-                if (!lockedFilter) return false
-                if (!search.trim()) return true
-                const q = search.toLowerCase()
-                return (
-                  item.label.toLowerCase().includes(q) ||
-                  displayPath(item.path).toLowerCase().includes(q) ||
-                  item.path.toLowerCase().includes(q) ||
-                  item.description.toLowerCase().includes(q)
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {catalog && pageApiMap && (() => {
+                const allPagePaths = catalogEntries.flatMap(([, items]) =>
+                  items.map((i) => i.path).filter((p) => !isApiPath(p)),
                 )
-              })
-              if (matched.length === 0) return acc
-              acc.push([category, matched])
-              return acc
-            }, [])
+                const visiblePagePaths = allPagePaths.filter((p) => {
+                  if (!search.trim()) return true
+                  const q = search.toLowerCase()
+                  const entry = pageApiMap[p]
+                  const labelMatch = entry?.label.toLowerCase().includes(q)
+                  const pathMatch = p.toLowerCase().includes(q)
+                  const apiMatch = entry?.apis.some((a) => a.toLowerCase().includes(q))
+                  return labelMatch || pathMatch || apiMatch
+                })
+                const toggleable = visiblePagePaths.filter((p) => !isLockedPage(p) && !readOnly)
+                if (toggleable.length === 0) return null
+                const allSelected = toggleable.every((p) => selectedPages.includes(p))
+                return (
+                  <button
+                    onClick={() => {
+                      if (allSelected) {
+                        const next = selectedPages.filter((p) => !toggleable.includes(p))
+                        setSelectedPages(next)
+                        const nextOverrides = { ...overrides }
+                        for (const p of toggleable) delete nextOverrides[p]
+                        setOverrides(nextOverrides)
+                      } else {
+                        setSelectedPages((prev) => {
+                          const next = new Set(prev)
+                          for (const p of toggleable) next.add(p)
+                          return Array.from(next)
+                        })
+                      }
+                    }}
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-surface text-amber-600 hover:bg-surface-hover border border-strong transition-colors"
+                  >
+                    {allSelected ? "Deselect all" : "Select all"}
+                  </button>
+                )
+              })()}
+            </div>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter pages..."
+              className="input text-xs w-48 px-3 py-1.5 rounded-lg border border-strong"
+            />
+          </div>
 
-            return filtered.length === 0 ? (
-              <p className="text-sm text-tertiary text-center py-8">No pages found.</p>
-            ) : (
-              <div className="space-y-1 mb-3">
-                {filtered.map(([category, items]) => (
+          {catalogEntries.length === 0 ? (
+            <p className="text-sm text-tertiary text-center py-8">No pages found.</p>
+          ) : (
+            <div className="space-y-6">
+              {catalogEntries.map(([category, items]) => {
+                const pageItems = items.filter((i) => !isApiPath(i.path))
+                const filteredPages = pageItems.filter((item) => {
+                  if (!pageApiMap) return true
+                  if (!search.trim()) return true
+                  const q = search.toLowerCase()
+                  const entry = pageApiMap[item.path]
+                  const labelMatch = entry?.label.toLowerCase().includes(q)
+                  const pathMatch = item.path.toLowerCase().includes(q)
+                  const apiMatch = entry?.apis.some((a) => a.toLowerCase().includes(q))
+                  return labelMatch || pathMatch || apiMatch
+                })
+                if (filteredPages.length === 0) return null
+
+                return (
                   <div key={category}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary mb-1 mt-2 first:mt-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary mb-2">
                       {category}
                     </p>
-                    {items.map((item) => {
-                      const locked = isLockedPage(item.path)
-                      return (
-                        <label
-                          key={item.path}
-                          className={`flex items-start gap-2 px-2 py-1.5 rounded hover:bg-surface-hover cursor-pointer text-xs ${locked ? "opacity-60" : ""}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPages.includes(item.path)}
-                            onChange={() => togglePage(item.path)}
-                            disabled={locked || readOnly}
-                            className="mt-0.5 rounded border-strong text-gold-600 focus:ring-gold-500"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span>{displayLabel(item.label, category)}</span>
-                              <span className="text-[10px] text-tertiary font-mono">{displayPath(item.path)}</span>
-                              {locked && (
-                                <span className="text-[10px] text-tertiary ml-0">(required)</span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-tertiary truncate">{item.description}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {filteredPages.map((item) => {
+                        const locked = isLockedPage(item.path)
+                        const pageOn = selectedPages.includes(item.path)
+                        const entry = pageApiMap?.[item.path]
+                        const apis = entry?.apis ?? []
+                        const ctrlId = `page-${item.path.replace(/\//g, "-")}`
+
+                        return (
+                          <div
+                            key={item.path}
+                            className={`rounded-xl border transition-all duration-200 ${
+                              pageOn
+                                ? "border-amber-300 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-700"
+                                : "border-slate-200 dark:border-slate-700 bg-surface"
+                            } ${locked ? "opacity-60" : ""}`}
+                          >
+                            <label
+                              htmlFor={ctrlId}
+                              className="flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-inherit"
+                            >
+                              <input
+                                id={ctrlId}
+                                type="checkbox"
+                                checked={pageOn}
+                                onChange={() => togglePage(item.path)}
+                                disabled={locked || readOnly}
+                                className="mt-0.5 rounded border-strong text-amber-600 focus:ring-amber-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-semibold ${pageOn ? "text-amber-800 dark:text-amber-200" : "text-primary"}`}>
+                                    {displayLabel(item.label, category)}
+                                  </span>
+                                  <span className="text-[10px] text-tertiary font-mono">{displayPath(item.path)}</span>
+                                  {locked && (
+                                    <span className="text-[10px] text-tertiary">(required)</span>
+                                  )}
+                                </div>
+                              </div>
+                            </label>
+
+                            {apis.length > 0 && (
+                              <div className="px-4 py-2 space-y-1">
+                                {apis.map((apiPath) => {
+                                  const effective = isApiEffective(item.path, apiPath)
+                                  const overrideState = isApiOverridden(item.path, apiPath)
+                                  const sharedWith = getSharedPages(apiPath, item.path)
+                                  return (
+                                    <label
+                                      key={apiPath}
+                                      className={`flex items-center gap-2 py-1 rounded cursor-pointer text-xs group ${
+                                        !pageOn ? "opacity-40 pointer-events-none" : ""
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={effective}
+                                        onChange={() => toggleApiOverride(item.path, apiPath)}
+                                        disabled={!pageOn || readOnly}
+                                        className={`rounded border-strong text-amber-600 focus:ring-amber-500 ${
+                                          overrideState === "granted" ? "ring-2 ring-amber-400" : ""
+                                        } ${overrideState === "denied" ? "opacity-50" : ""}`}
+                                      />
+                                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                        <span className={`font-mono text-[10px] ${
+                                          effective ? "text-amber-700 dark:text-amber-300" : "text-tertiary"
+                                        }`}>
+                                          {apiPath}
+                                        </span>
+                                        {overrideState && (
+                                          <span className={`text-[9px] font-bold px-1 py-px rounded ${
+                                            overrideState === "granted"
+                                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                              : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                                          }`}>
+                                            {overrideState === "granted" ? "ON" : "OFF"}
+                                          </span>
+                                        )}
+                                        {sharedWith.length > 0 && (
+                                          <span className="text-[9px] text-tertiary truncate" title={`Also used by: ${sharedWith.join(", ")}`}>
+                                            (also {sharedWith.slice(0, 2).join(", ")}{sharedWith.length > 2 ? ` +${sharedWith.length - 2}` : ""})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            )}
+
+                            {apis.length === 0 && (
+                              <div className="px-4 py-2">
+                                <p className="text-[10px] text-tertiary italic">No API endpoints required</p>
+                              </div>
+                            )}
                           </div>
-                        </label>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
-                ))}
-              </div>
-            )
-          })()}
-          <p className="text-[10px] text-tertiary mt-1">Child routes are automatically allowed.</p>
+                )
+              })}
+            </div>
+          )}
+
+          <p className="text-[10px] text-tertiary mt-2">Child routes are automatically allowed.</p>
         </div>
-
-
 
         <div className="flex items-center justify-end gap-3 pt-1 border-t border-default">
           {saved && (
@@ -382,7 +445,7 @@ export default function EditAccessGroupPage() {
             className="text-xs font-semibold px-4 py-2 rounded-lg"
             disabled={saving || !hasChanges || readOnly}
           >
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? "Saving\u2026" : "Save Changes"}
           </SubmitButton>
         </div>
       </div>

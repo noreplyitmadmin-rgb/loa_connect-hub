@@ -73,6 +73,12 @@ export default function StandaloneEvaluationPage() {
   const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [pageLoading, setPageLoading] = useState(true)
+  const [evaluateeId, setEvaluateeId] = useState("")
+  const [facultySubjectId, setFacultySubjectId] = useState("")
+  const [subjectName, setSubjectName] = useState("")
+  const [subjectCode, setSubjectCode] = useState("")
+  const [disputeLoading, setDisputeLoading] = useState(false)
+  const [disputeMessage, setDisputeMessage] = useState("")
 
   useEffect(() => {
     async function load() {
@@ -91,6 +97,10 @@ export default function StandaloneEvaluationPage() {
 
         setEvaluateeName(ev.evaluateeName || "Unknown")
         setEvaluationId(ev.id)
+        setEvaluateeId(ev.evaluateeId || "")
+        setFacultySubjectId(ev.facultySubjectId || "")
+        setSubjectName(ev.subjectName || "")
+        setSubjectCode(ev.subjectCode || "")
 
         const ratingsRes = await fetch(`/api/evaluations/${ev.id}/ratings`)
         if (ratingsRes.status === 403) { setLockedEndpoint(`/api/evaluations/${ev.id}/ratings`); return }
@@ -124,6 +134,34 @@ export default function StandaloneEvaluationPage() {
     }
     load()
   }, [params.id, router])
+
+  async function handleDispute() {
+    if (!facultySubjectId) return
+    if (!confirm(`Report "${evaluateeName}" as the wrong faculty for "${subjectName || subjectCode}"?\n\nThis evaluation will be disabled and an admin will review the assignment.`)) return
+    setDisputeLoading(true)
+    try {
+      const res = await fetch("/api/evaluations/dispute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          facultySubjectId,
+          evaluateeId,
+          evaluateeName,
+          subjectName: subjectName || subjectCode,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setDisputeMessage(data.error || "Failed to report dispute")
+        return
+      }
+      setDisputeMessage(`Dispute reported for "${subjectName || subjectCode}". An admin will review.`)
+    } catch {
+      setDisputeMessage("Failed to report dispute")
+    } finally {
+      setDisputeLoading(false)
+    }
+  }
 
   const handleRatingChange = useCallback((itemId: string, value: number) => {
     setRatings((prev) => ({ ...prev, [itemId]: value }))
@@ -202,8 +240,11 @@ export default function StandaloneEvaluationPage() {
 
   if (lockedEndpoint) {
     return (
-      <div className="min-h-dvh flex items-start justify-center pt-24 px-4">
-        <LockedTab endpoint={lockedEndpoint} />
+      <div className="h-dvh flex flex-col">
+        <FacultyHeader evaluateeName={evaluateeName} onExit={handleExit} />
+        <div className="flex-1 flex items-start justify-center pt-24 px-4 overflow-y-auto">
+          <LockedTab endpoint={lockedEndpoint} />
+        </div>
       </div>
     )
   }
@@ -211,7 +252,7 @@ export default function StandaloneEvaluationPage() {
   // ── Loading skeleton ──
   if (pageLoading) {
     return (
-      <div className="min-h-dvh bg-surface-muted">
+      <div className="h-dvh bg-surface-muted flex flex-col">
         <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 dark:bg-black/90 backdrop-blur-lg shadow-lg">
           <div className="flex items-center justify-between px-4 sm:px-6 h-14 sm:h-16">
             <div className="w-14 h-4 bg-slate-700/60 rounded-full animate-pulse" />
@@ -221,7 +262,7 @@ export default function StandaloneEvaluationPage() {
             </div>
           </div>
         </header>
-        <div className="pt-20 sm:pt-22 pb-12 animate-pulse">
+        <div className="flex-1 pt-20 sm:pt-22 pb-12 animate-pulse overflow-y-auto">
           <div className="w-full px-4 sm:px-8">
             <div className="mb-8 space-y-2">
               <div className="h-7 w-72 bg-surface-tertiary rounded-full" />
@@ -260,6 +301,7 @@ export default function StandaloneEvaluationPage() {
     </div>
   ) : (
     <div className="pt-20 sm:pt-22 pb-12">
+      <>
       <div className="md:hidden w-full px-4 sm:px-8 mb-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -355,6 +397,18 @@ export default function StandaloneEvaluationPage() {
                 )
               })}
             </div>
+            {evaluateeId && (
+              <div className="mt-4 px-5">
+                <button
+                  type="button"
+                  onClick={() => { handleDispute(); setMobileStepperOpen(false) }}
+                  disabled={disputeLoading}
+                  className="text-[11px] text-red-500 hover:text-red-700 underline decoration-dotted underline-offset-2 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                >
+                  {disputeLoading ? "Reporting..." : "Wrong faculty? Report"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -466,9 +520,21 @@ export default function StandaloneEvaluationPage() {
                                     <span className="hidden sm:inline text-xs sm:text-sm">{label}</span>
                                   </button>
                                 )
-                              })}
-                            </div>
-                          </div>
+              })}
+            </div>
+            {evaluateeId && (
+              <div className="mt-6 pl-3">
+                <button
+                  type="button"
+                  onClick={handleDispute}
+                  disabled={disputeLoading}
+                  className="text-[11px] text-red-500 hover:text-red-700 underline decoration-dotted underline-offset-2 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                >
+                  {disputeLoading ? "Reporting..." : "Wrong faculty? Report"}
+                </button>
+              </div>
+            )}
+          </div>
                         </div>
                       ))}
                       <div className="flex items-center justify-between px-1 sm:hidden pt-3 pb-1 border-t border-default/50 mt-4">
@@ -559,6 +625,26 @@ export default function StandaloneEvaluationPage() {
                   <p className="text-sm text-tertiary mt-1 max-w-xs">Please read and agree before submitting your evaluation.</p>
                 </div>
 
+                {disputeMessage && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 mb-4">
+                    <p className="text-sm text-emerald-700 dark:text-emerald-300">{disputeMessage}</p>
+                    <button onClick={() => setDisputeMessage("")} className="text-emerald-500 hover:text-emerald-700 text-lg leading-none">&times;</button>
+                  </div>
+                )}
+
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-6 text-left">
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                    You are about to submit an evaluation for:
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    <strong>{evaluateeName}</strong>
+                    {subjectName ? <span> · {subjectName}{subjectCode ? ` (${subjectCode})` : ""}</span> : ""}
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                    Please verify that this is the correct faculty member before proceeding.
+                  </p>
+                </div>
+
                 <div className="bg-surface-secondary rounded-2xl p-5 space-y-3 text-sm text-secondary leading-relaxed">
                   <p>I hereby affirm that the responses I have provided in this evaluation are my own honest and genuine assessment of the faculty member&apos;s performance.</p>
                   <p>I understand that this evaluation is confidential and will be used to help improve the quality of instruction. I have rated each criterion to the best of my knowledge and belief.</p>
@@ -580,6 +666,17 @@ export default function StandaloneEvaluationPage() {
                     I agree to provide honest and truthful feedback.
                   </span>
                 </label>
+
+                <div className="text-center mt-4 pt-4 border-t border-default/50">
+                  <button
+                    type="button"
+                    onClick={handleDispute}
+                    disabled={disputeLoading}
+                    className="text-xs text-red-500 hover:text-red-700 underline decoration-dotted underline-offset-2 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                  >
+                    {disputeLoading ? "Reporting..." : "Wrong faculty? Report incorrect assignment"}
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-3 mt-6 pt-4 border-t border-default">
                 <button
@@ -602,14 +699,17 @@ export default function StandaloneEvaluationPage() {
           </div>
         </div>
       </div>
+      </>
     </div>
   )
 
   return (
     <ErrorBoundary>
-      <div className="min-h-dvh bg-surface-muted">
+      <div className="h-dvh bg-surface-muted flex flex-col">
         <FacultyHeader evaluateeName={evaluateeName} onExit={handleExit} />
-        {fillContent}
+        <div className="flex-1 overflow-y-auto">
+          {fillContent}
+        </div>
       </div>
     </ErrorBoundary>
   )

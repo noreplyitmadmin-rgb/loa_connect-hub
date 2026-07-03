@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Skeleton from "@/components/ui/Skeleton"
 import SubmitButton from "@/components/ui/SubmitButton"
+import type { PageApiEntry } from "@/lib/page-api-map"
 
 interface GroupAccess {
   groupName: string
@@ -201,17 +202,6 @@ function RBACTab({ readOnly }: { readOnly?: boolean }) {
   )
 }
 
-function cat(p: string): string {
-  if (p === "/") return "General"
-  if (p.startsWith("/api/")) return `api/${p.split("/")[2]}`
-  if (p.startsWith("/admin")) return "Admin"
-  if (p.startsWith("/student")) return "Student"
-  if (p.startsWith("/faculty")) return "Faculty"
-  if (p.startsWith("/dean")) return "Dean"
-  if (p.startsWith("/faq")) return "Information"
-  return "Other"
-}
-
 function lab(p: string): string {
   const m: Record<string, string> = {
     "/": "Dashboard (root)", "/admin": "Admin Dashboard", "/admin/users": "Manage Users",
@@ -253,37 +243,21 @@ function UserPermissionsTab({ readOnly: _readOnly }: { readOnly?: boolean }) {
   const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
   const [permissions, setPermissions] = useState<Permission[]>([])
-  const [, setCatalog] = useState<Catalog | null>(null)
-  const [liveConfig, setLiveConfig] = useState<Record<string, { pages: string[] }> | null>(null)
-  const [allPaths, setAllPaths] = useState<string[]>([])
+  const [catalog, setCatalog] = useState<Catalog | null>(null)
+  const [pageApiMap, setPageApiMap] = useState<Record<string, PageApiEntry> | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [sidebarFilter, setSidebarFilter] = useState("")
-  const [pageTab, setPageTab] = useState<"pages" | "api">("pages")
 
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/users").then((r) => r.json()).catch(() => ({ users: [] })),
       fetch("/api/admin/access-config").then((r) => r.json()).catch(() => ({})),
-      fetch("/api/admin/user-permissions/paths").then((r) => r.json()).catch(() => ({ paths: [] })),
     ])
-      .then(([usersData, configData, pathsData]) => {
+      .then(([usersData, configData]) => {
         setUsers(usersData.users ?? [])
         if (configData.catalog) setCatalog(configData.catalog)
-        if (configData.config) setLiveConfig(configData.config)
-        const s = new Set<string>()
-        if (configData.catalog?.pages) {
-          for (const items of Object.values(configData.catalog.pages) as CatalogItem[][]) {
-            for (const item of items) s.add(item.path)
-          }
-        }
-        if (configData.config) {
-          for (const entry of Object.values(configData.config) as { pages: string[] }[]) {
-            for (const p of entry.pages) s.add(p)
-          }
-        }
-        for (const p of (pathsData.paths ?? [])) s.add(p)
-        setAllPaths(Array.from(s).sort())
+        if (configData.pageApiMap) setPageApiMap(configData.pageApiMap)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -306,16 +280,13 @@ function UserPermissionsTab({ readOnly: _readOnly }: { readOnly?: boolean }) {
     setPermissions((prev) => {
       const existing = prev.find((p) => p.resource_path === path)
       if (!existing) {
-        // inherit → grant
         return [...prev, { resource_path: path, grants: ["access"], denies: [] }]
       }
       if (existing.grants.includes("access")) {
-        // grant → deny
         return prev.map((p) =>
           p.resource_path === path ? { ...p, grants: [], denies: ["access"] } : p
         )
       }
-      // deny → inherit (remove)
       return prev.filter((p) => p.resource_path !== path)
     })
   }
@@ -332,32 +303,16 @@ function UserPermissionsTab({ readOnly: _readOnly }: { readOnly?: boolean }) {
     } finally { setSaving(false) }
   }
 
-  const eff = (path: string): "granted" | "denied" | "none" => {
+  const permState = (path: string): "granted" | "denied" | "inherit" => {
     const isAdminUser = selectedUser ? prim(selectedUser.role ?? "") === "ADMIN" : false
-    // ADMIN always has hardcoded access to admin paths
     if (isAdminUser && path.startsWith("/admin")) return "granted"
     const perm = permissions.find((p) => p.resource_path === path)
     if (perm?.denies.includes("access")) return "denied"
     if (perm?.grants.includes("access")) return "granted"
-    if (selectedUser?.role) {
-      const role = prim(selectedUser.role)
-      const rolePages = liveConfig?.[role]?.pages
-      if (rolePages?.some((p) => path === p || path.startsWith(p + "/"))) return "granted"
-    }
-    return "none"
+    return "inherit"
   }
 
-  const groupedPaths = allPaths.reduce<Record<string, string[]>>((acc, p) => {
-    const isApi = p.startsWith("/api/")
-    if (pageTab === "api" && !isApi) return acc
-    if (pageTab === "pages" && isApi) return acc
-    const c = cat(p)
-    if (!acc[c]) acc[c] = []
-    if (!sidebarFilter || p.toLowerCase().includes(sidebarFilter.toLowerCase()) || lab(p).toLowerCase().includes(sidebarFilter.toLowerCase())) {
-      acc[c].push(p)
-    }
-    return acc
-  }, {})
+  const isApiPath = (p: string) => p.startsWith("/api/")
 
   if (loading) {
     return <div className="space-y-4"><Skeleton variant="card" /></div>
@@ -373,7 +328,7 @@ function UserPermissionsTab({ readOnly: _readOnly }: { readOnly?: boolean }) {
         </div>
 
         {!selectedUser && !search.trim() && (
-          <p className="text-sm text-tertiary text-center py-8">Search for a user above, then toggle paths in the sidebar to grant or restrict access.</p>
+          <p className="text-sm text-tertiary text-center py-8">Search for a user above, then toggle paths to grant or restrict access.</p>
         )}
 
         {!selectedUser && search.trim() && filteredUsers.length > 0 && (
@@ -413,8 +368,8 @@ function UserPermissionsTab({ readOnly: _readOnly }: { readOnly?: boolean }) {
             </div>
             <div>
               <p className="text-xs text-tertiary">
-                <strong>Priority:</strong> Checked paths are explicitly granted to this user (Layer&nbsp;1),
-                overriding role-based access config (Layer&nbsp;2) and defaults (Layer&nbsp;3).
+                <strong>Priority:</strong> Toggling a path explicitly overrides the user&apos;s role-based access.
+                <strong> Inherit</strong> = use role config, <strong>Granted</strong> = force allow, <strong>Revoked</strong> = force deny.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-1 border-t border-default">
@@ -429,67 +384,78 @@ function UserPermissionsTab({ readOnly: _readOnly }: { readOnly?: boolean }) {
 
       <aside className="w-full lg:w-96 shrink-0 order-2 lg:order-1">
         <div className="card p-4 space-y-3">
-          <div className="flex gap-1 p-1 bg-surface-tertiary rounded-xl">
-            <button
-              onClick={() => setPageTab("pages")}
-              className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 flex-1 ${
-                pageTab === "pages"
-                  ? "bg-surface text-amber-600 shadow-ios-sm"
-                  : "text-tertiary hover:text-secondary"
-              }`}
-            >
-              Pages
-            </button>
-            <button
-              onClick={() => setPageTab("api")}
-              className={`shrink-0 text-xs font-semibold px-4 py-1.5 rounded-lg whitespace-nowrap transition-all duration-200 flex-1 ${
-                pageTab === "api"
-                  ? "bg-surface text-amber-600 shadow-ios-sm"
-                  : "text-tertiary hover:text-secondary"
-              }`}
-            >
-              API
-            </button>
-          </div>
           <input type="text" value={sidebarFilter} onChange={(e) => setSidebarFilter(e.target.value)}
-            placeholder="Search paths..." className="input text-xs w-full px-3 py-2 rounded-lg border border-strong" />
-          <div className="max-h-[calc(100vh-320px)] overflow-y-auto space-y-3">
-            {Object.entries(groupedPaths).map(([category, paths]) => (
-              <div key={category}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary mb-1">{category}</p>
-                <div className="space-y-0.5">
-                  {paths.map((path) => {
-                    const perm = permissions.find((p) => p.resource_path === path)
-                    const isAdminLocked = isSelectedUserAdmin && path.startsWith("/admin")
-                    const state = isAdminLocked ? "granted" : perm?.grants.includes("access") ? "granted" : perm?.denies.includes("access") ? "revoked" : "inherit"
-                    const effective = eff(path)
-                    return (
-                      <label key={path} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs hover:bg-surface-hover ${selectedUser ? "" : "opacity-50 pointer-events-none"}`}>
-                        <button disabled={!selectedUser || isAdminLocked} onClick={() => togglePermission(path)}
-                          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
-                            state === "granted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/40" :
-                            state === "revoked" ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/40" :
-                            "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 ring-1 ring-transparent hover:ring-slate-400/30"
-                          }`}
-                          title={isAdminLocked ? "Always granted for ADMIN role" : state === "granted" ? "Click to revoke" : state === "revoked" ? "Click to reset to inherit" : "Click to grant"}
-                        >
-                          {state === "granted" ? "GRANTED" : state === "revoked" ? "REVOKED" : "INHERIT"}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <span className="block truncate">{lab(path)}</span>
-                          <span className="block text-[10px] text-tertiary font-mono break-all" title={path}>{path}</span>
+            placeholder="Search pages..." className="input text-xs w-full px-3 py-2 rounded-lg border border-strong" />
+          <div className="max-h-[calc(100vh-320px)] overflow-y-auto space-y-4">
+            {catalog && Object.entries(catalog.pages).filter(([cat]) => cat !== "API").map(([category, items]) => {
+              const pageItems = items.filter((i) => !isApiPath(i.path))
+              const filtered = pageItems.filter((item) => {
+                if (!sidebarFilter.trim()) return true
+                const q = sidebarFilter.toLowerCase()
+                const entry = pageApiMap?.[item.path]
+                const labelMatch = entry?.label.toLowerCase().includes(q)
+                const pathMatch = item.path.toLowerCase().includes(q)
+                const apiMatch = entry?.apis.some((a) => a.toLowerCase().includes(q))
+                return labelMatch || pathMatch || apiMatch
+              })
+              if (filtered.length === 0) return null
+              return (
+                <div key={category}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary mb-1">{category}</p>
+                  <div className="space-y-1">
+                    {filtered.map((item) => {
+                      const ps = permState(item.path)
+                      const isAdminLocked = isSelectedUserAdmin && item.path.startsWith("/admin")
+                      const entry = pageApiMap?.[item.path]
+                      const apis = entry?.apis ?? []
+                      return (
+                        <div key={item.path} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-slate-800/50">
+                            <button
+                              disabled={!selectedUser || isAdminLocked}
+                              onClick={() => togglePermission(item.path)}
+                              className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold transition-colors ${
+                                ps === "granted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/40" :
+                                ps === "denied" ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/40" :
+                                "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
+                              }`}
+                              title={isAdminLocked ? "Always granted for ADMIN role" : `Click to change (${ps})`}
+                            >
+                              {ps.toUpperCase()}
+                            </button>
+                            <span className="text-[11px] font-medium text-primary flex-1 min-w-0 truncate">{lab(item.path)}</span>
+                          </div>
+                          {apis.length > 0 && (
+                            <div className="px-2 pb-1 space-y-0.5">
+                              {apis.map((apiPath) => {
+                                const aps = permState(apiPath)
+                                const isApiLocked = isSelectedUserAdmin && apiPath.startsWith("/admin")
+                                return (
+                                  <div key={apiPath} className="flex items-center gap-1.5 pl-5 py-0.5">
+                                    <button
+                                      disabled={!selectedUser || isApiLocked}
+                                      onClick={() => togglePermission(apiPath)}
+                                      className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-px rounded-full text-[8px] font-bold transition-colors ${
+                                        aps === "granted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/40" :
+                                        aps === "denied" ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/40" :
+                                        "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
+                                      }`}
+                                    >
+                                      {aps.toUpperCase()}
+                                    </button>
+                                    <span className="text-[10px] text-tertiary font-mono truncate">{apiPath}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
-                        {selectedUser && (
-                          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-px rounded-full ${effective === "granted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : effective === "denied" ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400" : "bg-surface text-tertiary"}`}>
-                            {effective === "granted" ? "ON" : effective === "denied" ? "OFF" : "\u2014"}
-                          </span>
-                        )}
-                      </label>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </aside>

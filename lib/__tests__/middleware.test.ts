@@ -87,11 +87,10 @@ describe("proxy middleware", () => {
     expect(res.status).toBe(200)
   })
 
-  it("blocks page access when not granted", async () => {
+  it("passes through page access when not granted (LockedTab on client)", async () => {
     mockGetToken.mockResolvedValue({ role: "STUDENT", id: "user-1" })
     const res = await proxy(mockRequest("/admin"))
-    expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toContain("/403")
+    expect(res.status).toBe(200)
   })
 
   it("allows page access when granted", async () => {
@@ -103,13 +102,12 @@ describe("proxy middleware", () => {
     expect(res.status).toBe(200)
   })
 
-  it("denies access via user-level permission deny", async () => {
+  it("passes through revoked UI pages (LockedTab on client)", async () => {
     mockGetToken.mockResolvedValue({ role: "STUDENT", id: "user-1" })
     mockGetUserAccess.mockResolvedValue([
       { url: "/student", access: "revoked", type: "ui" },
     ])
     const res = await proxy(mockRequest("/student"))
-    expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toContain("/403")
+    expect(res.status).toBe(200)
   })
 })

@@ -5,7 +5,7 @@ import { getUserAccess } from "@/lib/access"
 
 const PUBLIC_PATHS = new Set([
   "/login", "/activate", "/forgot-password", "/change-password",
-  "/setup-password", "/403", "/faq",
+  "/setup-password", "/faq",
 ])
 
 const PUBLIC_PREFIXES = ["/_next", "/api/auth", "/api/test-auth", "/api/audit"]
@@ -52,13 +52,13 @@ export async function proxy(request: NextRequest) {
         path: pathname,
       }), { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
-    return NextResponse.redirect(new URL("/403", request.url));
+    return NextResponse.next();
   }
 
   // ADMIN fallback: allow any path not explicitly tracked
   if (isAdmin) return NextResponse.next()
 
-  // Closed-by-default: deny
+  // Closed-by-default: deny API; let UI pages through (LockedTab on client side)
   if (pathname.startsWith('/api/')) {
     return new NextResponse(JSON.stringify({
       error: 'Forbidden',
@@ -66,7 +66,7 @@ export async function proxy(request: NextRequest) {
       path: pathname,
     }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
-  return NextResponse.redirect(new URL("/403", request.url));
+  return NextResponse.next();
 }
 
 export const config = {
