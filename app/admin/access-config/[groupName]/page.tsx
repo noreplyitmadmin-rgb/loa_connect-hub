@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Skeleton from "@/components/ui/Skeleton"
 import SubmitButton from "@/components/ui/SubmitButton"
@@ -20,6 +20,7 @@ interface CatalogItem {
   path: string
   label: string
   description: string
+  section: string
 }
 
 interface Catalog {
@@ -55,6 +56,7 @@ type OverrideMap = Record<string, Record<string, boolean>>
 
 export default function EditAccessGroupPage() {
   const params = useParams()
+  const router = useRouter()
   const groupName = params.groupName as string
 
   const [group, setGroup] = useState<GroupAccess | null>(null)
@@ -62,6 +64,7 @@ export default function EditAccessGroupPage() {
   const [pageApiMap, setPageApiMap] = useState<Record<string, PageApiEntry> | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
@@ -199,6 +202,27 @@ export default function EditAccessGroupPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!group || readOnly) return
+    const confirmed = window.confirm(`Delete group "${group.groupName}"? This cannot be undone.`)
+    if (!confirmed) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/access-config?groupName=${encodeURIComponent(group.groupName)}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        invalidate("/api/auth/access")
+        router.push("/admin/access-config")
+      } else {
+        const data = await res.json()
+        setErrorMessage(data.error || "Failed to delete group")
+      }
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const norm = (a: string[]) => [...new Set(a.map(normalizePath))].sort()
   const isApiPath = (p: string) => p.startsWith("/api/")
   const hasChanges =
@@ -206,33 +230,30 @@ export default function EditAccessGroupPage() {
     (JSON.stringify(norm(selectedPages)) !== JSON.stringify(norm((group.pages || []).filter((p) => !isApiPath(p)))) ||
       JSON.stringify(overrides) !== JSON.stringify(group.api_overrides || {}))
 
-  const catalogEntries = useMemo(() => {
+  const SECTION_ORDER = ["Root", "Dashboard", "Data", "Reports", "Evaluations", "Hidden"] as const
+
+  const catalogSections = useMemo(() => {
     if (!catalog) return []
-    let entries = Object.entries(catalog.pages).filter(([category]) => category !== "API")
-    if (group?.groupName === "ADMIN") {
-      entries = entries.map(([category, items]) => [
-        category,
-        items.filter((item) => !ADMIN_MIRROR_STUBS.has(item.path)),
-      ] as [string, typeof items]).filter(([, items]) => items.length > 0)
+
+    const bySection = new Map<string, CatalogItem[]>()
+    for (const items of Object.values(catalog.pages)) {
+      for (const item of items) {
+        const section = item.section || "Other"
+        if (!bySection.has(section)) bySection.set(section, [])
+        bySection.get(section)!.push(item)
+      }
     }
-    if (group?.groupName === "STUDENT") {
-      entries = entries.map(([category, items]) => [
-        category,
-        items.filter((item) => item.path !== "/evaluate"),
-      ] as [string, typeof items]).filter(([, items]) => items.length > 0)
-      entries.sort(([a], [b]) => {
-        if (a === "Student") return -1
-        if (b === "Student") return 1
-        return a.localeCompare(b)
-      })
+
+    const entries: { section: string; items: CatalogItem[] }[] = []
+    for (const s of SECTION_ORDER) {
+      let items = bySection.get(s)
+      if (!items) continue
+      if (group?.groupName === "ADMIN") {
+        items = items.filter((item) => !ADMIN_MIRROR_STUBS.has(item.path))
+      }
+      if (items.length > 0) entries.push({ section: s, items })
     }
-    if (group?.groupName === "FACULTY") {
-      entries.sort(([a], [b]) => {
-        if (a === "Faculty") return -1
-        if (b === "Faculty") return 1
-        return a.localeCompare(b)
-      })
-    }
+
     return entries
   }, [catalog, group])
 
@@ -271,9 +292,55 @@ export default function EditAccessGroupPage() {
     return p
   }
 
-  const displayLabel = (label: string, category: string) => {
-    const ROLE_CATS = ["Admin", "Dean", "Faculty", "Student"]
-    return ROLE_CATS.includes(category) && label.startsWith(category + " / ") ? label.slice(category.length + 3) : label
+  interface TreeNode {
+    path: string
+    label: string
+    children: TreeNode[]
+  }
+
+  interface TreeRow {
+    path: string
+    label: string
+    depth: number
+    isLast: boolean
+    connectors: boolean[]
+  }
+
+  const buildTree = (items: CatalogItem[]): TreeNode[] => {
+    const map = new Map<string, TreeNode>()
+    const sorted = [...items].sort((a, b) => {
+      const aDepth = a.path.split("/").length
+      const bDepth = b.path.split("/").length
+      if (aDepth !== bDepth) return aDepth - bDepth
+      return a.path.localeCompare(b.path)
+    })
+    const roots: TreeNode[] = []
+    for (const item of sorted) {
+      const node: TreeNode = { path: item.path, label: item.label, children: [] }
+      map.set(item.path, node)
+      const slashIdx = item.path.lastIndexOf("/")
+      const parentPath = slashIdx > 0 ? item.path.substring(0, slashIdx) : ""
+      const parent = map.get(parentPath)
+      if (parent) {
+        parent.children.push(node)
+      } else {
+        roots.push(node)
+      }
+    }
+    return roots
+  }
+
+  const flattenTree = (nodes: TreeNode[], conn: boolean[] = []): TreeRow[] => {
+    const rows: TreeRow[] = []
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i]
+      const isLast = i === nodes.length - 1
+      rows.push({ path: node.path, label: node.label, depth: conn.length, isLast, connectors: conn })
+      if (node.children.length > 0) {
+        rows.push(...flattenTree(node.children, [...conn, !isLast]))
+      }
+    }
+    return rows
   }
 
   return (
@@ -295,8 +362,8 @@ export default function EditAccessGroupPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               {catalog && pageApiMap && (() => {
-                const allPagePaths = catalogEntries.flatMap(([, items]) =>
-                  items.map((i) => i.path).filter((p) => !isApiPath(p)),
+                const allPagePaths = catalogSections.flatMap((s) =>
+                  s.items.map((i) => i.path).filter((p) => !isApiPath(p)),
                 )
                 const visiblePagePaths = allPagePaths.filter((p) => {
                   if (!search.trim()) return true
@@ -343,11 +410,11 @@ export default function EditAccessGroupPage() {
             />
           </div>
 
-          {catalogEntries.length === 0 ? (
+          {catalogSections.length === 0 ? (
             <p className="text-sm text-tertiary text-center py-8">No pages found.</p>
           ) : (
             <div className="space-y-6">
-              {catalogEntries.map(([category, items]) => {
+              {catalogSections.map(({ section, items }) => {
                 const pageItems = items.filter((i) => !isApiPath(i.path))
                 const filteredPages = pageItems.filter((item) => {
                   if (!pageApiMap) return true
@@ -361,110 +428,112 @@ export default function EditAccessGroupPage() {
                 })
                 if (filteredPages.length === 0) return null
 
-                return (
-                  <div key={category}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-tertiary mb-2">
-                      {category}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {filteredPages.map((item) => {
-                        const locked = isLockedPage(item.path)
-                        const pageOn = selectedPages.includes(item.path)
-                        const entry = pageApiMap?.[item.path]
-                        const apis = entry?.apis ?? []
-                        const ctrlId = `page-${item.path.replace(/\//g, "-")}`
+                const sectionColors: Record<string, string> = {
+                  Root: "text-slate-500", Dashboard: "text-purple-500", Data: "text-blue-500",
+                  Reports: "text-amber-500", Evaluations: "text-emerald-500", Hidden: "text-red-400",
+                }
 
-                        return (
-                          <div
-                            key={item.path}
-                            className={`rounded-xl border transition-all duration-200 ${
+                return (
+                  <div key={section}>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider ${sectionColors[section] || "text-tertiary"} mb-2`}>
+                      {section}
+                    </p>
+                    <div className="space-y-0.5">
+                      {(() => {
+                        const tree = buildTree(filteredPages)
+                        const rows = flattenTree(tree)
+                        return rows.map((row) => {
+                          const locked = isLockedPage(row.path)
+                          const pageOn = selectedPages.includes(row.path)
+                          const entry = pageApiMap?.[row.path]
+                          const apis = entry?.apis ?? []
+                          const ctrlId = `page-${row.path.replace(/\//g, "-")}`
+                          return (
+                            <div key={row.path} className={`rounded-lg border transition-all duration-200 ${
                               pageOn
                                 ? "border-amber-300 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-700"
                                 : "border-slate-200 dark:border-slate-700 bg-surface"
-                            } ${locked ? "opacity-60" : ""}`}
-                          >
-                            <label
-                              htmlFor={ctrlId}
-                              className="flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-inherit"
-                            >
-                              <input
-                                id={ctrlId}
-                                type="checkbox"
-                                checked={pageOn}
-                                onChange={() => togglePage(item.path)}
-                                disabled={locked || readOnly}
-                                className="mt-0.5 rounded border-strong text-amber-600 focus:ring-amber-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-sm font-semibold ${pageOn ? "text-amber-800 dark:text-amber-200" : "text-primary"}`}>
-                                    {displayLabel(item.label, category)}
+                            } ${locked ? "opacity-60" : ""}`}>
+                              <div className="flex items-center gap-2 px-3 py-2">
+                                {row.depth > 0 && (
+                                  <span className="text-[10px] text-slate-300 dark:text-slate-600 font-mono shrink-0 whitespace-pre select-none">
+                                    {row.connectors.map((c) => c ? "│   " : "    ").join("")}
+                                    {row.isLast ? "└── " : "├── "}
                                   </span>
-                                  <span className="text-[10px] text-tertiary font-mono">{displayPath(item.path)}</span>
-                                  {locked && (
-                                    <span className="text-[10px] text-tertiary">(required)</span>
-                                  )}
+                                )}
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <input
+                                    id={ctrlId}
+                                    type="checkbox"
+                                    checked={pageOn}
+                                    onChange={() => togglePage(row.path)}
+                                    disabled={locked || readOnly}
+                                    className="rounded border-strong text-amber-600 focus:ring-amber-500 shrink-0"
+                                  />
+                                  <span className={`text-sm font-semibold ${pageOn ? "text-amber-800 dark:text-amber-200" : "text-primary"}`}>
+                                    {row.label}
+                                  </span>
+                                  <span className="text-[10px] text-tertiary font-mono">{displayPath(row.path)}</span>
+                                  {locked && <span className="text-[10px] text-tertiary">(required)</span>}
                                 </div>
                               </div>
-                            </label>
-
-                            {apis.length > 0 && (
-                              <div className="px-4 py-2 space-y-1">
-                                {apis.map((apiPath) => {
-                                  const effective = isApiEffective(item.path, apiPath)
-                                  const overrideState = isApiOverridden(item.path, apiPath)
-                                  const sharedWith = getSharedPages(apiPath, item.path)
-                                  return (
-                                    <label
-                                      key={apiPath}
-                                      className={`flex items-center gap-2 py-1 rounded cursor-pointer text-xs group ${
-                                        !pageOn ? "opacity-40 pointer-events-none" : ""
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={effective}
-                                        onChange={() => toggleApiOverride(item.path, apiPath)}
-                                        disabled={!pageOn || readOnly}
-                                        className={`rounded border-strong text-amber-600 focus:ring-amber-500 ${
-                                          overrideState === "granted" ? "ring-2 ring-amber-400" : ""
-                                        } ${overrideState === "denied" ? "opacity-50" : ""}`}
-                                      />
-                                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                                        <span className={`font-mono text-[10px] ${
-                                          effective ? "text-amber-700 dark:text-amber-300" : "text-tertiary"
-                                        }`}>
-                                          {apiPath}
-                                        </span>
-                                        {overrideState && (
-                                          <span className={`text-[9px] font-bold px-1 py-px rounded ${
-                                            overrideState === "granted"
-                                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                              : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                              {apis.length > 0 && (
+                                <div className="px-3 pb-2 space-y-0.5">
+                                  {apis.map((apiPath) => {
+                                    const effective = isApiEffective(row.path, apiPath)
+                                    const overrideState = isApiOverridden(row.path, apiPath)
+                                    const sharedWith = getSharedPages(apiPath, row.path)
+                                    return (
+                                      <label
+                                        key={apiPath}
+                                        className={`flex items-center gap-2 py-0.5 rounded cursor-pointer text-xs group ${
+                                          !pageOn ? "opacity-40 pointer-events-none" : ""
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={effective}
+                                          onChange={() => toggleApiOverride(row.path, apiPath)}
+                                          disabled={!pageOn || readOnly}
+                                          className={`rounded border-strong text-amber-600 focus:ring-amber-500 ${
+                                            overrideState === "granted" ? "ring-2 ring-amber-400" : ""
+                                          } ${overrideState === "denied" ? "opacity-50" : ""}`}
+                                        />
+                                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                          <span className={`font-mono text-[10px] ${
+                                            effective ? "text-amber-700 dark:text-amber-300" : "text-tertiary"
                                           }`}>
-                                            {overrideState === "granted" ? "ON" : "OFF"}
+                                            {apiPath}
                                           </span>
-                                        )}
-                                        {sharedWith.length > 0 && (
-                                          <span className="text-[9px] text-tertiary truncate" title={`Also used by: ${sharedWith.join(", ")}`}>
-                                            (also {sharedWith.slice(0, 2).join(", ")}{sharedWith.length > 2 ? ` +${sharedWith.length - 2}` : ""})
-                                          </span>
-                                        )}
-                                      </div>
-                                    </label>
-                                  )
-                                })}
-                              </div>
-                            )}
-
-                            {apis.length === 0 && (
-                              <div className="px-4 py-2">
-                                <p className="text-[10px] text-tertiary italic">No API endpoints required</p>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                                          {overrideState && (
+                                            <span className={`text-[9px] font-bold px-1 py-px rounded ${
+                                              overrideState === "granted"
+                                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                                : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                                            }`}>
+                                              {overrideState === "granted" ? "ON" : "OFF"}
+                                            </span>
+                                          )}
+                                          {sharedWith.length > 0 && (
+                                            <span className="text-[9px] text-tertiary truncate" title={`Also used by: ${sharedWith.join(", ")}`}>
+                                              (also {sharedWith.slice(0, 2).join(", ")}{sharedWith.length > 2 ? ` +${sharedWith.length - 2}` : ""})
+                                            </span>
+                                          )}
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              {apis.length === 0 && (
+                                <div className="px-3 pb-1.5">
+                                  <p className="text-[10px] text-tertiary italic">No API</p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      })()}
                     </div>
                   </div>
                 )
@@ -472,21 +541,32 @@ export default function EditAccessGroupPage() {
             </div>
           )}
 
-          <p className="text-[10px] text-tertiary mt-2">Child routes are automatically allowed.</p>
+          <p className="text-[10px] text-tertiary mt-2">Tree branches indicate page hierarchy.</p>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-1 border-t border-default">
-          {saved && (
-            <span className="text-xs font-semibold text-emerald-600">Saved</span>
+        <div className="flex items-center justify-between gap-3 pt-1 border-t border-default">
+          {!readOnly && group?.groupName !== "ADMIN" && group?.groupName !== "DEAN" && group?.groupName !== "FACULTY" && group?.groupName !== "STUDENT" && group?.groupName !== "GUEST" && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs font-semibold px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
+            >
+              {deleting ? "Deleting\u2026" : "Delete Group"}
+            </button>
           )}
-          <SubmitButton
-            onClick={handleSave}
-            variant="primary"
-            className="text-xs font-semibold px-4 py-2 rounded-lg"
-            disabled={saving || !hasChanges || readOnly}
-          >
-            {saving ? "Saving\u2026" : "Save Changes"}
-          </SubmitButton>
+          <div className="flex items-center gap-3 ml-auto">
+            {saved && (
+              <span className="text-xs font-semibold text-emerald-600">Saved</span>
+            )}
+            <SubmitButton
+              onClick={handleSave}
+              variant="primary"
+              className="text-xs font-semibold px-4 py-2 rounded-lg"
+              disabled={saving || !hasChanges || readOnly}
+            >
+              {saving ? "Saving\u2026" : "Save Changes"}
+            </SubmitButton>
+          </div>
         </div>
       </div>
     </div>

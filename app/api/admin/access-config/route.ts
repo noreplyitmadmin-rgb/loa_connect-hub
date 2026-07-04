@@ -74,6 +74,16 @@ function pageCategory(p: string): string {
   return "Other"
 }
 
+function pageSection(p: string): string {
+  if (p === "/admin/reports" || p === "/admin/evaluations" || p === "/dean/reports") return "Hidden"
+  if (p === "/" || p === "/403" || p === "/faq" || p === "/student/meetings" || p === "/student/history" || p === "/faculty/meetings" || p === "/faculty/availability" || p === "/admin/access-config" || p === "/admin/audit-trail") return "Root"
+  if (p === "/admin" || p === "/dean" || p === "/faculty" || p === "/student") return "Dashboard"
+  if (p.startsWith("/admin/data/") || p.startsWith("/dean/data/") || p === "/dean/departments" || p === "/admin/data-management") return "Data"
+  if ((p.startsWith("/admin/reports") || p.startsWith("/dean/reports") || p.startsWith("/faculty/reports")) && p !== "/admin/reports" && p !== "/dean/reports") return "Reports"
+  if (p.startsWith("/admin/evaluations") || p.startsWith("/dean/evaluations") || p.startsWith("/faculty/evaluations") || p.startsWith("/student/evaluations")) return "Evaluations"
+  return ""
+}
+
 function pageLabel(p: string): string {
   const map: Record<string, string> = {
     "/": "Dashboard (root)",
@@ -107,7 +117,7 @@ function buildCatalog() {
   for (const p of scanned.pages) {
     const cat = pageCategory(p)
     if (!pageCatalog[cat]) pageCatalog[cat] = []
-    pageCatalog[cat].push({ path: p, label: pageLabel(p), description: "" })
+    pageCatalog[cat].push({ path: p, label: pageLabel(p), description: "", section: pageSection(p) })
   }
 
   const apiItems = scanned.api.map((p) => ({ path: p, label: pageLabel(p), description: "" }))
@@ -250,6 +260,37 @@ export async function POST(request: NextRequest) {
   clearAccessConfigCache()
 
   return NextResponse.json({ group: data }, { status: 201 })
+}
+
+export async function DELETE(request: NextRequest) {
+  const authErr = await requireAdmin(request)
+  if (authErr) return authErr
+
+  const { searchParams } = new URL(request.url)
+  const groupName = searchParams.get("groupName")
+
+  if (!groupName || typeof groupName !== "string" || !groupName.trim()) {
+    return NextResponse.json({ error: "groupName query param is required" }, { status: 400 })
+  }
+
+  const name = groupName.trim().toUpperCase()
+
+  if (name === "ADMIN" || name === "DEAN" || name === "FACULTY" || name === "STUDENT" || name === "GUEST") {
+    return NextResponse.json({ error: `Cannot delete built-in group "${name}"` }, { status: 403 })
+  }
+
+  const { error } = await supabase
+    .from("group_access")
+    .delete()
+    .eq("groupName", name)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  clearAccessConfigCache()
+
+  return NextResponse.json({ success: true })
 }
 
 

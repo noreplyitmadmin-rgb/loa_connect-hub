@@ -31,8 +31,12 @@ export interface AccessEntry {
 let configCache: { data: Record<string, GroupAccessEntry>; ts: number } | null = null
 const CONFIG_CACHE_TTL = 60_000
 
+const accessCache = new Map<string, { entries: AccessEntry[]; ts: number }>()
+const ACCESS_CACHE_TTL = 60_000
+
 export function clearAccessConfigCache() {
   configCache = null
+  accessCache.clear()
 }
 
 export async function loadAccessConfig(): Promise<Record<string, GroupAccessEntry>> {
@@ -45,11 +49,14 @@ export async function loadAccessConfig(): Promise<Record<string, GroupAccessEntr
     const { data, error } = await supabase.from("group_access").select("*")
     if (error) throw error
 
+    const ALWAYS_SAFE = new Set(["/", "/admin", "/admin/access-config", "/admin/user-permissions"])
+
     const map: Record<string, GroupAccessEntry> = { ...DEFAULT_CONFIG }
     for (const row of data || []) {
       if (row.groupName === "ADMIN") {
-        const nonAdminPages = (row.pages || []).filter((p: string) => !p.startsWith("/admin") && p !== "/")
-        map.ADMIN = { pages: [...DEFAULT_CONFIG.ADMIN.pages, ...nonAdminPages] }
+        const dbPages = new Set(row.pages || [])
+        for (const p of ALWAYS_SAFE) dbPages.add(p)
+        map.ADMIN = { pages: Array.from(dbPages) }
       } else {
         map[row.groupName] = { pages: row.pages || [] }
       }
@@ -77,9 +84,6 @@ export async function hasPageAccess(role: string, path: string): Promise<boolean
 function pathType(url: string): "ui" | "api" {
   return url.startsWith("/api/") ? "api" : "ui"
 }
-
-const accessCache = new Map<string, { entries: AccessEntry[]; ts: number }>()
-const ACCESS_CACHE_TTL = 60_000
 
 export async function getUserAccess(userId: string, role: string): Promise<AccessEntry[]> {
   const cached = accessCache.get(userId)

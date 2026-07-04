@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/route-guard'
 import { getUserPermissions, setUserPermissions } from '@/features/user-permissions/user-permissions.service'
-import { auth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 
 interface PermissionPayload {
@@ -21,14 +21,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
+  const authErr = await requireAdmin(request)
+  if (authErr) return authErr
+
   const { userId } = await params
-  const session = await auth()
-  const role = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined
-  if (!role?.includes('ADMIN')) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 403,
-    })
-  }
   const perms = await getUserPermissions(userId)
   if (perms === null) {
     return new NextResponse(JSON.stringify({ error: 'User not found' }), {
@@ -42,15 +38,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  const { userId } = await params
-  const session = await auth()
-  const role = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined
-  if (!role?.includes('ADMIN')) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 403,
-    })
-  }
+  const authErr = await requireAdmin(request)
+  if (authErr) return authErr
 
+  const { userId } = await params
   const { error: deleteErr } = await supabase
     .from('user_permissions')
     .delete()
