@@ -15,7 +15,7 @@ export const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
     pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results"],
   },
   STUDENT: {
-    pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/evaluate"],
+    pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/evaluate", "/api/semesters", "/api/users/primary", "/api/users/attendees"],
   },
   GUEST: {
     pages: [],
@@ -46,12 +46,18 @@ export async function loadAccessConfig(): Promise<Record<string, GroupAccessEntr
     if (error) throw error
 
     const map: Record<string, GroupAccessEntry> = { ...DEFAULT_CONFIG }
+    const STUDENT_API_PATHS = ["/api/semesters", "/api/users/primary", "/api/users/attendees", "/api/availability-rules", "/api/appointments", "/api/evaluation-periods", "/api/evaluations"]
     for (const row of data || []) {
       if (row.groupName === "ADMIN") {
         const nonAdminPages = (row.pages || []).filter((p: string) => !p.startsWith("/admin") && p !== "/")
         map.ADMIN = { pages: [...DEFAULT_CONFIG.ADMIN.pages, ...nonAdminPages] }
       } else {
         map[row.groupName] = { pages: row.pages || [] }
+        if (row.groupName === "STUDENT") {
+          for (const p of STUDENT_API_PATHS) {
+            if (!map.STUDENT.pages.includes(p)) map.STUDENT.pages.push(p)
+          }
+        }
       }
     }
 
