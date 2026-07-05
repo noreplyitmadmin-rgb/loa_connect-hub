@@ -58,6 +58,9 @@ export default function DataUsersPage() {
   const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
 
+  // Soft-delete confirmation
+  const [removeUser, setRemoveUser] = useState<UserData | null>(null)
+
   // Edit modal state
   const [editUser, setEditUser] = useState<UserData | null>(null)
   const [editName, setEditName] = useState("")
@@ -119,6 +122,24 @@ export default function DataUsersPage() {
         setUsers((prev) =>
           prev.map((u) => (u.id === userId ? { ...u, isDisabled: !currentStatus } : u))
         )
+      }
+    } finally {
+      pendingRef.current = false
+    }
+  }
+
+  const handleSoftDelete = async (userId: string) => {
+    if (pendingRef.current) return
+    pendingRef.current = true
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/soft-delete`, { method: "POST" })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/users"); return }
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u.id !== userId))
+        setRemoveUser(null)
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to delete user")
       }
     } finally {
       pendingRef.current = false
@@ -546,6 +567,9 @@ export default function DataUsersPage() {
                             {!u.hasLoggedInBefore && !isDefaultAdmin && (
                               <IosButton onClick={() => handleResetOnboarding(u.id)} variant="plain" size="xs" className="!text-red-500">Reset</IosButton>
                             )}
+                            {!isDefaultAdmin && (
+                              <IosButton onClick={() => setRemoveUser(u)} variant="plain" size="xs" className="!text-red-600">Remove</IosButton>
+                            )}
                           </div>
                         )}
                       </td>
@@ -673,6 +697,9 @@ export default function DataUsersPage() {
                         </IosButton>
                         {!u.hasLoggedInBefore && (
                           <IosButton onClick={() => handleResetOnboarding(u.id)} variant="plain" size="xs" className="flex-1 !text-red-500">Reset</IosButton>
+                        )}
+                        {!isDefaultAdmin && (
+                          <IosButton onClick={() => setRemoveUser(u)} variant="plain" size="xs" className="flex-1 !text-red-600">Remove</IosButton>
                         )}
                       </>
                     )}
@@ -923,6 +950,30 @@ export default function DataUsersPage() {
       )}
     </>)}
     </div>
+      {removeUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-surface rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 border border-amber-200">
+            <h3 className="text-lg font-bold text-primary mb-2">Remove {removeUser.name}?</h3>
+            <p className="text-sm text-secondary mb-4">
+              This user will be soft-deleted and moved to <strong>Deleted Users</strong>. They can be restored later from that page. Their appointments, evaluations, and other data will be preserved.
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-end">
+              <button
+                onClick={() => setRemoveUser(null)}
+                className="px-4 py-3 sm:py-2 rounded-xl bg-surface text-secondary text-sm font-semibold hover:bg-slate-200 transition-all w-full sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSoftDelete(removeUser.id)}
+                className="px-4 py-3 sm:py-2 rounded-xl bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition-all w-full sm:w-auto"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ErrorBoundary>
   )
 }

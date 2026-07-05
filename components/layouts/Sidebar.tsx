@@ -49,9 +49,11 @@ function getEvaluationChildren(role: string | null): NavItem[] {
 function getDataChildren(role: string | null): NavItem[] {
   const base = role === "DEAN" ? "/dean" : "/admin"
   return [
-    { href: `${base}/data/users`, label: "Manage Users", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
+    { label: "Users", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z", children: [
+      { href: `${base}/data/users`, label: "Manage", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
+      { href: `${base}/data/users/deleted`, label: "Deleted", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" },
+    ] },
     { href: `${base}/data/academic-infrastructure`, label: "Academic Configurations", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
-    { href: `${base}/data/users/deleted`, label: "Deleted Users", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" },
     { href: "/dean/departments", label: "Departments", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
     { href: "/admin/data/maintenance", label: "Maintenance", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" },
   ]
@@ -75,6 +77,7 @@ export default function Sidebar() {
   const [mobilePopoverGroup, setMobilePopoverGroup] = useState<string | null>(null)
   const [showMobileActions, setShowMobileActions] = useState(false)
   const [evalAvailable, setEvalAvailable] = useState<boolean | null>(null)
+  const [manageUsersOpen, setManageUsersOpen] = useState(false)
 
   const { data: accessData } = useApiGet<{ access: { url: string; access: string; type: string }[] }>(
     session ? "/api/auth/access" : null
@@ -91,7 +94,7 @@ export default function Sidebar() {
   }, [])
 
   useEffect(() => {
-    Promise.resolve().then(() => setPopoverGroup(null))
+    Promise.resolve().then(() => { setPopoverGroup(null); setManageUsersOpen(false) })
   }, [pathname])
 
   useEffect(() => {
@@ -176,7 +179,14 @@ export default function Sidebar() {
   const evaluationChildren = useMemo(() => getEvaluationChildren(primaryRole), [primaryRole])
   const evaluationHrefs = useMemo(() => new Set(evaluationChildren.map((c) => c.href!)), [evaluationChildren])
   const dataChildren = useMemo(() => getDataChildren(primaryRole), [primaryRole])
-  const dataHrefs = useMemo(() => new Set(dataChildren.map((c) => c.href!)), [dataChildren])
+  const dataHrefs = useMemo(() => {
+    const hrefs: string[] = []
+    for (const c of dataChildren) {
+      if (c.href) hrefs.push(c.href)
+      if (c.children) c.children.forEach((gc) => { if (gc.href) hrefs.push(gc.href) })
+    }
+    return new Set(hrefs)
+  }, [dataChildren])
   const systemChildren = useMemo(() => getSystemChildren(), [])
   const systemHrefs = useMemo(() => new Set(systemChildren.map((c) => c.href!)), [systemChildren])
   const dashHref = primaryRole ? `/${primaryRole.toLowerCase()}` : "/"
@@ -250,7 +260,11 @@ export default function Sidebar() {
   const evaluationsOpen = expandedGroups.has("evaluations") || isInEvaluations
 
   const isInData = pathname.startsWith("/admin/data") || pathname.startsWith("/dean/data") || pathname.startsWith("/admin/departments") || pathname.startsWith("/dean/departments")
-  const dataVisible = dataChildren.some((c) => allowedPages && allowedPages.includes(c.href!))
+  const dataVisible = dataChildren.some((c) => {
+    if (allowedPages && allowedPages.includes(c.href!)) return true
+    if (c.children) return c.children.some((gc) => allowedPages && allowedPages.includes(gc.href!))
+    return false
+  })
   const dataOpen = expandedGroups.has("data") || isInData
 
   const isInSystem = pathname.startsWith("/admin/system")
@@ -467,23 +481,28 @@ export default function Sidebar() {
             {(mobilePopoverGroup === "#dashboard" ? visibleDashboardChildren : mobilePopoverGroup === "#data" ? dataChildren : mobilePopoverGroup === "#system" ? systemChildren : mobilePopoverGroup === "#reports" ? reportChildren : evaluationChildren)
               .filter((c) => {
                 if (mobilePopoverGroup === "#dashboard") return (allowedPages && allowedPages.includes(c.href!)) && !hiddenHrefs.has(c.href!)
+                if (c.children) return c.children.some((gc) => allowedPages && allowedPages.includes(gc.href!) && !hiddenHrefs.has(gc.href!))
                 return (allowedPages && allowedPages.includes(c.href!)) && !hiddenHrefs.has(c.href!)
               })
-              .map((child) => (
+              .flatMap((child) => [
+                ...(child.href ? [child] : []),
+                ...(child.children?.filter((gc) => (allowedPages && allowedPages.includes(gc.href!)) && !hiddenHrefs.has(gc.href!)) ?? []),
+              ])
+              .map((item) => (
                 <Link
-                  key={child.href}
-                  href={child.href!}
+                  key={item.href}
+                  href={item.href!}
                   onClick={() => setMobilePopoverGroup(null)}
                   className={`flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors ${
-                    pathname === child.href
+                    pathname === item.href
                       ? "bg-gold-600/10 text-gold-400"
                       : "text-tertiary hover:bg-slate-800/50 hover:text-white"
                   }`}
                 >
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
+                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon!} />
                   </svg>
-                  <span>{child.label}</span>
+                  <span>{item.label}</span>
                 </Link>
               ))}
           </div>
@@ -618,25 +637,74 @@ export default function Sidebar() {
               {dataOpen && (
                 <div className="ml-3 mt-1 space-y-0.5 border-l border-slate-800 pl-2">
                   {dataChildren
-                    .filter((c) => (allowedPages && allowedPages.includes(c.href!)) && !hiddenHrefs.has(c.href!))
+                    .filter((c) => {
+                      if (c.children) return c.children.some((gc) => allowedPages && allowedPages.includes(gc.href!) && !hiddenHrefs.has(gc.href!))
+                      return (allowedPages && allowedPages.includes(c.href!)) && !hiddenHrefs.has(c.href!)
+                    })
                     .map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href!}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        pathname === child.href
-                          ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
-                          : "text-tertiary hover:bg-slate-800/50 hover:text-white border border-transparent"
-                      }`}
-                    >
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
-                      </svg>
-                      {child.label}
-                    </Link>
+                    child.children ? (
+                      <div key={child.label}>
+                        <button
+                          onClick={() => setManageUsersOpen((prev) => !prev)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            pathname.startsWith(child.href!)
+                              ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
+                              : "text-tertiary hover:bg-slate-800/50 hover:text-white border border-transparent"
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
+                          </svg>
+                          <span className="flex-1 text-left">{child.label}</span>
+                          <svg
+                            className={`w-3 h-3 transition-transform duration-200 ${manageUsersOpen ? "rotate-180" : ""}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {manageUsersOpen && (
+                          <div className="ml-2 mt-0.5 space-y-0.5 border-l border-slate-700 pl-2">
+                            {child.children
+                              .filter((gc) => (allowedPages && allowedPages.includes(gc.href!)) && !hiddenHrefs.has(gc.href!))
+                              .map((grandchild) => (
+                              <Link
+                                key={grandchild.href}
+                                href={grandchild.href!}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  pathname === grandchild.href
+                                    ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
+                                    : "text-tertiary hover:bg-slate-800/50 hover:text-white border border-transparent"
+                                }`}
+                              >
+                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d={grandchild.icon!} />
+                                </svg>
+                                {grandchild.label}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Link
+                        key={child.href}
+                        href={child.href!}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          pathname === child.href
+                            ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
+                            : "text-tertiary hover:bg-slate-800/50 hover:text-white border border-transparent"
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
+                        </svg>
+                        {child.label}
+                      </Link>
+                    )
                   ))}
-              </div>
-            )}
+                </div>
+              )}
           </div>
         )}
 
@@ -932,30 +1000,35 @@ export default function Sidebar() {
             {(popoverGroup === "dashboard" ? visibleDashboardChildren : popoverGroup === "data" ? dataChildren : popoverGroup === "system" ? systemChildren : popoverGroup === "reports" ? reportChildren : evaluationChildren)
               .filter((c) => {
                 if (popoverGroup === "dashboard") return (allowedPages && allowedPages.includes(c.href!)) && !hiddenHrefs.has(c.href!)
+                if (c.children) return c.children.some((gc) => allowedPages && allowedPages.includes(gc.href!) && !hiddenHrefs.has(gc.href!))
                 return (allowedPages && allowedPages.includes(c.href!)) && !hiddenHrefs.has(c.href!)
               })
-              .map((child) => (
+              .flatMap((child) => [
+                ...(child.href ? [child] : []),
+                ...(child.children?.filter((gc) => (allowedPages && allowedPages.includes(gc.href!)) && !hiddenHrefs.has(gc.href!)) ?? []),
+              ])
+              .map((item) => (
                 <Link
-                  key={child.href}
-                  href={child.href!}
+                  key={item.href}
+                  href={item.href!}
                   onClick={() => setPopoverGroup(null)}
                   className={`flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors ${
-                    pathname === child.href
+                    pathname === item.href
                       ? "bg-gold-600/10 text-gold-400"
                       : "text-tertiary hover:bg-slate-800/50 hover:text-white"
                   }`}
                 >
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={child.icon!} />
+                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon!} />
                   </svg>
                   <span className="flex items-center gap-1.5">
-                    {child.label}
-                    {child.href === "/student/evaluations" && primaryRole === "STUDENT" && evalAvailable === true && (
+                    {item.label}
+                    {item.href === "/student/evaluations" && primaryRole === "STUDENT" && evalAvailable === true && (
                       <svg className="w-3 h-3 text-gold-400 animate-pulse shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                       </svg>
                     )}
-                    {child.href === "/student/evaluations" && primaryRole === "STUDENT" && evalAvailable === false && (
+                    {item.href === "/student/evaluations" && primaryRole === "STUDENT" && evalAvailable === false && (
                       <svg className="w-3 h-3 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                       </svg>
