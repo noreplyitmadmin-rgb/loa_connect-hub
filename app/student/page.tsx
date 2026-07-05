@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { listStudentAppointments } from "@/features/appointments/appointments.service"
 import { userRepository } from "@/lib/repositories/factory"
+import { getActiveSemester } from "@/features/admin-data/semesters.service"
 import { OnboardingWalkthrough } from "@/features/users/components/OnboardingWalkthrough"
 import StudentDashboard from "@/features/users/components/StudentDashboard"
 
@@ -26,6 +27,7 @@ export default async function StudentDashboardPage() {
   const needsOnboarding = dbUser?.onboardingVersion === 0
 
   const appointments = (await listStudentAppointments(userId)).data as StudentAppointment[]
+  const activeSemester = await getActiveSemester()
 
   return (
     <>
@@ -36,6 +38,7 @@ export default async function StudentDashboardPage() {
         studentName={dbUser?.name || "Student"}
         course={dbUser?.course || null}
         appointments={appointments}
+        hasEvaluations={!!activeSemester}
       />
     </>
   )

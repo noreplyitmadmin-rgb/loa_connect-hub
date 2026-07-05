@@ -66,7 +66,8 @@ export async function proxy(request: NextRequest) {
       path: pathname,
     }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
-  return NextResponse.next();
+  const url = new URL("/403", request.url)
+  return NextResponse.redirect(url);
 }
 
 export const config = {

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
+import { auth } from "@/lib/auth"
+import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
 import { clearAccessConfigCache, loadAccessConfig } from "@/lib/access"
+import { getDefaultPages } from "@/lib/default-access"
 import { pageApiMap } from "@/lib/page-api-map"
 import fs from "fs"
 import path from "path"
@@ -113,7 +116,7 @@ function capitalize(s: string) {
 function buildCatalog() {
   const scanned = scanRoutes()
 
-  const pageCatalog: Record<string, { path: string; label: string; description: string }[]> = {}
+  const pageCatalog: Record<string, { path: string; label: string; description: string; section?: string }[]> = {}
   for (const p of scanned.pages) {
     const cat = pageCategory(p)
     if (!pageCatalog[cat]) pageCatalog[cat] = []
@@ -127,12 +130,20 @@ function buildCatalog() {
 }
 
 export async function GET() {
+  const session = await auth()
+  const role = (session?.user as Record<string, unknown>)?.role as string | undefined
+  const showApi = role && (hasRole(role, "ADMIN") || hasRole(role, "DEAN"))
+
   const { data, error } = await supabase.from("group_access").select("*").order("groupName")
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   const catalog = buildCatalog()
+  if (!showApi) {
+    delete catalog.pages["API"]
+  }
+
   const mergedConfig = await loadAccessConfig()
 
   return NextResponse.json({ groups: data || [], catalog, config: mergedConfig, pageApiMap })
@@ -200,6 +211,10 @@ export async function PATCH(request: NextRequest) {
     if (api_overrides !== undefined) {
       dedupedPages = expandApiPaths(dedupedPages, api_overrides)
     }
+
+    // Filter out irrevocable defaults — they are never stored in DB
+    const defaultSet = new Set(getDefaultPages(groupName))
+    dedupedPages = dedupedPages.filter((p: string) => !defaultSet.has(p))
 
     updateData.pages = dedupedPages
   }

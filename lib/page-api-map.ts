@@ -163,6 +163,7 @@ export const pageApiMap: Record<string, PageApiEntry> = {
       "/api/dean/evaluation-results/details",
       "/api/admin/evaluation-results/visibility",
       "/api/data/evaluation-mappings",
+      "/api/evaluation-periods",
     ],
   },
   "/dean/evaluations/rubrics": {

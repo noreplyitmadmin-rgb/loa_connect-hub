@@ -8,6 +8,7 @@ import SubmitButton from "@/components/ui/SubmitButton"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import { invalidate } from "@/lib/api/client"
+import { getDefaultUIPages } from "@/lib/default-access"
 import type { PageApiEntry } from "@/lib/page-api-map"
 
 interface GroupAccess {
@@ -84,7 +85,8 @@ export default function EditAccessGroupPage() {
           setGroup(g)
           // API paths are expanded in stored pages — extract only page paths for selections
           const isApiPath = (p: string) => p.startsWith("/api/")
-          setSelectedPages((g.pages || []).filter((p: string) => !isApiPath(p)))
+          const defaults = new Set(getDefaultUIPages(g.groupName))
+          setSelectedPages((g.pages || []).filter((p: string) => !isApiPath(p) && !defaults.has(p)))
           setOverrides(g.api_overrides || {})
         }
         if (data.catalog) setCatalog(data.catalog)
@@ -96,8 +98,10 @@ export default function EditAccessGroupPage() {
       .finally(() => setLoading(false))
   }, [groupName])
 
+  const defaultPageSet = useMemo(() => group ? new Set(getDefaultUIPages(group.groupName)) : new Set<string>(), [group])
+
   const isLockedPage = (p: string) =>
-    (group?.groupName === "ADMIN" && (p === "/admin/access-config" || p === "/admin/user-permissions")) || ALWAYS_LOCKED_PAGES.has(p)
+    defaultPageSet.has(p) || (group?.groupName === "ADMIN" && (p === "/admin/access-config" || p === "/admin/user-permissions")) || ALWAYS_LOCKED_PAGES.has(p)
 
   const togglePage = (path: string) => {
     if (readOnly || isLockedPage(path)) return
@@ -170,6 +174,8 @@ export default function EditAccessGroupPage() {
     if (group.groupName === "ADMIN") {
       deduped = deduped.filter((p) => p !== "/admin/access-config" && p !== "/admin/user-permissions")
     }
+    // Strip irrevocable defaults before sending (they are never stored in DB)
+    deduped = deduped.filter((p) => !defaultPageSet.has(p))
 
     try {
       const res = await fetch("/api/admin/access-config", {
@@ -187,7 +193,8 @@ export default function EditAccessGroupPage() {
         if (data.group) {
           setGroup(data.group)
           const isApiPath = (p: string) => p.startsWith("/api/")
-          setSelectedPages((data.group.pages || []).filter((p: string) => !isApiPath(p)))
+          const defaults = new Set(getDefaultUIPages(data.group.groupName))
+          setSelectedPages((data.group.pages || []).filter((p: string) => !isApiPath(p) && !defaults.has(p)))
           setOverrides(data.group.api_overrides || {})
         }
         invalidate("/api/auth/access")
@@ -227,7 +234,7 @@ export default function EditAccessGroupPage() {
   const isApiPath = (p: string) => p.startsWith("/api/")
   const hasChanges =
     group &&
-    (JSON.stringify(norm(selectedPages)) !== JSON.stringify(norm((group.pages || []).filter((p) => !isApiPath(p)))) ||
+    (JSON.stringify(norm(selectedPages)) !== JSON.stringify(norm((group.pages || []).filter((p) => !isApiPath(p) && !defaultPageSet.has(p)))) ||
       JSON.stringify(overrides) !== JSON.stringify(group.api_overrides || {}))
 
   const SECTION_ORDER = ["Root", "Dashboard", "Evaluations", "Data", "Reports", "Hidden"] as const
@@ -251,11 +258,24 @@ export default function EditAccessGroupPage() {
       if (group?.groupName === "ADMIN") {
         items = items.filter((item) => !ADMIN_MIRROR_STUBS.has(item.path))
       }
+      // Filter out irrevocable defaults — they are shown in a separate section on top
+      items = items.filter((item) => !defaultPageSet.has(item.path))
       if (items.length > 0) entries.push({ section: s, items })
     }
 
     return entries
-  }, [catalog, group])
+  }, [catalog, group, defaultPageSet])
+
+  const defaultCatalogItems = useMemo(() => {
+    if (!catalog || defaultPageSet.size === 0) return []
+    const items: CatalogItem[] = []
+    for (const arr of Object.values(catalog.pages)) {
+      for (const item of arr) {
+        if (defaultPageSet.has(item.path)) items.push(item)
+      }
+    }
+    return items
+  }, [catalog, defaultPageSet])
 
   if (loading) {
     return (
@@ -410,9 +430,65 @@ export default function EditAccessGroupPage() {
             />
           </div>
 
-          {catalogSections.length === 0 ? (
+          {defaultCatalogItems.length > 0 && (
+            <div className="space-y-3 mb-8">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Irrevocable Defaults</p>
+              <div className="space-y-0.5">
+                {(() => {
+                  const tree = buildTree(defaultCatalogItems)
+                  const rows = flattenTree(tree)
+                  return rows.map((row) => {
+                    const entry = pageApiMap?.[row.path]
+                    const apis = entry?.apis ?? []
+                    return (
+                      <div key={row.path} className="rounded-lg border border-amber-300 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-700 opacity-80">
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          {row.depth > 0 && (
+                            <span className="text-[10px] text-slate-300 dark:text-slate-600 font-mono shrink-0 whitespace-pre select-none">
+                              {row.connectors.map((c) => c ? "│   " : "    ").join("")}
+                              {row.isLast ? "└── " : "├── "}
+                            </span>
+                          )}
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={true}
+                              disabled={true}
+                              className="rounded border-strong text-amber-600 shrink-0 opacity-60"
+                            />
+                            <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">{row.label}</span>
+                            <span className="text-[10px] text-tertiary font-mono">{displayPath(row.path)}</span>
+                            <span className="text-[10px] text-amber-600 font-semibold">(irrevocable)</span>
+                          </div>
+                        </div>
+                        {apis.length > 0 && (
+                          <div className="px-3 pb-2 space-y-0.5">
+                            {apis.map((apiPath) => (
+                              <label key={apiPath} className="flex items-center gap-2 py-0.5 rounded text-xs opacity-60">
+                                <input type="checkbox" checked={true} disabled={true} className="rounded border-strong text-amber-600 shrink-0" />
+                                <span className="font-mono text-[10px] text-amber-700 dark:text-amber-300">{apiPath}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        {apis.length === 0 && (
+                          <div className="px-3 pb-1.5">
+                            <p className="text-[10px] text-tertiary italic">No API</p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </div>
+          )}
+
+          {catalogSections.length === 0 && defaultCatalogItems.length === 0 && (
             <p className="text-sm text-tertiary text-center py-8">No pages found.</p>
-          ) : (
+          )}
+
+          {catalogSections.length > 0 && (
             <div className="space-y-6">
               {catalogSections.map(({ section, items }) => {
                 const pageItems = items.filter((i) => !isApiPath(i.path))
@@ -444,7 +520,8 @@ export default function EditAccessGroupPage() {
                         const rows = flattenTree(tree)
                         return rows.map((row) => {
                           const locked = isLockedPage(row.path)
-                          const pageOn = selectedPages.includes(row.path)
+                          const isDefault = defaultPageSet.has(row.path)
+                          const pageOn = isDefault || selectedPages.includes(row.path)
                           const entry = pageApiMap?.[row.path]
                           const apis = entry?.apis ?? []
                           const ctrlId = `page-${row.path.replace(/\//g, "-")}`

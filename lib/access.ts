@@ -1,4 +1,5 @@
 import { getPrimaryRole } from "@/lib/utils/roles"
+import { getDefaultPages } from "@/lib/default-access"
 
 interface GroupAccessEntry {
   pages: string[]
@@ -9,10 +10,10 @@ export const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
     pages: ["/", "/admin", "/admin/data-management", "/admin/users", "/admin/data/users/deleted", "/admin/access-config", "/admin/user-permissions", "/admin/departments", "/admin/data/users", "/admin/data/academic-infrastructure", "/admin/reports", "/admin/reports/health", "/admin/reports/demand", "/admin/reports/responsiveness", "/admin/reports/backlog", "/admin/reports/coverage", "/admin/reports/distribution", "/admin/evaluations", "/admin/evaluations/results", "/admin/evaluations/rubrics", "/admin/evaluations/disabled", "/admin/audit-trail"],
   },
   DEAN: {
-    pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/reports", "/dean/evaluations", "/dean/evaluations/results", "/dean/data/users", "/dean/data/academic-infrastructure", "/faculty/meetings", "/faculty/availability", "/faculty/reports"],
+    pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/reports", "/dean/evaluations", "/dean/evaluations/results", "/dean/data/users", "/dean/data/academic-infrastructure", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/api/dean/evaluation-results", "/api/dean/evaluation-results/details", "/api/evaluation-periods"],
   },
   FACULTY: {
-    pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results"],
+    pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results", "/admin/reports/health"],
   },
   STUDENT: {
     pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/evaluate", "/api/semesters", "/api/users/primary", "/api/users/attendees"],
@@ -75,8 +76,11 @@ export function userGroup(role: string): string {
 }
 
 export async function hasPageAccess(role: string, path: string): Promise<boolean> {
+  const topRole = userGroup(role)
+  const defaultPages = getDefaultPages(topRole)
+  if (defaultPages.some((p: string) => path === p || path.startsWith(p + "/"))) return true
   const config = await loadAccessConfig()
-  const entry = config[userGroup(role)]
+  const entry = config[topRole]
   if (!entry) return false
   return entry.pages.some((p: string) => path === p || path.startsWith(p + "/"))
 }
@@ -92,12 +96,16 @@ export async function getUserAccess(userId: string, role: string): Promise<Acces
   const config = await loadAccessConfig()
   const isAdmin = role?.includes("ADMIN")
   const topRole = role ? getPrimaryRole(role) : "GUEST"
+  const defaultPaths = getDefaultPages(topRole)
 
   const allPaths = new Map<string, "ui" | "api">()
   for (const group of Object.values(config)) {
     for (const p of group.pages) {
       if (!allPaths.has(p)) allPaths.set(p, pathType(p))
     }
+  }
+  for (const p of defaultPaths) {
+    if (!allPaths.has(p)) allPaths.set(p, pathType(p))
   }
 
   const entries = new Map<string, AccessEntry>()
@@ -111,9 +119,13 @@ export async function getUserAccess(userId: string, role: string): Promise<Acces
       entries.set(url, { url, access: "granted", type: t })
     }
   } else {
-    for (const [url, type] of allPaths) {
-      entries.set(url, { url, access: "revoked", type })
+    // Grant irrevocable defaults first (can't be overridden)
+    for (const url of defaultPaths) {
+      const t = allPaths.get(url) ?? pathType(url)
+      entries.set(url, { url, access: "granted", type: t })
     }
+
+    // Grant additional pages from RBAC config
     const rbacPages = config[topRole]?.pages ?? []
     for (const url of rbacPages) {
       const t = allPaths.get(url) ?? pathType(url)
@@ -129,7 +141,11 @@ export async function getUserAccess(userId: string, role: string): Promise<Acces
       .eq('user_id', userId)
 
     if (perms) {
+      const defaultSet = new Set(defaultPaths)
       for (const p of perms as { grants: string[]; denies: string[]; resource_path: string }[]) {
+        // Irrevocable defaults cannot be overridden by user_permissions
+        if (defaultSet.has(p.resource_path)) continue
+
         const existing = entries.get(p.resource_path) ?? {
           url: p.resource_path,
           access: "revoked",

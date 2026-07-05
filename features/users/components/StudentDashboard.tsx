@@ -20,6 +20,7 @@ interface Props {
   studentName: string
   course: string | null
   appointments: StudentAppointment[]
+  hasEvaluations?: boolean
 }
 
 function getGreeting() {
@@ -36,7 +37,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000)
 }
 
-export default function StudentDashboard({ studentName, course, appointments }: Props) {
+export default function StudentDashboard({ studentName, course, appointments, hasEvaluations }: Props) {
   const greeting = useMemo(() => getGreeting(), [])
 
   const stats = useMemo(() => {
@@ -302,19 +303,32 @@ export default function StudentDashboard({ studentName, course, appointments }: 
           <div className="w-16 h-16 bg-gold-50 border border-gold-200 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <span className="text-3xl">📚</span>
           </div>
-          <h2 className="text-lg font-bold text-primary mb-2">Your thesis journey starts here</h2>
+          <h2 className="text-lg font-bold text-primary mb-2">Get started with LOA Connect Hub</h2>
           <p className="text-sm text-tertiary max-w-md mx-auto mb-6">
-            Book your first consultation with a faculty advisor to discuss your thesis topic, get guidance, and track your progress.
+            Book a consultation with a faculty advisor or complete your pending evaluations.
           </p>
-          <Link
-            href="/student/book"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gold-600 text-white font-semibold text-sm hover:bg-gold-700 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Book Your First Consultation
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/student/book"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gold-600 text-white font-semibold text-sm hover:bg-gold-700 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Book Your First Consultation
+            </Link>
+            {hasEvaluations && (
+              <Link
+                href="/student/evaluations"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border border-gold-600 text-gold-700 font-semibold text-sm hover:bg-gold-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                My Evaluations
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </div>
