@@ -29,6 +29,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+ev.log
+out.log
+dev-server-err.log
+tsc-output.txt
 
 # env files (can opt-in for committing if needed)
 .env*
