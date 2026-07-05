@@ -28,6 +28,8 @@ export default function EvaluationResultsPage() {
   const { setTitle } = usePageTitle()
   const [categories, setCategories] = useState<RubricCategory[]>([])
   const [evaluateeName, setEvaluateeName] = useState("")
+  const [subjectCode, setSubjectCode] = useState("")
+  const [subjectName, setSubjectName] = useState("")
   const [ratings, setRatings] = useState<Record<string, number>>({})
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
   const [existingComment, setExistingComment] = useState<string | null>(null)
@@ -37,10 +39,10 @@ export default function EvaluationResultsPage() {
   const [pageLoading, setPageLoading] = useState(true)
 
   useEffect(() => {
-    if (evaluateeName) {
-      setTitle(`Evaluation Result for ${evaluateeName}`)
+    if (subjectCode && subjectName && evaluateeName) {
+      setTitle(`Evaluation for ${subjectCode} ${subjectName} (${evaluateeName})`)
     }
-  }, [evaluateeName, setTitle])
+  }, [subjectCode, subjectName, evaluateeName, setTitle])
 
   useEffect(() => {
     const el = document.querySelector("main")
@@ -66,6 +68,8 @@ export default function EvaluationResultsPage() {
         }
 
         setEvaluateeName(ev.evaluateeName || "Unknown")
+        setSubjectCode(ev.subjectCode || "")
+        setSubjectName(ev.subjectName || "")
         setSubmittedAt(ev.submittedAt || null)
 
         const ratingsRes = await fetch(`/api/evaluations/${ev.id}/ratings`)
@@ -160,7 +164,7 @@ export default function EvaluationResultsPage() {
 
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-primary tracking-tight">
-            Evaluation Result for <span className="text-brand-600">{evaluateeName}</span>
+            Evaluation for {subjectCode} {subjectName} (<span className="text-brand-600">{evaluateeName}</span>)
           </h1>
           {submittedAt && (
             <p className="text-sm text-tertiary mt-1">

@@ -39,7 +39,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       }
     }
 
-    return NextResponse.json({
+    const responseBody = {
       evaluation: {
         ...evaluation,
         evaluateeName: (facultyRes.data as { name: string } | null)?.name || "Unknown",
@@ -48,8 +48,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         subjectName,
         sectionName,
       },
-    })
-  } catch {
+    }
+    console.log("[EVAL API]", { facultySubjectId: evaluation.facultySubjectId, fsResData: fsRes.data, subjectCode, subjectName })
+    return NextResponse.json(responseBody)
+  } catch (err) {
+    console.error("[EVAL API ERROR]", err)
     return NextResponse.json({ error: "Failed to fetch evaluation" }, { status: 500 })
   }
 }
