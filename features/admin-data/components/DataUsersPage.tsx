@@ -579,14 +579,6 @@ export default function DataUsersPage() {
                           <div className="flex items-center gap-2">
                             <IosButton onClick={() => openEditModal(u)} variant="plain" size="xs">Edit</IosButton>
                             {!isDefaultAdmin && (
-                              <IosButton onClick={() => handleToggle(u.id, u.isDisabled)} variant="plain" size="xs" className={u.isDisabled ? "!text-green-600" : "!text-red-500"}>
-                                {u.isDisabled ? "Enable" : "Disable"}
-                              </IosButton>
-                            )}
-                            {!u.hasLoggedInBefore && !isDefaultAdmin && (
-                              <IosButton onClick={() => handleResetOnboarding(u.id)} variant="plain" size="xs" className="!text-red-500">Reset</IosButton>
-                            )}
-                            {!isDefaultAdmin && (
                               <IosButton onClick={() => setRemoveUser(u)} variant="plain" size="xs" className="!text-red-600">Remove</IosButton>
                             )}
                           </div>
@@ -711,12 +703,6 @@ export default function DataUsersPage() {
                     ) : (
                       <>
                         <IosButton onClick={() => openEditModal(u)} variant="plain" size="xs" className="flex-1">Edit</IosButton>
-                        <IosButton onClick={() => handleToggle(u.id, u.isDisabled)} variant="plain" size="xs" className={`flex-1 ${u.isDisabled ? "!text-green-600" : "!text-red-500"}`}>
-                          {u.isDisabled ? "Enable" : "Disable"}
-                        </IosButton>
-                        {!u.hasLoggedInBefore && (
-                          <IosButton onClick={() => handleResetOnboarding(u.id)} variant="plain" size="xs" className="flex-1 !text-red-500">Reset</IosButton>
-                        )}
                         {!isDefaultAdmin && (
                           <IosButton onClick={() => setRemoveUser(u)} variant="plain" size="xs" className="flex-1 !text-red-600">Remove</IosButton>
                         )}
@@ -847,13 +833,38 @@ export default function DataUsersPage() {
               </>
             )}
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-              <button
-                onClick={() => handleResetOnboarding(editUser.id)}
-                className="text-xs font-semibold text-red-600 hover:text-red-700 underline self-start sm:self-auto"
-              >
-                Reset Onboarding
-              </button>
+            <div className="border-t border-default pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-secondary">Account Status</p>
+                  <p className="text-[11px] text-tertiary mt-0.5">Disable prevents the user from logging in</p>
+                </div>
+                <IosButton
+                  onClick={() => handleToggle(editUser.id, editUser.isDisabled)}
+                  variant="plain"
+                  size="xs"
+                  className={editUser.isDisabled ? "!text-green-600 font-semibold" : "!text-red-500 font-semibold"}
+                >
+                  {editUser.isDisabled ? "Enable" : "Disable"}
+                </IosButton>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-secondary">Onboarding Reset</p>
+                  <p className="text-[11px] text-tertiary mt-0.5">Resets to 0 so the user must activate again</p>
+                </div>
+                <IosButton
+                  onClick={() => handleResetOnboarding(editUser.id)}
+                  variant="plain"
+                  size="xs"
+                  className="!text-red-500 font-semibold"
+                >
+                  Reset
+                </IosButton>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
               <div className="flex gap-2">
                 <IosButton
                   onClick={() => setEditUser(null)}
