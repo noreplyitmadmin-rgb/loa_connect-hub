@@ -4,8 +4,8 @@ export async function getPendingEvaluations(evaluatorId: string, semesterId: str
   return evaluationRepository.findPending(evaluatorId, semesterId)
 }
 
-export async function getMyEvaluations(evaluatorId: string) {
-  return evaluationRepository.findByEvaluator(evaluatorId)
+export async function getMyEvaluations(evaluatorId: string, semesterId?: string) {
+  return evaluationRepository.findByEvaluator(evaluatorId, semesterId)
 }
 
 export async function getEvaluation(id: string) {

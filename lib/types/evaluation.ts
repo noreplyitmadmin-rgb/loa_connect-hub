@@ -296,7 +296,7 @@ export interface IRubricRepository {
 
 export interface IEvaluationRepository {
   findPending(evaluatorId: string, semesterId: string): Promise<PendingEvaluationItem[]>
-  findByEvaluator(evaluatorId: string): Promise<EvaluationData[]>
+  findByEvaluator(evaluatorId: string, semesterId?: string): Promise<EvaluationData[]>
   findById(id: string): Promise<EvaluationData | null>
   findByComposite(semesterId: string, evaluatorId: string, facultySubjectId: string): Promise<EvaluationData | null>
   create(semesterId: string, evaluatorId: string, evaluateeId: string, facultySubjectId: string, source?: string | null): Promise<EvaluationData>

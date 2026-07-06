@@ -107,13 +107,14 @@ export const evaluationRepository: IEvaluationRepository = {
       )
   },
 
-  async findByEvaluator(evaluatorId) {
-    const { data, error } = await supabase
+  async findByEvaluator(evaluatorId, semesterId?) {
+    let query = supabase
       .from("evaluations")
       .select("*")
       .eq("evaluatorId", evaluatorId)
       .eq("isDisabled", false)
-      .order("createdAt", { ascending: false })
+    if (semesterId) query = query.eq("semesterId", semesterId)
+    const { data, error } = await query.order("createdAt", { ascending: false })
     if (error) throw error
     return data as EvaluationData[]
   },

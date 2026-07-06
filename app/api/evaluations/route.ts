@@ -53,7 +53,8 @@ export async function GET() {
   }
 
   try {
-    const evaluations = await getMyEvaluations(userId)
+    const activeSemester = await getActiveSemester()
+    const evaluations = await getMyEvaluations(userId, activeSemester?.id)
     const result = await Promise.all(evaluations.map(enrichEvaluation))
     return NextResponse.json({ evaluations: result })
   } catch {
