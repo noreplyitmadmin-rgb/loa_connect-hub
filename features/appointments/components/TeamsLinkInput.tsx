@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import SubmitButton from "@/components/ui/SubmitButton"
+import { invalidate } from "@/lib/api/client"
 
 interface TeamsLinkInputProps {
   appointmentId: string
@@ -39,6 +40,7 @@ export function TeamsLinkInput({ appointmentId, slotId, label }: TeamsLinkInputP
         setMessage(slotId ? `Link added for this time slot!` : "Teams link added!")
         setTeamsLink("")
         setTimeout(() => setMessage(""), 3000)
+        invalidate("/api/appointments")
       } else {
         setMessage(data.error || "Failed to add Teams link")
       }
