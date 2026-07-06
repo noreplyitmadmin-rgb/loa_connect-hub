@@ -6,8 +6,9 @@ import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
-import { useApiGet } from "@/lib/api/client"
+import { useApiGet, invalidate } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
+import BulkUserImport from "@/features/users/components/bulk-import/BulkUserImport"
 import type { UserData, DepartmentData } from "@/lib/types"
 
 const PAGE_SIZES = [10, 25, 50]
@@ -72,6 +73,7 @@ export default function DataUsersPage() {
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [createName, setCreateName] = useState("")
   const [createEmail, setCreateEmail] = useState("")
   const [createUserType, setCreateUserType] = useState("")
@@ -424,6 +426,23 @@ export default function DataUsersPage() {
               Exclude Students
             </label>
           </div>
+        </div>
+
+        {/* Bulk user import */}
+        <div className="border border-default rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowImport((s) => !s)}
+            className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+          >
+            <span>Importer: Users</span>
+            <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
+          </button>
+          {showImport && (
+            <div className="border-t border-default px-3 pb-3">
+              <BulkUserImport onImportComplete={() => invalidate("/api/admin/users")} />
+            </div>
+          )}
         </div>
 
       <div className="card bg-surface overflow-hidden">

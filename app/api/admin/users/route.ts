@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/route-guard'
 import { userRepository } from '@/lib/repositories/factory'
+import { bulkPreviewUsers, bulkUpsertUsers } from '@/features/users/users.service'
 
 export async function GET(
   _request: NextRequest
@@ -54,6 +55,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+
+    // Bulk preview mode
+    if (body.preview === true && Array.isArray(body.users)) {
+      const result = await bulkPreviewUsers(body.users)
+      return NextResponse.json(result)
+    }
+
+    // Bulk execute mode (upsert by email)
+    if (Array.isArray(body.users)) {
+      const result = await bulkUpsertUsers(body.users)
+      return NextResponse.json(result)
+    }
+
+    // Single user create (existing behavior)
     const { name, email, role, departmentId } = body
     if (!name || !email) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
