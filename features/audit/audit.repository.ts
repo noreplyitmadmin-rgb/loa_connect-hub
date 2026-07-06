@@ -11,7 +11,7 @@ export const auditLogRepository: IAuditLogRepository = {
     if (error) throw error
     return log as AuditLogData
   },
-  async list(limit = 100, offset = 0, filters) {
+  async list(limit = 100, offset = 0, filters, orderBy, orderDir) {
     let q = supabase.from("audit_logs").select("*", { count: "exact" })
 
     if (filters?.action) q = q.eq("action", filters.action)
@@ -19,8 +19,10 @@ export const auditLogRepository: IAuditLogRepository = {
     if (filters?.dateFrom) q = q.gte("createdAt", filters.dateFrom)
     if (filters?.dateTo) q = q.lte("createdAt", filters.dateTo)
 
+    const col = orderBy || "createdAt"
+    const dir: { ascending: boolean } = { ascending: orderDir === "asc" }
     const { data, error, count } = await q
-      .order("createdAt", { ascending: false })
+      .order(col, dir)
       .range(offset, offset + limit - 1)
 
     if (error) throw error

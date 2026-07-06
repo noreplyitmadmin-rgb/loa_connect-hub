@@ -45,10 +45,12 @@ export default function AuditTrailPage() {
   const [lockedEndpoint, setLockedEndpoint] = useState("")
 
   const [actionFilter, setActionFilter] = useState("")
+  const [actionsList, setActionsList] = useState<string[]>([])
   const [emailFilter, setEmailFilter] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [page, setPage] = useState(1)
+  const [orderDir, setOrderDir] = useState<"asc" | "desc">("desc")
   const pageSize = 25
 
   const [clearConfirm, setClearConfirm] = useState(false)
@@ -65,6 +67,8 @@ export default function AuditTrailPage() {
       if (emailFilter) params.set("email", emailFilter)
       if (dateFrom) params.set("from", new Date(dateFrom).toISOString())
       if (dateTo) params.set("to", new Date(dateTo + "T23:59:59").toISOString())
+      params.set("orderBy", "createdAt")
+      params.set("orderDir", orderDir)
 
       const res = await fetch(`/api/admin/audit-logs?${params}`)
       if (res.status === 403) { setLockedEndpoint(`/api/admin/audit-logs?${params}`); return }
@@ -76,9 +80,21 @@ export default function AuditTrailPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, actionFilter, emailFilter, dateFrom, dateTo])
+  }, [page, actionFilter, emailFilter, dateFrom, dateTo, orderDir])
 
   useEffect(() => { Promise.resolve().then(() => fetchLogs()) }, [fetchLogs])
+
+  useEffect(() => {
+    fetch("/api/admin/audit-logs?getActions=true")
+      .then((r) => r.json())
+      .then((d) => setActionsList(d.actions ?? []))
+      .catch(() => {})
+  }, [])
+
+  const toggleSort = () => {
+    setOrderDir((d) => (d === "desc" ? "asc" : "desc"))
+    setPage(1)
+  }
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0
 
@@ -89,6 +105,8 @@ export default function AuditTrailPage() {
     if (emailFilter) params.set("email", emailFilter)
     if (dateFrom) params.set("from", new Date(dateFrom).toISOString())
     if (dateTo) params.set("to", new Date(dateTo + "T23:59:59").toISOString())
+    params.set("orderBy", "createdAt")
+    params.set("orderDir", orderDir)
     window.open(`/api/admin/audit-logs?${params}`, "_blank")
   }
 
@@ -153,13 +171,9 @@ export default function AuditTrailPage() {
             className="input text-xs h-9 min-w-[130px]"
           >
             <option value="">All Actions</option>
-            <option value="LOGIN">LOGIN</option>
-            <option value="DISABLE_USER">DISABLE USER</option>
-            <option value="ENABLE_USER">ENABLE USER</option>
-            <option value="CREATE_USER">CREATE USER</option>
-            <option value="PASSWORD_RESET">PASSWORD RESET</option>
-            <option value="EMAIL_SENT">EMAIL SENT</option>
-            <option value="EMAIL_FAILED">EMAIL FAILED</option>
+            {actionsList.map((a) => (
+              <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
+            ))}
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -213,7 +227,9 @@ export default function AuditTrailPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Timestamp</th>
+                  <th className="cursor-pointer select-none hover:text-primary transition-colors" onClick={toggleSort}>
+                    Timestamp {orderDir === "desc" ? "\u25BC" : "\u25B2"}
+                  </th>
                   <th>Action</th>
                   <th>User</th>
                   <th>Details</th>

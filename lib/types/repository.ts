@@ -252,7 +252,7 @@ export interface AuditLogData {
 
 export interface IAuditLogRepository {
   create(data: { userId?: string | null; email?: string | null; action: string; details?: string | null }): Promise<AuditLogData>
-  list(limit?: number, offset?: number, filters?: { action?: string; email?: string; dateFrom?: string; dateTo?: string }): Promise<{ logs: AuditLogData[]; total: number }>
+  list(limit?: number, offset?: number, filters?: { action?: string; email?: string; dateFrom?: string; dateTo?: string }, orderBy?: string, orderDir?: "asc" | "desc"): Promise<{ logs: AuditLogData[]; total: number }>
   clearAll(): Promise<void>
   getDistinctActions(): Promise<string[]>
 }
