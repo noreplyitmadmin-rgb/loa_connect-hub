@@ -6,6 +6,7 @@ import Skeleton from "@/components/ui/Skeleton"
 import ErrorState from "@/components/ui/ErrorState"
 import { getRemarkColor, CATEGORY_KEYS, CATEGORY_LABELS } from "@/lib/evaluation-utils"
 import { SentimentBadge } from "@/features/evaluations/components/evaluation/SentimentBadge"
+import { DownloadEvalPdfButton } from "@/features/evaluations/components/DownloadEvalPdfButton"
 
 interface EvaluationRow {
   evaluationId: string
@@ -83,6 +84,19 @@ export default function DeanGroupDetailPage() {
 
   return (
     <div className="w-full space-y-8 pb-12">
+
+      <div className="flex items-center justify-between">
+        <DownloadEvalPdfButton
+          facultyName={data.faculty.name}
+          facultyEmail={data.faculty.email}
+          subjectCode={data.subject.code}
+          subjectName={data.subject.name}
+          departmentName={data.department.name}
+          departmentCode={data.department.code}
+          summary={data.summary}
+          evaluations={data.evaluations}
+        />
+      </div>
 
       <div className="card p-5 space-y-3">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

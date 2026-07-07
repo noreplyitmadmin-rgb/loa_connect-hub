@@ -7,6 +7,7 @@ import Skeleton from "@/components/ui/Skeleton"
 import ErrorState from "@/components/ui/ErrorState"
 import { getRemarkColor, CATEGORY_KEYS, CATEGORY_LABELS } from "@/lib/evaluation-utils"
 import { SentimentBadge } from "@/features/evaluations/components/evaluation/SentimentBadge"
+import { DownloadEvalPdfButton } from "@/features/evaluations/components/DownloadEvalPdfButton"
 
 interface EvaluationRow {
   evaluationId: string
@@ -26,6 +27,8 @@ interface EvaluationRow {
 }
 
 interface FacultyEvalData {
+  faculty: { id: string; name: string; email: string }
+  department: { id: string; name: string; code: string }
   subject: { id: string; code: string; name: string }
   summary: {
     totalRespondents: number
@@ -81,13 +84,23 @@ export default function FacultySubjectDetailPage() {
 
   return (
     <div className="w-full space-y-8 pb-12">
-      <div>
+      <div className="flex items-center justify-between">
         <Link
           href={`/faculty/evaluations/results?semesterId=${encodeURIComponent(semesterId)}`}
           className="text-xs text-amber-600 hover:underline"
         >
           &larr; Back to Evaluations
         </Link>
+        <DownloadEvalPdfButton
+          facultyName={data.faculty.name}
+          facultyEmail={data.faculty.email}
+          subjectCode={data.subject.code}
+          subjectName={data.subject.name}
+          departmentName={data.department?.name}
+          departmentCode={data.department?.code}
+          summary={data.summary}
+          evaluations={data.evaluations}
+        />
       </div>
 
       <div className="card p-5 space-y-3">

@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { getRemarkColor } from "@/lib/evaluation-utils"
+import { downloadEvalDetailPdf } from "@/lib/evaluation-pdf"
 
 interface SubjectRow {
   facultySubjectId: string
@@ -121,6 +122,34 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
     if (avg >= 1.5) return "Unsatisfactory"
     return "Poor"
   }
+
+  const apiPrefix = basePath.startsWith("/dean") ? "/api/dean" : "/api/admin"
+
+  const handleConsolidatedPdf = useCallback(async (facultyId: string, facultyName: string, facultyEmail: string) => {
+    try {
+      const res = await fetch(
+        `${apiPrefix}/evaluation-results/departments/${encodeURIComponent(departmentId)}/faculty/${encodeURIComponent(facultyId)}?semesterId=${encodeURIComponent(semesterId)}`,
+      )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }))
+        console.error(err.error)
+        return
+      }
+      const data = await res.json()
+      await downloadEvalDetailPdf({
+        facultyName: data.faculty.name,
+        facultyEmail: data.faculty.email,
+        subjectCode: data.subject.code,
+        subjectName: "Consolidated",
+        departmentName: data.department.name,
+        departmentCode: data.department.code,
+        summary: data.summary,
+        evaluations: data.evaluations,
+      })
+    } catch (e) {
+      console.error("Consolidated PDF error:", e)
+    }
+  }, [apiPrefix, departmentId, semesterId])
 
   const tabs: { key: ViewTab; label: string }[] = [
     { key: "by_subject", label: "By Subject & Section" },
@@ -259,16 +288,18 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
 
             return (
               <div key={group.facultyId} className="card p-4 space-y-2">
-                <button
-                  type="button"
+                <div
                   onClick={() => setExpandedFaculty(isExpanded ? null : group.facultyId)}
-                  className="w-full flex items-center justify-between text-left"
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedFaculty(isExpanded ? null : group.facultyId) } }}
+                  role="button"
+                  tabIndex={0}
+                  className="w-full flex items-center justify-between text-left cursor-pointer"
                 >
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-primary">{group.facultyName}</span>
                     <span className="text-[10px] text-tertiary">{group.facultyEmail}</span>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="text-right">
                       <span className="text-lg font-bold">{formatScore(facultyAvg)}</span>
                       {facultyRemark && (
@@ -281,9 +312,22 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                       <div>{group.subjects.length} subject{group.subjects.length !== 1 ? "s" : ""}</div>
                       <div>{totalResp} response{totalResp !== 1 ? "s" : ""}</div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleConsolidatedPdf(group.facultyId, group.facultyName, group.facultyEmail)
+                      }}
+                      className="p-1.5 rounded-md text-tertiary hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title="Download consolidated PDF"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </button>
                     <span className="text-tertiary text-xs">{isExpanded ? "\u25B2" : "\u25BC"}</span>
                   </div>
-                </button>
+                </div>
 
                 {isExpanded && (
                   <div className="border-t border-default pt-3">
