@@ -179,34 +179,33 @@
 
   /* ── Background overrides ── */
   .bg-white,
-  .bg-slate-50,
-  .bg-slate-100,
+  .bg-slate-50 { background-color: var(--color-surface); }
+  .bg-slate-100 { background-color: var(--color-surface-secondary); }
   .bg-gold-50,
-  .bg-amber-50,
-  .bg-emerald-50,
-  .bg-red-50,
-  .bg-blue-50,
-  .bg-green-50 { background-color: var(--color-surface); }
+  .bg-amber-50 { background-color: #3d2e0d; }
+  .bg-emerald-50 { background-color: #0d3d2e; }
+  .bg-red-50 { background-color: #3d0d0d; }
+  .bg-blue-50 { background-color: #0d1e3d; }
+  .bg-green-50 { background-color: #0d2e1e; }
 
   .bg-white\/80,
   .bg-slate-50\/80 { background-color: color-mix(in srgb, var(--color-surface) 80%, transparent); }
   .bg-slate-50\/70 { background-color: color-mix(in srgb, var(--color-surface) 70%, transparent); }
   .bg-slate-50\/60,
-  .bg-slate-50\/50,
+  .bg-slate-50\/50 { background-color: color-mix(in srgb, var(--color-surface) 60%, transparent); }
   .bg-gold-50\/60,
-  .bg-amber-50\/60,
-  .bg-emerald-50\/60,
-  .bg-rose-50\/60 { background-color: color-mix(in srgb, var(--color-surface) 60%, transparent); }
-  .bg-slate-50\/50,
-  .bg-gold-50\/50 { background-color: color-mix(in srgb, var(--color-surface) 50%, transparent); }
-  .bg-slate-50\/30,
-  .bg-gold-50\/80,
-  .bg-gold-50\/70 { background-color: color-mix(in srgb, var(--color-surface) 70%, transparent); }
+  .bg-amber-50\/60 { background-color: color-mix(in srgb, #3d2e0d 60%, transparent); }
+  .bg-emerald-50\/60 { background-color: color-mix(in srgb, #0d3d2e 60%, transparent); }
+  .bg-rose-50\/60 { background-color: color-mix(in srgb, #3d0d1e 60%, transparent); }
+  .bg-slate-50\/50 { background-color: color-mix(in srgb, var(--color-surface) 50%, transparent); }
+  .bg-gold-50\/50 { background-color: color-mix(in srgb, #3d2e0d 50%, transparent); }
   .bg-slate-50\/30 { background-color: color-mix(in srgb, var(--color-surface) 30%, transparent); }
+  .bg-gold-50\/80,
+  .bg-gold-50\/70 { background-color: color-mix(in srgb, #3d2e0d 70%, transparent); }
+  .bg-amber-100 { background-color: #4a3814; }
   .bg-slate-100\/70,
-  .bg-amber-100,
-  .bg-emerald-100,
-  .bg-red-100 { background-color: color-mix(in srgb, var(--color-surface) 60%, transparent); }
+  .bg-emerald-100 { background-color: #144a38; }
+  .bg-red-100 { background-color: #4a1414; }
   .bg-slate-200 { background-color: var(--color-border); }
   .bg-slate-300 { background-color: var(--color-border-strong); }
   .bg-slate-400 { background-color: var(--color-border-strong); }
