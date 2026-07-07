@@ -1,5 +1,5 @@
 import type { RubricKey } from "./evaluation-utils"
-import { CATEGORY_LABELS } from "./evaluation-utils"
+import { CATEGORY_LABELS, getRemark } from "./evaluation-utils"
 
 const CATEGORY_DISPLAY: Record<string, string> = {
   professionalManner: "Professional Manner",
@@ -10,6 +10,19 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   experientialLearning: "Experiential Learning Provided to Students",
   respectUniqueness: "Respect the Uniqueness of the Students",
   assessmentAndFeedback: "Assessment and Feedback",
+}
+
+interface SubjectSummaryRow {
+  facultyName: string
+  facultyEmail: string
+  subjectCode: string
+  subjectName: string
+  totalRespondents: number
+  avgRating: number | null
+  remarks: string | null
+  highestRubrics: { key: string; label: string; score: number }[]
+  lowestRubrics: { key: string; label: string; score: number }[]
+  sentimentScore: number | null
 }
 
 interface EvalRow {
@@ -46,15 +59,6 @@ interface PdfData {
   evaluations: EvalRow[]
 }
 
-function getRemark(val: number | null): string | null {
-  if (val === null) return null
-  if (val >= 4.5) return "Outstanding"
-  if (val >= 3.5) return "Very Satisfactory"
-  if (val >= 2.5) return "Satisfactory"
-  if (val >= 1.5) return "Unsatisfactory"
-  return "Poor"
-}
-
 function slug(text: string): string {
   return text
     .toLowerCase()
@@ -62,18 +66,10 @@ function slug(text: string): string {
     .replace(/^_|_$/g, "")
 }
 
-export async function downloadEvalDetailPdf(data: PdfData) {
-  const [jsPDF, autoTable] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ])
-  const { default: JsPDF } = jsPDF
-  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
-
+async function addPdfHeader(doc: any) {
   const pageW = doc.internal.pageSize.getWidth()
   let y = 12
 
-  // ── Logo ──
   try {
     const logoResp = await fetch("/logo-blk.png")
     const logoBlob = await logoResp.blob()
@@ -89,16 +85,28 @@ export async function downloadEvalDetailPdf(data: PdfData) {
     y += 4
   }
 
-  // ── Address ──
   doc.setFontSize(7)
   doc.setTextColor(80, 80, 80)
   doc.text("Main Bldg. Km. 30 National Road, Tunasan, Muntinlupa City", pageW / 2, y, { align: "center" })
   y += 5
 
-  // ── Divider ──
   doc.setDrawColor(180, 180, 180)
   doc.line(14, y, pageW - 14, y)
   y += 6
+
+  return { doc, y, pageW }
+}
+
+export async function downloadEvalDetailPdf(data: PdfData) {
+  const [jsPDF, autoTable] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ])
+  const { default: JsPDF } = jsPDF
+  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
+
+  let y = (await addPdfHeader(doc)).y
+  const pageW = doc.internal.pageSize.getWidth()
 
   // ── Title ──
   doc.setFontSize(11)
@@ -113,7 +121,7 @@ export async function downloadEvalDetailPdf(data: PdfData) {
   const deptLine = data.departmentName
     ? `${data.departmentName}${data.departmentCode ? ` (${data.departmentCode})` : ""}`
     : null
-  const semLabel = data.semesterLabel ?? `Semester`
+  const semLabel = data.semesterLabel ?? "Semester"
   const infoLines = [
     `Faculty: ${data.facultyName}`,
     data.facultyEmail ? `Email: ${data.facultyEmail}` : null,
@@ -240,5 +248,110 @@ export async function downloadEvalDetailPdf(data: PdfData) {
 
   // ── Save ──
   const filename = `${slug(data.facultyName)}_${data.subjectCode}_${new Date().toISOString().slice(0, 10)}.pdf`
+  doc.save(filename)
+}
+
+export async function downloadDeptPdf(data: {
+  departmentName: string
+  departmentCode: string
+  semesterLabel?: string
+  subjects: SubjectSummaryRow[]
+  mode: "per_subject" | "per_faculty"
+}) {
+  const [jsPDF, autoTable] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ])
+  const { default: JsPDF } = jsPDF
+  const doc = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
+
+  let y = (await addPdfHeader(doc)).y
+  const pageW = doc.internal.pageSize.getWidth()
+
+  // ── Title ──
+  doc.setFontSize(11)
+  doc.setTextColor(0, 0, 0)
+  doc.setFont("helvetica", "bold")
+  doc.text("DEPARTMENT EVALUATION REPORT", pageW / 2, y, { align: "center" })
+  y += 8
+
+  // ── Info ──
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "normal")
+  const semLabel = data.semesterLabel ?? "Semester"
+  const infoLines = [
+    `Department: ${data.departmentName} (${data.departmentCode})`,
+    `Semester: ${semLabel}`,
+    `Date Generated: ${new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}`,
+  ]
+  for (const line of infoLines) {
+    doc.text(line, 14, y)
+    y += 4.5
+  }
+  y += 4
+
+  if (data.mode === "per_subject") {
+    // ── Per Subject Table ──
+    const fBody = data.subjects.map((s, i) => [
+      String(i + 1),
+      s.facultyName,
+      s.subjectCode,
+      s.avgRating?.toFixed(2) ?? "\u2014",
+      s.remarks ?? "\u2014",
+      String(s.totalRespondents),
+      s.sentimentScore !== null ? s.sentimentScore.toFixed(4) : "\u2014",
+    ])
+
+    autoTable.default(doc, {
+      theme: "grid",
+      head: [["#", "Faculty", "Subject", "Rating", "Remark", "Resp.", "Sentiment"]],
+      body: fBody,
+      startY: y,
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: [59, 130, 246], fontStyle: "bold" },
+      margin: { left: 14, right: 14 },
+    })
+  } else {
+    // ── Per Faculty (Consolidated) ──
+    const facMap = new Map<string, { name: string; email: string; subjects: SubjectSummaryRow[] }>()
+    for (const s of data.subjects) {
+      if (!facMap.has(s.facultyName)) {
+        facMap.set(s.facultyName, { name: s.facultyName, email: s.facultyEmail, subjects: [] })
+      }
+      facMap.get(s.facultyName)!.subjects.push(s)
+    }
+    const facGroups = Array.from(facMap.values())
+
+    const fBody = facGroups.map((g, i) => {
+      const ratings = g.subjects.filter((s) => s.avgRating !== null).map((s) => s.avgRating as number)
+      const avg = ratings.length > 0 ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length * 100) / 100 : null
+      const totalResp = g.subjects.reduce((sum, s) => sum + s.totalRespondents, 0)
+      const allSentiments = g.subjects.filter((s) => s.sentimentScore !== null).map((s) => s.sentimentScore as number)
+      const avgSentiment = allSentiments.length > 0
+        ? Math.round(allSentiments.reduce((a, b) => a + b, 0) / allSentiments.length * 100) / 100
+        : null
+      return [
+        String(i + 1),
+        g.name,
+        String(g.subjects.length),
+        avg?.toFixed(2) ?? "\u2014",
+        getRemark(avg) ?? "\u2014",
+        String(totalResp),
+        avgSentiment !== null ? avgSentiment.toFixed(4) : "\u2014",
+      ]
+    })
+
+    autoTable.default(doc, {
+      theme: "grid",
+      head: [["#", "Faculty", "Subjects", "Avg Rating", "Remark", "Total Resp.", "Sentiment"]],
+      body: fBody,
+      startY: y,
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: [59, 130, 246], fontStyle: "bold" },
+      margin: { left: 14, right: 14 },
+    })
+  }
+
+  const filename = `${slug(data.departmentName)}_dept_report_${new Date().toISOString().slice(0, 10)}.pdf`
   doc.save(filename)
 }

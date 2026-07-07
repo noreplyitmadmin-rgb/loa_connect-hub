@@ -318,7 +318,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                         e.stopPropagation()
                         handleConsolidatedPdf(group.facultyId, group.facultyName, group.facultyEmail)
                       }}
-                      className="p-1.5 rounded-md text-tertiary hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
                       title="Download consolidated PDF"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
