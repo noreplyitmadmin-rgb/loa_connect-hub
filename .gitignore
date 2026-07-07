@@ -41,6 +41,9 @@ tsc-output.txt
 # vercel
 .vercel
 
+# build artifact
+/public/version.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

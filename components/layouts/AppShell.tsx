@@ -6,6 +6,7 @@ import NavigationStack, { AnimatedPage } from "./NavigationStack"
 import NavigationBar from "./NavigationBar"
 import { useSidebar } from "@/lib/contexts/sidebar"
 import { usePageTitle } from "@/lib/contexts/page-title"
+import { BuildVersion } from "@/components/ui/BuildVersion"
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -41,6 +42,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </AnimatedPage>
         </div>
       </NavigationStack>
+      <BuildVersion />
     </div>
   )
 }
