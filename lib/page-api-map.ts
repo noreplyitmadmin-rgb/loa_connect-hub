@@ -99,18 +99,6 @@ export const pageApiMap: Record<string, PageApiEntry> = {
       "/api/evaluation-periods/[id]/rubrics/items",
     ],
   },
-  "/admin/evaluations/reports": {
-    label: "Evaluation Reports",
-    apis: [],
-  },
-  "/admin/evaluations/reports/sentiment": {
-    label: "Sentiment Analysis",
-    apis: ["/api/evaluation-periods", "/api/evaluation-comments"],
-  },
-  "/admin/evaluations/reports/detail": {
-    label: "Evaluation Reports Detail",
-    apis: ["/api/dean/evaluation-results/details"],
-  },
   "/admin/reports/health": {
     label: "Health Report",
     apis: [],
