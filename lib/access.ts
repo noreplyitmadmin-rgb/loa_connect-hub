@@ -7,13 +7,13 @@ interface GroupAccessEntry {
 
 export const DEFAULT_CONFIG: Record<string, GroupAccessEntry> = {
   ADMIN: {
-    pages: ["/", "/admin", "/admin/data/maintenance", "/admin/data/users/deleted", "/admin/system/access-config", "/admin/system/user-permissions", "/admin/data/users", "/admin/data/academic-infrastructure", "/admin/reports", "/admin/reports/health", "/admin/reports/demand", "/admin/reports/responsiveness", "/admin/reports/backlog", "/admin/reports/coverage", "/admin/reports/distribution", "/admin/evaluations", "/admin/evaluations/results", "/admin/evaluations/rubrics", "/admin/evaluations/disabled", "/admin/system/audit-trail"],
+    pages: ["/", "/admin", "/admin/data/maintenance", "/admin/data/users/deleted", "/admin/system/access-config", "/admin/system/user-permissions", "/admin/data/users", "/admin/data/academic-infrastructure", "/admin/consultations", "/admin/consultations/reports/health", "/admin/consultations/reports/demand", "/admin/consultations/reports/backlog", "/admin/consultations/reports/coverage", "/admin/consultations/reports/distribution", "/admin/evaluations", "/admin/evaluations/results", "/admin/evaluations/rubrics", "/admin/evaluations/disabled", "/admin/system/audit-trail"],
   },
   DEAN: {
     pages: ["/", "/dean", "/dean/upload", "/dean/departments", "/dean/reports", "/dean/evaluations", "/dean/evaluations/results", "/dean/data/users", "/dean/data/academic-infrastructure", "/faculty/meetings", "/faculty/availability", "/faculty/reports", "/api/dean/evaluation-results", "/api/dean/evaluation-results/details", "/api/evaluation-periods"],
   },
   FACULTY: {
-    pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results", "/admin/reports/health"],
+    pages: ["/", "/faculty", "/faculty/meetings", "/faculty/availability", "/faculty/upload", "/faculty/evaluations", "/faculty/evaluations/results", "/admin/consultations/reports/health"],
   },
   STUDENT: {
     pages: ["/", "/student", "/student/book", "/student/meetings", "/student/history", "/student/evaluations", "/evaluate", "/api/semesters", "/api/users/primary", "/api/users/attendees"],

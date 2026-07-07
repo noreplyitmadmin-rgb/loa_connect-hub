@@ -99,31 +99,31 @@ export const pageApiMap: Record<string, PageApiEntry> = {
       "/api/evaluation-periods/[id]/rubrics/items",
     ],
   },
-  "/admin/reports/health": {
-    label: "Health Report",
+  "/admin/consultations": {
+    label: "All Consultations",
     apis: [],
   },
-  "/admin/reports/demand": {
+  "/admin/consultations/reports/health": {
+    label: "General Report",
+    apis: [],
+  },
+  "/admin/consultations/reports/demand": {
     label: "Demand Report",
     apis: [],
   },
-  "/admin/reports/responsiveness": {
-    label: "Responsiveness Report",
-    apis: [],
-  },
-  "/admin/reports/backlog": {
+  "/admin/consultations/reports/backlog": {
     label: "Backlog Report",
     apis: [],
   },
-  "/admin/reports/coverage": {
+  "/admin/consultations/reports/coverage": {
     label: "Coverage Report",
     apis: [],
   },
-  "/admin/reports/distribution": {
+  "/admin/consultations/reports/distribution": {
     label: "Distribution Report",
     apis: [],
   },
-  "/admin/reports": {
+  "/admin/consultations/reports": {
     label: "Reports",
     apis: [],
   },
@@ -206,10 +206,6 @@ export const pageApiMap: Record<string, PageApiEntry> = {
   },
   "/dean/reports/demand": {
     label: "Demand Report",
-    apis: [],
-  },
-  "/dean/reports/responsiveness": {
-    label: "Responsiveness Report",
     apis: [],
   },
   "/dean/reports/backlog": {

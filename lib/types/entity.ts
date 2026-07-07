@@ -28,6 +28,7 @@ export interface Appointment {
   id: string
   studentId: string
   facultyId: string
+  meetingType: string
   sessionGroupId: string | null
   date: string
   startTime: string

@@ -17,14 +17,23 @@ interface NavItem {
 }
 
 function getReportChildren(role: string | null): NavItem[] {
-  const base = role === "DEAN" ? "/dean" : "/admin"
+  if (role === "ADMIN") {
+    return [
+      { href: "/admin/consultations", label: "All Consultations", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+      { href: "/admin/consultations/reports/health", label: "General Report", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+      { href: "/admin/consultations/reports/backlog", label: "Backlog", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
+      { href: "/admin/consultations/reports/coverage", label: "Coverage", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
+      { href: "/admin/consultations/reports/demand", label: "Demand", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+      { href: "/admin/consultations/reports/distribution", label: "Distribution Report", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
+    ]
+  }
+  const base = "/dean"
   return [
     { href: `${base}/reports/health`, label: "General Report", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { href: `${base}/reports/backlog`, label: "Backlog", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
     { href: `${base}/reports/coverage`, label: "Coverage", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
     { href: `${base}/reports/demand`, label: "Demand", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
     { href: `${base}/reports/distribution`, label: "Distribution Report", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
-    { href: `${base}/reports/responsiveness`, label: "Responsiveness", icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
   ]
 }
 
@@ -70,7 +79,7 @@ function getSystemChildren(): NavItem[] {
   ]
 }
 
-const hiddenHrefs = new Set(['/admin/reports', '/admin/evaluations', '/dean/reports', '/admin/system'])
+const hiddenHrefs = new Set(['/admin/consultations/reports', '/admin/evaluations', '/dean/reports', '/admin/system'])
 const VALID_DASHBOARD_ROLES = ["ADMIN", "DEAN", "FACULTY", "STUDENT"] as const
 
 export default function Sidebar() {
@@ -181,6 +190,7 @@ export default function Sidebar() {
   const primaryRole = role ? getPrimaryRole(role) : null
   const reportChildren = useMemo(() => getReportChildren(primaryRole), [primaryRole])
   const reportHrefs = useMemo(() => new Set(reportChildren.map((c) => c.href!)), [reportChildren])
+  const reportsLabel = primaryRole === "ADMIN" ? "Consultations" : "Reports"
   const evaluationChildren = useMemo(() => getEvaluationChildren(primaryRole), [primaryRole])
   const evaluationHrefs = useMemo(() => new Set(evaluationChildren.map((c) => c.href!)), [evaluationChildren])
   const dataChildren = useMemo(() => getDataChildren(primaryRole), [primaryRole])
@@ -250,7 +260,7 @@ export default function Sidebar() {
     [ALL_NAV_ITEMS, allowedPages, reportHrefs, evaluationHrefs, dataHrefs, systemHrefs]
   )
 
-  const isInReports = pathname.startsWith("/admin/reports") || pathname.startsWith("/dean/reports") || pathname.startsWith("/faculty/reports")
+  const isInReports = pathname.startsWith("/admin/consultations") || pathname.startsWith("/dean/reports") || pathname.startsWith("/faculty/reports")
   const reportsVisible = reportChildren.some((c) => allowedPages && allowedPages.includes(c.href!))
   const reportsOpen = expandedGroups.has("reports") || isInReports
 
@@ -287,7 +297,7 @@ export default function Sidebar() {
       items.push({ href: "#system", label: "System", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z" })
     }
     if (reportsVisible) {
-      items.push({ href: "#reports", label: "Reports", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" })
+      items.push({ href: "#reports", label: reportsLabel, icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" })
     }
     if (evaluationsVisible) {
       if (primaryRole === "STUDENT") {
@@ -480,7 +490,7 @@ export default function Sidebar() {
             className="fixed bottom-16 inset-x-4 z-50 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl py-2"
           >
             <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-tertiary">
-              {mobilePopoverGroup === "#dashboard" ? "Dashboard" : mobilePopoverGroup === "#data" ? "Data Management" : mobilePopoverGroup === "#system" ? "System" : mobilePopoverGroup === "#reports" ? "Reports" : "Evaluations"}
+              {mobilePopoverGroup === "#dashboard" ? "Dashboard" : mobilePopoverGroup === "#data" ? "Data Management" : mobilePopoverGroup === "#system" ? "System" : mobilePopoverGroup === "#reports" ? reportsLabel : "Evaluations"}
             </p>
             {(mobilePopoverGroup === "#dashboard" ? visibleDashboardChildren : mobilePopoverGroup === "#data" ? dataChildren : mobilePopoverGroup === "#system" ? systemChildren : mobilePopoverGroup === "#reports" ? reportChildren : evaluationChildren)
               .filter((c) => {
@@ -806,7 +816,7 @@ export default function Sidebar() {
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span className="flex-1 text-left">Reports</span>
+                <span className="flex-1 text-left">{reportsLabel}</span>
                 <svg
                   className={`w-3.5 h-3.5 transition-transform duration-200 ${reportsOpen ? "rotate-180" : ""}`}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -849,7 +859,7 @@ export default function Sidebar() {
                   ? "bg-gold-600/10 text-gold-400 border border-gold-500/20"
                   : "text-slate-300 hover:bg-slate-800/50 hover:text-white border border-transparent"
               }`}
-              title="Reports"
+              title={reportsLabel}
             >
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -999,7 +1009,7 @@ export default function Sidebar() {
             className="fixed left-16 top-24 z-50 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl py-2 min-w-48"
           >
             <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-tertiary">
-              {popoverGroup === "dashboard" ? "Dashboard" : popoverGroup === "data" ? "Data Management" : popoverGroup === "system" ? "System" : popoverGroup === "reports" ? "Reports" : "Evaluations"}
+              {popoverGroup === "dashboard" ? "Dashboard" : popoverGroup === "data" ? "Data Management" : popoverGroup === "system" ? "System" : popoverGroup === "reports" ? reportsLabel : "Evaluations"}
             </p>
             {(popoverGroup === "dashboard" ? visibleDashboardChildren : popoverGroup === "data" ? dataChildren : popoverGroup === "system" ? systemChildren : popoverGroup === "reports" ? reportChildren : evaluationChildren)
               .filter((c) => {

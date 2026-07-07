@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { FacultyStatsData, DailyFrequencyData, WeeklyFrequencyData, FacultyResponseTime, ResponseTimeStats, ResponseTimeDistribution, BacklogEntry, BacklogAgingBucket, BacklogSummary, IReportsRepository, CoverageData, CoverageTrendEntry, WorkloadDistributionEntry } from "@/lib/types"
+import type { FacultyStatsData, DailyFrequencyData, WeeklyFrequencyData, FacultyResponseTime, ResponseTimeStats, ResponseTimeDistribution, BacklogEntry, BacklogAgingBucket, BacklogSummary, IReportsRepository, CoverageData, CoverageTrendEntry, WorkloadDistributionEntry, AdminConsultationRow } from "@/lib/types"
 import { userRepository } from "@/lib/repositories/factory"
 import type { DbRecord } from "@/lib/db/common"
 
@@ -1009,5 +1009,104 @@ export const reportsRepository: IReportsRepository = {
     }))
 
     return { entries, departmentTotal, departmentName }
+  },
+
+  async getAllAppointments(filters) {
+    let query = supabase
+      .from("appointments")
+      .select(`
+        id, studentId, facultyId, meetingType, date, startTime, endTime,
+        title, description, actionTaken, additionalRemarks, status, teamsLink,
+        student:users!appointments_studentId_fkey(id, name),
+        faculty:users!appointments_facultyId_fkey(id, name)
+      `)
+
+    if (filters?.departmentId) {
+      const facultyIds = (await userRepository.listByDepartment(filters.departmentId))
+        .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN") || u.role.includes("ADMIN"))
+        .map((u) => u.id)
+      if (facultyIds.length > 0) {
+        query = query.in("facultyId", facultyIds)
+      }
+    }
+
+    if (filters?.status) {
+      const statusMap: Record<string, string> = {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "cancelled": "CANCELLED",
+        "rejected": "REJECTED",
+      }
+      const dbStatus = statusMap[filters.status.toLowerCase()] || filters.status
+      query = query.eq("status", dbStatus)
+    }
+
+    if (filters?.upcoming) {
+      const today = new Date()
+      const sevenDaysLater = new Date(today)
+      sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+      const startStr = today.toISOString().slice(0, 10)
+      const endStr = sevenDaysLater.toISOString().slice(0, 10)
+      query = query.gte("date", startStr).lte("date", endStr)
+    }
+
+    const { data: appointments, error: apptError } = await query
+      .order("date", { ascending: false })
+      .order("startTime", { ascending: false })
+    if (apptError) throw apptError
+
+    const raw = (appointments || []) as DbRecord[]
+
+    const facultyIds = [...new Set(raw.map((a) => a.facultyId as string))]
+    const userIds = [...new Set(raw.map((a) => a.studentId as string).concat(facultyIds))]
+
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, name, departmentId")
+      .in("id", userIds)
+
+    const userMap = new Map((users || []).map((u) => [u.id, u]))
+    const { data: departments } = await supabase.from("departments").select("id, name")
+    const deptMap = new Map((departments || []).map((d) => [d.id, d.name]))
+
+    const results: AdminConsultationRow[] = raw.map((apt) => {
+      const facultyUser = userMap.get(apt.facultyId as string)
+      const studentUser = userMap.get(apt.studentId as string)
+      const deptId = facultyUser?.departmentId as string | undefined
+      return {
+        id: apt.id as string,
+        studentId: apt.studentId as string,
+        studentName: (apt.student as DbRecord)?.name as string || studentUser?.name as string || "Unknown",
+        facultyId: apt.facultyId as string,
+        facultyName: (apt.faculty as DbRecord)?.name as string || facultyUser?.name as string || "Unknown",
+        departmentId: deptId || "",
+        departmentName: deptId ? deptMap.get(deptId) || "Unknown" : "Unknown",
+        meetingType: apt.meetingType as string,
+        date: apt.date as string,
+        startTime: apt.startTime as string,
+        endTime: apt.endTime as string,
+        title: apt.title as string | null,
+        description: apt.description as string | null,
+        actionTaken: apt.actionTaken as string | null,
+        additionalRemarks: apt.additionalRemarks as string | null,
+        status: apt.status as string,
+        teamsLink: apt.teamsLink as string | null,
+      }
+    })
+
+    if (filters?.search) {
+      const q = filters.search.toLowerCase()
+      return results.filter(
+        (r) =>
+          r.studentName.toLowerCase().includes(q) ||
+          r.facultyName.toLowerCase().includes(q) ||
+          r.departmentName.toLowerCase().includes(q) ||
+          r.title?.toLowerCase().includes(q) ||
+          r.status.toLowerCase().includes(q)
+      )
+    }
+
+    return results
   },
 }

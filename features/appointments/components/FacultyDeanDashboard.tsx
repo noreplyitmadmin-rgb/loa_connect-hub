@@ -425,7 +425,7 @@ export default function FacultyDeanDashboard({
                 </div>
               </div>
               <Link
-                href="/admin/reports/health"
+                href={role?.includes("DEAN") ? "/dean/reports/health" : "/admin/consultations/reports/health"}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg bg-surface border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 hover:border-amber-300 transition-all duration-200 min-h-[44px] sm:min-h-0 dark:bg-amber-900/20 dark:border-amber-700/30 dark:text-amber-300 dark:hover:bg-amber-900/40 dark:hover:border-amber-600/50"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

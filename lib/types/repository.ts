@@ -107,7 +107,7 @@ export interface AppointmentData {
   studentId: string
   facultyId: string
   createdByEmail: string
-  meetingType: "CONSULTATION"
+  meetingType: "CONSULTATION" | "INTERNAL"
   sessionGroupId: string | null
   date: string
   startTime: string
@@ -130,7 +130,7 @@ export interface CreateAppointmentInput {
   studentId: string | null
   facultyId: string
   createdByEmail: string
-  meetingType?: "CONSULTATION"
+  meetingType?: "CONSULTATION" | "INTERNAL"
   sessionGroupId?: string | null
   date: string
   startTime: string
@@ -413,6 +413,26 @@ export interface DepartmentSummary {
   overdueCompletion: number
 }
 
+export interface AdminConsultationRow {
+  id: string
+  studentId: string
+  studentName: string
+  facultyId: string
+  facultyName: string
+  departmentId: string
+  departmentName: string
+  meetingType: string
+  date: string
+  startTime: string
+  endTime: string
+  title: string | null
+  description: string | null
+  actionTaken: string | null
+  additionalRemarks: string | null
+  status: string
+  teamsLink: string | null
+}
+
 export interface IReportsRepository {
   getDepartmentConsultationStats(
     departmentId: string,
@@ -486,6 +506,13 @@ export interface IReportsRepository {
     departmentId: string,
     filters?: { startDate?: string; endDate?: string; status?: string }
   ): Promise<WorkloadDistributionData>
+
+  getAllAppointments(filters?: {
+    departmentId?: string
+    status?: string
+    upcoming?: boolean
+    search?: string
+  }): Promise<AdminConsultationRow[]>
 }
 
 export interface CoverageData {

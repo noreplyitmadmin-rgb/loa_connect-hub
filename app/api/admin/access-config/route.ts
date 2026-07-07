@@ -78,11 +78,11 @@ function pageCategory(p: string): string {
 }
 
 function pageSection(p: string): string {
-  if (p === "/admin/reports" || p === "/admin/evaluations" || p === "/dean/reports") return "Hidden"
+  if (p === "/admin/consultations/reports" || p === "/admin/evaluations" || p === "/dean/reports") return "Hidden"
   if (p === "/" || p === "/403" || p === "/faq" || p === "/student/meetings" || p === "/student/history" || p === "/faculty/meetings" || p === "/faculty/availability" || p.startsWith("/admin/system/") || p === "/admin/access-config" || p === "/admin/audit-trail" || p === "/admin/user-permissions") return "System"
   if (p === "/admin" || p === "/dean" || p === "/faculty" || p === "/student") return "Dashboard"
   if (p.startsWith("/admin/data/") || p.startsWith("/dean/data/") || p === "/dean/departments" || p === "/admin/data/maintenance") return "Data"
-  if ((p.startsWith("/admin/reports") || p.startsWith("/dean/reports") || p.startsWith("/faculty/reports")) && p !== "/admin/reports" && p !== "/dean/reports") return "Reports"
+  if ((p.startsWith("/admin/consultations/reports") || p.startsWith("/admin/consultations") || p.startsWith("/dean/reports") || p.startsWith("/faculty/reports")) && p !== "/admin/consultations/reports" && p !== "/dean/reports") return "Reports"
   if (p.startsWith("/admin/evaluations") || p.startsWith("/dean/evaluations") || p.startsWith("/faculty/evaluations") || p.startsWith("/student/evaluations")) return "Evaluations"
   return ""
 }
