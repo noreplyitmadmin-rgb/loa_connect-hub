@@ -67,9 +67,20 @@ export async function proxy(request: NextRequest) {
   const access = await getUserAccess(userId, rawRole ?? "GUEST")
 
   // Most specific path match first (longest url wins)
+  function matchAccessUrl(pattern: string, p: string): boolean {
+    if (p === pattern || p.startsWith(pattern + "/")) return true
+    // Handle route parameter patterns like /api/appointments/[id]
+    if (pattern.includes("[")) {
+      const escaped = pattern.replace(/[.+?^${}()|\\]/g, "\\$&")
+      const regex = new RegExp("^" + escaped.replace(/\[.*?\]/g, "[^/]+") + "(/.*)?$")
+      if (regex.test(p)) return true
+    }
+    return false
+  }
+
   const matched = [...access]
     .sort((a, b) => b.url.length - a.url.length)
-    .find(a => pathname === a.url || pathname.startsWith(a.url + "/"))
+    .find(a => matchAccessUrl(a.url, pathname))
 
   if (matched) {
     if (matched.access === "granted") return NextResponse.next()
