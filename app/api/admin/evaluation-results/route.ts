@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
 import { supabase } from "@/lib/db"
-import { evaluationResultRepository } from "@/lib/repositories/factory"
-
-const CATEGORY_NAMES: Record<string, string> = {
-  "Professional Manner": "professionalManner",
-  "Communication with Students": "communicationWithStudent",
-  "Student Engagement": "studentEngagement",
-  "Learning Materials": "learningMaterials",
-  "Time Management": "timeManagement",
-  "Experiential Learning": "experientialLearning",
-  "Respect for Uniqueness": "respectUniqueness",
-  "Assessment and Feedback": "assessmentAndFeedback",
-}
-
-function getRemark(general: number | null): string | null {
-  if (general === null) return null
-  if (general >= 4.5) return "Outstanding"
-  if (general >= 3.5) return "Very Satisfactory"
-  if (general >= 2.5) return "Satisfactory"
-  if (general >= 1.5) return "Unsatisfactory"
-  return "Poor"
-}
+import {
+  computeCategoryAverages,
+  computeGeneralRating,
+  mapCategoryAveragesToColumns,
+  findHighestLowestRubrics,
+  computeSentimentScore,
+  getRemark,
+} from "@/lib/evaluation-utils"
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request)
@@ -29,162 +16,181 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const semesterId = searchParams.get("periodId")
-    const departmentId = searchParams.get("departmentId")
-    const sourceFilter = searchParams.get("source") // "all", "unenrolled", or undefined (default: normal only)
+    const semesterId = searchParams.get("semesterId")
     if (!semesterId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
-    let query = supabase
+    // Get all submitted evaluations for this period
+    const { data: evals, error: evErr } = await supabase
       .from("evaluations")
-      .select("id, evaluateeId, source, facultySubjectId")
+      .select("id, evaluateeId, facultySubjectId, submittedAt")
       .eq("semesterId", semesterId)
       .eq("status", "SUBMITTED")
-
-    if (sourceFilter === "unenrolled") {
-      query = query.eq("source", "unenrolled")
-    } else if (sourceFilter !== "all") {
-      query = query.is("source", null)
-    }
-
-    if (departmentId) {
-      const { data: deptUsers } = await supabase
-        .from("users")
-        .select("id")
-        .eq("departmentId", departmentId)
-      const ids = (deptUsers || []).map((u) => u.id)
-      if (ids.length === 0) return NextResponse.json({ results: [], facultyNames: {}, uniqueRespondents: 0 })
-      query = query.in("evaluateeId", ids)
-    }
-
-    const perSubject = searchParams.get("perSubject") === "1" || searchParams.get("perSubject") === "true"
-
-    const { data: evals, error: evErr } = await query
     if (evErr) throw evErr
+    if (!evals || evals.length === 0) return NextResponse.json({ departments: [] })
 
-    // Count unique respondents (distinct evaluatorIds)
-    let countQuery = supabase
-      .from("evaluations")
-      .select("evaluatorId")
-      .eq("semesterId", semesterId)
-      .eq("status", "SUBMITTED")
+    const evaluationIds = evals.map((e) => e.id)
+    const facultyIds = [...new Set(evals.map((e) => e.evaluateeId))]
 
-    if (sourceFilter === "unenrolled") {
-      countQuery = countQuery.eq("source", "unenrolled")
-    } else if (sourceFilter !== "all") {
-      countQuery = countQuery.is("source", null)
-    }
-
-    if (departmentId) {
-      const { data: deptUsers } = await supabase
-        .from("users")
-        .select("id")
-        .eq("departmentId", departmentId)
-      const ids = (deptUsers || []).map((u) => u.id)
-      countQuery = countQuery.in("evaluateeId", ids)
-    }
-
-    const { data: allEvals, error: countErr } = await countQuery
-    if (countErr) throw countErr
-    const uniqueRespondents = new Set((allEvals || []).map((e) => e.evaluatorId)).size
-
-    // support per-subject view: group by facultySubjectId when requested
-    const facultyEvalMap = new Map<string, string[]>()
-    const facultyUnenrolledMap = new Map<string, number>()
-    const subjectMap = new Map<string, { facultyId: string; subjectId?: string }>()
-
-    for (const ev of evals || []) {
-      const key = perSubject && ev.facultySubjectId ? ev.facultySubjectId : ev.evaluateeId
-      if (!facultyEvalMap.has(key)) facultyEvalMap.set(key, [])
-      facultyEvalMap.get(key)!.push(ev.id)
-      if (ev.source === "unenrolled") {
-        const facKey = perSubject && ev.facultySubjectId ? ev.facultySubjectId : ev.evaluateeId
-        facultyUnenrolledMap.set(facKey, (facultyUnenrolledMap.get(facKey) ?? 0) + 1)
-      }
-      if (perSubject && ev.facultySubjectId) {
-        subjectMap.set(ev.facultySubjectId, { facultyId: ev.evaluateeId, subjectId: ev.facultySubjectId })
-      }
-    }
-
-    const allKeys = [...facultyEvalMap.keys()]
-    if (allKeys.length === 0) return NextResponse.json({ results: [], facultyNames: {} })
-
-    // fetch faculty names for any faculty ids involved
-    const facultyIds = Array.from(new Set((perSubject ? [...subjectMap.values()].map((s) => s.facultyId) : allKeys)))
+    // Get faculty department info
     const { data: users, error: uErr } = await supabase
       .from("users")
-      .select("id, name")
+      .select("id, name, email, departmentId")
       .in("id", facultyIds)
     if (uErr) throw uErr
+    const userMap = new Map(users?.map((u) => [u.id, u]) ?? [])
 
-    const nameMap = new Map((users || []).map((u) => [u.id, u.name]))
-    const facultyNames: Record<string, string> = {}
+    // Get department names
+    const deptIds = [...new Set((users ?? []).map((u) => u.departmentId).filter(Boolean))]
+    const { data: deptRows, error: dErr } = await supabase
+      .from("departments")
+      .select("id, name, code")
+      .in("id", deptIds)
+    if (dErr) throw dErr
+    const deptMap = new Map(deptRows?.map((d) => [d.id, d]) ?? [])
 
-    const results: Record<string, unknown>[] = []
-    for (const key of allKeys) {
-      const evaluationIds = facultyEvalMap.get(key) || []
-      const facultyId = perSubject && subjectMap.has(key) ? subjectMap.get(key)!.facultyId : key
-      facultyNames[facultyId] = nameMap.get(facultyId) || facultyId
+    // Get ratings for all evaluations
+    const { data: ratings, error: rErr } = await supabase
+      .from("evaluation_ratings")
+      .select("evaluationId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
+      .in("evaluationId", evaluationIds)
+    if (rErr) throw rErr
 
-      const { data: ratings, error: rErr } = await supabase
-        .from("evaluation_ratings")
-        .select("evaluationId, itemId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
-        .in("evaluationId", evaluationIds)
-      if (rErr) throw rErr
+    // Get comments for all evaluations
+    const { data: comments, error: cErr } = await supabase
+      .from("evaluation_comments")
+      .select("evaluationId, sentimentScore")
+      .in("evaluationId", evaluationIds)
+    if (cErr) throw cErr
+    const commentsByEval = new Map<string, { sentimentScore: number | null }[]>()
+    for (const c of comments ?? []) {
+      if (!commentsByEval.has(c.evaluationId)) commentsByEval.set(c.evaluationId, [])
+      commentsByEval.get(c.evaluationId)!.push(c)
+    }
 
-      const catRatings: Record<string, number[]> = {}
-      for (const r of (ratings || []) as unknown as Array<{
+    // Group evaluations by faculty
+    const facultyEvalMap = new Map<string, string[]>()
+    for (const ev of evals) {
+      if (!facultyEvalMap.has(ev.evaluateeId)) facultyEvalMap.set(ev.evaluateeId, [])
+      facultyEvalMap.get(ev.evaluateeId)!.push(ev.id)
+    }
+
+    // Compute per-faculty results
+    const facultyResults: Record<string, {
+      generalRating: number | null
+      catColumns: Record<string, number | null>
+      respondentCount: number
+      sentimentScore: number | null
+      facultySubjectIds: string[]
+      remarks: string | null
+    }> = {}
+
+    for (const [facId, evalIds] of facultyEvalMap) {
+      const facRatings = (ratings ?? []).filter((r) => evalIds.includes(r.evaluationId as string)) as unknown as Array<{
         rating: number
         rubric_items: { categoryId: string; rubric_categories: { name: string } }
-      }>) {
-        const catName = r.rubric_items.rubric_categories.name
-        if (!catRatings[catName]) catRatings[catName] = []
-        catRatings[catName].push(r.rating)
-      }
+      }>
+      const catAverages = computeCategoryAverages(facRatings)
+      const general = computeGeneralRating(catAverages)
+      const catColumns = mapCategoryAveragesToColumns(catAverages)
 
-      const catAverages: Record<string, number> = {}
-      for (const [cat, vals] of Object.entries(catRatings)) {
-        catAverages[cat] = vals.reduce((a, b) => a + b, 0) / vals.length
-      }
+      const facComments = evalIds.flatMap((eid) => commentsByEval.get(eid) ?? [])
+      const sentiment = computeSentimentScore(facComments)
 
-      const general = Object.keys(catAverages).length > 0
-        ? Object.values(catAverages).reduce((a, b) => a + b, 0) / Object.keys(catAverages).length
-        : null
+      const facEvals = evals.filter((e) => e.evaluateeId === facId)
+      const fsIds = [...new Set(facEvals.map((e) => e.facultySubjectId).filter(Boolean))]
 
-      const row: Record<string, unknown> = {
-        id: `${semesterId}_${key}`,
-        semesterId,
-        facultyId: facultyId,
-        facultySubjectId: perSubject ? key : undefined,
-        departmentId: null,
-        totalRespondents: evaluationIds.length,
-        unenrolledCount: facultyUnenrolledMap.get(key) ?? 0,
-        generalRating: general !== null ? Math.round(general * 100) / 100 : null,
+      facultyResults[facId] = {
+        generalRating: general,
+        catColumns,
+        respondentCount: evalIds.length,
+        sentimentScore: sentiment,
+        facultySubjectIds: fsIds,
         remarks: getRemark(general),
-        professionalManner: null,
-        communicationWithStudent: null,
-        studentEngagement: null,
-        learningMaterials: null,
-        timeManagement: null,
-        experientialLearning: null,
-        respectUniqueness: null,
-        assessmentAndFeedback: null,
       }
-
-      for (const [catName, avg] of Object.entries(catAverages)) {
-        const col = CATEGORY_NAMES[catName]
-        if (col) row[col] = Math.round(avg * 100) / 100
-      }
-
-      results.push(row)
     }
 
-    const visibilityMap: Record<string, boolean> = {}
-    const vis = await evaluationResultRepository.getVisibilityMap(semesterId)
-    for (const r of results) {
-      visibilityMap[r.facultyId as string] = vis.get(r.facultyId as string) ?? false
+    // Aggregate by department
+    const deptAggs = new Map<string, {
+      departmentId: string
+      departmentName: string
+      departmentCode: string
+      facultyCount: number
+      totalRespondents: number
+      generalRatings: number[]
+      catSums: Record<string, number[]>
+      sentimentScores: number[]
+    }>()
+
+    for (const [facId, result] of Object.entries(facultyResults)) {
+      const user = userMap.get(facId)
+      const deptId = user?.departmentId ?? "__unknown__"
+      if (!deptAggs.has(deptId)) {
+        const dept = deptMap.get(deptId)
+        deptAggs.set(deptId, {
+          departmentId: deptId,
+          departmentName: dept?.name ?? "Unknown",
+          departmentCode: dept?.code ?? "",
+          facultyCount: 0,
+          totalRespondents: 0,
+          generalRatings: [],
+          catSums: {
+            professionalManner: [],
+            communicationWithStudent: [],
+            studentEngagement: [],
+            learningMaterials: [],
+            timeManagement: [],
+            experientialLearning: [],
+            respectUniqueness: [],
+            assessmentAndFeedback: [],
+          },
+          sentimentScores: [],
+        })
+      }
+      const agg = deptAggs.get(deptId)!
+      agg.facultyCount++
+      agg.totalRespondents += result.respondentCount
+      if (result.generalRating !== null) agg.generalRatings.push(result.generalRating)
+      for (const [key, val] of Object.entries(result.catColumns)) {
+        if (val !== null) agg.catSums[key]?.push(val)
+      }
+      if (result.sentimentScore !== null) agg.sentimentScores.push(result.sentimentScore)
     }
 
-    return NextResponse.json({ results, facultyNames, visibilityMap, uniqueRespondents })
+    const departments = Array.from(deptAggs.values())
+      .filter((d) => d.departmentId !== "__unknown__")
+      .map((agg) => {
+        const avgDeptRating = agg.generalRatings.length > 0
+          ? Math.round(agg.generalRatings.reduce((a, b) => a + b, 0) / agg.generalRatings.length * 100) / 100
+          : null
+
+        const deptCatAverages: Record<string, number | null> = {}
+        for (const key of Object.keys(agg.catSums)) {
+          const vals = agg.catSums[key]
+          deptCatAverages[key] = vals.length > 0
+            ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) / 100
+            : null
+        }
+
+        const rubrics = findHighestLowestRubrics(deptCatAverages)
+        const avgSentiment = agg.sentimentScores.length > 0
+          ? Math.round(agg.sentimentScores.reduce((a, b) => a + b, 0) / agg.sentimentScores.length * 100) / 100
+          : null
+
+        return {
+          departmentId: agg.departmentId,
+          departmentName: agg.departmentName,
+          departmentCode: agg.departmentCode,
+          facultyCount: agg.facultyCount,
+          totalRespondents: agg.totalRespondents,
+          avgRating: avgDeptRating,
+          remarks: getRemark(avgDeptRating),
+          highestRubrics: rubrics.highest,
+          lowestRubrics: rubrics.lowest,
+          sentimentScore: avgSentiment,
+        }
+      })
+
+    return NextResponse.json({ departments })
   } catch (e) {
     console.error("Admin evaluation results error:", e)
     return NextResponse.json({ error: "Failed to fetch evaluation results" }, { status: 500 })
