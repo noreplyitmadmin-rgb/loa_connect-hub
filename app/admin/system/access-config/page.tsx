@@ -1,12 +1,13 @@
 "use client"
 
-import { Suspense, useEffect, useState, useCallback, useRef } from "react"
+import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Skeleton from "@/components/ui/Skeleton"
 import SubmitButton from "@/components/ui/SubmitButton"
 import ErrorState from "@/components/ui/ErrorState"
 import type { PageApiEntry } from "@/lib/page-api-map"
+import { getDefaultPages } from "@/lib/default-access"
 
 interface GroupAccess {
   groupName: string
@@ -339,9 +340,15 @@ function UserPermissionsTab({ readOnly }: { readOnly?: boolean }) {
   const handleSelectUser = (user: UserRow) => { setSelectedUser(user); loadPermissions(user.id); setSaved(false) }
 
   const isSelectedUserAdmin = selectedUser ? prim(selectedUser.role ?? "") === "ADMIN" : false
+  const irrevocablePaths = useMemo(() => {
+    if (!selectedUser) return new Set<string>()
+    return new Set(getDefaultPages(prim(selectedUser.role ?? "")))
+  }, [selectedUser])
+
+  const isIrrevocable = (path: string) => irrevocablePaths.has(path) || (isSelectedUserAdmin && path.startsWith("/admin"))
 
   const togglePermission = (path: string) => {
-    if (isSelectedUserAdmin && path.startsWith("/admin")) return
+    if (isIrrevocable(path)) return
     setPermissions((prev) => {
       const existing = prev.find((p) => p.resource_path === path)
       if (!existing) {
@@ -369,8 +376,7 @@ function UserPermissionsTab({ readOnly }: { readOnly?: boolean }) {
   }
 
   const permState = (path: string): "granted" | "denied" | "inherit" => {
-    const isAdminUser = selectedUser ? prim(selectedUser.role ?? "") === "ADMIN" : false
-    if (isAdminUser && path.startsWith("/admin")) return "granted"
+    if (isIrrevocable(path)) return "granted"
     const perm = permissions.find((p) => p.resource_path === path)
     if (perm?.denies.includes("access")) return "denied"
     if (perm?.grants.includes("access")) return "granted"
@@ -490,6 +496,7 @@ function UserPermissionsTab({ readOnly }: { readOnly?: boolean }) {
               <p className="text-xs text-tertiary">
                 <strong>Priority:</strong> Toggling a path explicitly overrides the user&apos;s role-based access.
                 <strong> Inherit</strong> = use role config, <strong>Granted</strong> = force allow, <strong>Revoked</strong> = force deny.
+                Paths marked <span className="font-semibold text-amber-600">irrevocable</span> are always granted for this role and cannot be overridden.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-1 border-t border-default">
@@ -544,12 +551,12 @@ function UserPermissionsTab({ readOnly }: { readOnly?: boolean }) {
                         const rows = flattenTree(tree)
                         return rows.map((row) => {
                           const ps = permState(row.path)
-                          const isAdminLocked = isSelectedUserAdmin && row.path.startsWith("/admin")
+                          const rowIrrevocable = isIrrevocable(row.path)
                           const entry = pageApiMap?.[row.path]
                           const apis = entry?.apis ?? []
                           return (
                             <div key={row.path}>
-                              <div className="flex items-center gap-1.5 py-0.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                              <div className={`flex items-center gap-1.5 py-0.5 rounded ${rowIrrevocable ? "opacity-80" : ""}`}>
                                 {row.depth > 0 && (
                                   <span className="text-[10px] text-slate-300 dark:text-slate-600 font-mono shrink-0 whitespace-pre select-none">
                                     {row.connectors.map((c) => c ? "│   " : "    ").join("")}
@@ -557,38 +564,57 @@ function UserPermissionsTab({ readOnly }: { readOnly?: boolean }) {
                                   </span>
                                 )}
                                 <button
-                                  disabled={!selectedUser || isAdminLocked || readOnly}
+                                  disabled={!selectedUser || rowIrrevocable || readOnly}
                                   onClick={() => togglePermission(row.path)}
                                   className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold transition-colors ${
                                     ps === "granted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/40" :
                                     ps === "denied" ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/40" :
                                     "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
                                   }`}
-                                  title={isAdminLocked ? "Always granted for ADMIN role" : `Click to change (${ps})`}
+                                  title={rowIrrevocable ? "Always granted for this role \u2014 cannot be overridden" : `Click to change (${ps})`}
                                 >
                                   {ps.toUpperCase()}
                                 </button>
                                 <span className="text-[11px] font-medium text-primary flex-1 min-w-0 truncate ml-1">{entry?.label ?? row.path}</span>
+                                {rowIrrevocable && (
+                                  <span
+                                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 shrink-0"
+                                    title="This path is always granted for this role (irrevocable default) and cannot be overridden by user permissions."
+                                  >
+                                    irrevocable
+                                  </span>
+                                )}
                               </div>
                               {apis.length > 0 && (
                                 <div className="ml-9 space-y-0.5">
                                   {apis.map((apiPath) => {
                                     const aps = permState(apiPath)
-                                    const isApiLocked = isSelectedUserAdmin && apiPath.startsWith("/admin")
+                                    const apiIrrevocable = isIrrevocable(apiPath)
                                     return (
                                       <div key={apiPath} className="flex items-center gap-1.5 py-0.5">
                                         <button
-                                          disabled={!selectedUser || isApiLocked || readOnly}
+                                          disabled={!selectedUser || apiIrrevocable || readOnly}
                                           onClick={() => togglePermission(apiPath)}
                                           className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-px rounded-full text-[8px] font-bold transition-colors ${
                                             aps === "granted" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/40" :
                                             aps === "denied" ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/40" :
                                             "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
                                           }`}
+                                          title={apiIrrevocable ? "Always granted for this role \u2014 cannot be overridden" : `Click to change (${aps})`}
                                         >
                                           {aps.toUpperCase()}
                                         </button>
-                                        <span className="text-[10px] text-tertiary font-mono truncate">{apiPath}</span>
+                                        <span className={`text-[10px] font-mono truncate ${apiIrrevocable ? "text-amber-700 dark:text-amber-400" : "text-tertiary"}`}>
+                                          {apiPath}
+                                        </span>
+                                        {apiIrrevocable && (
+                                          <span
+                                            className="text-[8px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 shrink-0"
+                                            title="Always granted for this role (irrevocable default) \u2014 cannot be overridden."
+                                          >
+                                            irrevocable
+                                          </span>
+                                        )}
                                       </div>
                                     )
                                   })}
