@@ -164,10 +164,12 @@ export default function Sidebar() {
         }
         const today = new Date()
         today.setHours(0, 0, 0, 0)
-        const start = new Date(active.evalStartDate)
+        const [sy, sm, sd] = active.evalStartDate.split('-').map(Number)
+        const start = new Date(sy, sm - 1, sd)
         start.setHours(0, 0, 0, 0)
         if (active.evalEndDate) {
-          const end = new Date(active.evalEndDate)
+          const [ey, em, ed] = active.evalEndDate.split('-').map(Number)
+          const end = new Date(ey, em - 1, ed)
           end.setHours(23, 59, 59, 999)
           setEvalAvailable(today.getTime() >= start.getTime() && today.getTime() <= end.getTime())
         } else {

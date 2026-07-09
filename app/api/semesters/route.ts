@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { logAuditEvent } from "@/lib/services/audit"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     const semesters = await getSemesters({})
