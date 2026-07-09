@@ -24,6 +24,7 @@ interface Period {
   id: string
   title?: string
   name?: string
+  isActive?: boolean
 }
 
 type SortKey = "departmentName" | "avgRating" | "facultyCount" | "totalRespondents" | "sentimentScore"
@@ -44,7 +45,7 @@ export default function AdminEvaluationResultsPage() {
       .then((data) => {
         const list: Period[] = data.periods ?? data ?? []
         setPeriods(list)
-        const active = list.find((p) => p.title?.toLowerCase().includes("active") || p.name?.toLowerCase().includes("active"))
+        const active = list.find((p) => p.isActive)
         if (active) setSelectedPeriod(active.id)
       })
       .catch(() => {})
