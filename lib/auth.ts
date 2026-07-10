@@ -90,7 +90,7 @@ export async function auth() {
   try {
     const { data: dbUser, error } = await supabase
       .from("users")
-      .select("id, \"isDisabled\", role, \"tokenVersion\", \"deletedAt\"")
+      .select("id, \"isDisabled\", \"tokenVersion\", \"deletedAt\", userrole(roleName)")
       .eq("id", userId)
       .single()
 
@@ -102,12 +102,17 @@ export async function auth() {
       throw error
     }
 
+    const roleRaw = (dbUser as unknown as Record<string, unknown>).userrole
+    const role = Array.isArray(roleRaw)
+      ? (roleRaw as Array<{ roleName: string }>).map((r) => r.roleName).join("|")
+      : "GUEST"
+
     if (dbUser.isDisabled) {
       console.warn(`[auth] Session user ${userId} is disabled — returning null`)
       return null
     }
 
-    if (hasRole(dbUser.role, "GUEST")) {
+    if (hasRole(role, "GUEST")) {
       console.warn(`[auth] Session user ${userId} is GUEST — returning null`)
       return null
     }
@@ -120,8 +125,8 @@ export async function auth() {
 
     if (session?.user) {
       const su = session.user as unknown as Record<string, unknown>
-      if (su.role !== dbUser.role) {
-        su.role = dbUser.role
+      if (su.role !== role) {
+        su.role = role
       }
     }
   } catch (err) {
