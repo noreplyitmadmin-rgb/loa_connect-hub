@@ -15,6 +15,7 @@ import type {
   IRubricRepository,
   IEvaluationRepository,
   IEvaluationResultRepository,
+  IBugReportRepository,
 } from "@/lib/types"
 
 import { userRepository as supabaseUserRepo } from "@/features/users/users.repository"
@@ -33,6 +34,7 @@ import { studentEnrollmentRepository as supabaseStudentEnrollmentRepo } from "@/
 import { rubricRepository as supabaseRubricRepo } from "@/features/rubrics/rubrics.repository"
 import { evaluationRepository as supabaseEvalRepo } from "@/features/evaluations/evaluations.repository"
 import { evaluationResultRepository as supabaseEvalResultRepo } from "@/features/evaluation-results/evaluation-results.repository"
+import { bugReportRepository as supabaseBugReportRepo } from "@/features/bug-reports/bug-report.repository"
 
 export const userRepository: IUserRepository = supabaseUserRepo
 export const departmentRepository: IDepartmentRepository = supabaseDeptRepo
@@ -50,3 +52,4 @@ export const studentEnrollmentRepository: IStudentEnrollmentRepository = supabas
 export const rubricRepository: IRubricRepository = supabaseRubricRepo
 export const evaluationRepository: IEvaluationRepository = supabaseEvalRepo
 export const evaluationResultRepository: IEvaluationResultRepository = supabaseEvalResultRepo
+export const bugReportRepository: IBugReportRepository = supabaseBugReportRepo

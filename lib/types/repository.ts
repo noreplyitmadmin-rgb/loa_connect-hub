@@ -559,3 +559,21 @@ export interface WorkloadDistributionData {
   departmentTotal: number
   departmentName: string
 }
+
+// ── Bug Report ──────────────────────────────────────────
+
+export interface BugReportData {
+  id: string
+  userId: string
+  userEmail: string
+  url: string
+  description: string
+  status: "open" | "resolved"
+  createdAt: Date
+}
+
+export interface IBugReportRepository {
+  create(data: { userId: string; userEmail: string; url: string; description: string }): Promise<BugReportData>
+  list(limit?: number, offset?: number, filters?: { status?: string }): Promise<{ reports: BugReportData[]; total: number }>
+  updateStatus(id: string, status: "open" | "resolved"): Promise<BugReportData>
+}

@@ -1716,3 +1716,20 @@ CREATE INDEX IF NOT EXISTS idx_evaluation_results_semesterId_departmentId
 
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_email
   ON password_reset_tokens("email");
+
+-- =========================================================
+-- Migration 24: Bug Reports
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS bug_reports (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "userId" TEXT NOT NULL,
+  "userEmail" TEXT NOT NULL,
+  url TEXT NOT NULL,
+  description TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status);
+CREATE INDEX IF NOT EXISTS idx_bug_reports_createdAt ON bug_reports("createdAt" DESC);

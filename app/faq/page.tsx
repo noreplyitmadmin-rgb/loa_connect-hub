@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import ReportBugForm from "./report-bug-form"
 
 const faqs = [
   {
@@ -89,6 +90,10 @@ export default async function FaqPage() {
             </div>
           </details>
         ))}
+      </div>
+
+      <div className="border-t border-default pt-8">
+        <ReportBugForm />
       </div>
     </div>
   )
