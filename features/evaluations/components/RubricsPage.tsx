@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { useApiGet, invalidate } from "@/lib/api/client"
 import { IosSkeletonCard } from "@/components/ui/IosSkeleton"
 import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
@@ -30,55 +31,47 @@ interface Period {
 }
 
 export default function RubricsPage() {
-  const [periods, setPeriods] = useState<Period[]>([])
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("")
   const [categories, setCategories] = useState<RubricCategory[]>([])
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [lockedEndpoint, setLockedEndpoint] = useState("")
-  const [errorMessage, setErrorMessage] = useState("")
+
+  const { data: periodsData, error: periodsError, isLoading: periodsLoading } = useApiGet<{ periods: Period[] }>("/api/evaluation-periods")
+
+  const periods = useMemo(() => periodsData?.periods ?? [], [periodsData])
 
   useEffect(() => {
-    Promise.resolve().then(async () => {
-      try {
-        const res = await fetch("/api/evaluation-periods")
-        if (res.status === 403) { setLockedEndpoint("/api/evaluation-periods"); return }
-        if (!res.ok) { setErrorMessage("Failed to load periods"); return }
-        const data = await res.json()
-        const list: Period[] = data.periods || []
-        setPeriods(list)
-        const active = list.find((p: Period) => p.isActive)
-        if (active) setSelectedPeriodId(active.id)
-      } catch {
-        setErrorMessage("Failed to load periods")
-      } finally {
-        setLoading(false)
-      }
-    })
-  }, [])
+    if (periods.length > 0 && !selectedPeriodId) {
+      const active = periods.find((p: Period) => p.isActive)
+      if (active) Promise.resolve().then(() => setSelectedPeriodId(active.id))
+    }
+  }, [periods, selectedPeriodId])
 
   useEffect(() => {
-    if (!selectedPeriodId) return
-    Promise.resolve().then(async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(`/api/evaluation-periods/${selectedPeriodId}/rubric`)
-        if (res.status === 403) { setLockedEndpoint(`/api/evaluation-periods/${selectedPeriodId}/rubric`); return }
-        if (!res.ok) { setErrorMessage("Failed to load rubric"); return }
-        const data = await res.json()
-        setCategories(data.rubric || [])
-      } catch {
-        setErrorMessage("Failed to load rubric")
-      } finally {
-        setLoading(false)
-      }
-    })
-  }, [selectedPeriodId])
+    if (periodsError?.message?.includes("403")) Promise.resolve().then(() => setLockedEndpoint("/api/evaluation-periods"))
+  }, [periodsError])
+
+  const rubricUrl = selectedPeriodId ? `/api/evaluation-periods/${selectedPeriodId}/rubric` : null
+  const { data: rubricData, error: rubricError, isLoading: rubricLoading } = useApiGet<{ rubric: RubricCategory[] }>(rubricUrl)
+
+  useEffect(() => {
+    if (rubricData?.rubric) Promise.resolve().then(() => setCategories(rubricData.rubric))
+  }, [rubricData])
+
+  useEffect(() => {
+    if (rubricError?.message?.includes("403")) Promise.resolve().then(() => setLockedEndpoint(`/api/evaluation-periods/${selectedPeriodId}/rubric`))
+  }, [rubricError, selectedPeriodId])
+
+  const loading = periodsLoading || (!!rubricUrl && rubricLoading)
+
+  const errorMessage =
+    (periodsError && !periodsError.message.includes("403") ? periodsError.message : "") ||
+    (rubricError && !rubricError.message.includes("403") ? rubricError.message : "")
 
   const addItem = useCallback(async (categoryId: string) => {
     const text = prompt("Item text:")
-    if (!text) return
+    if (!text || !rubricUrl) return
     try {
       const res = await fetch(`/api/evaluation-periods/${selectedPeriodId}/rubrics/items`, {
         method: "POST",
@@ -92,15 +85,16 @@ export default function RubricsPage() {
             c.id === categoryId ? { ...c, items: [...c.items, data.item] } : c
           )
         )
+        invalidate(rubricUrl)
       }
     } catch {
       alert("Failed to add item")
     }
-  }, [selectedPeriodId])
+  }, [selectedPeriodId, rubricUrl])
 
   const updateItem = useCallback(async (itemId: string, categoryId: string, currentText: string) => {
     const text = prompt("Edit item text:", currentText)
-    if (!text || text === currentText) return
+    if (!text || text === currentText || !rubricUrl) return
     try {
       const res = await fetch(`/api/evaluation-periods/${selectedPeriodId}/rubrics/items/${itemId}`, {
         method: "PATCH",
@@ -116,14 +110,15 @@ export default function RubricsPage() {
               : c
           )
         )
+        invalidate(rubricUrl)
       }
     } catch {
       alert("Failed to update item")
     }
-  }, [selectedPeriodId])
+  }, [selectedPeriodId, rubricUrl])
 
   const deleteItem = useCallback(async (itemId: string, categoryId: string) => {
-    if (!confirm("Delete this item?")) return
+    if (!confirm("Delete this item?") || !rubricUrl) return
     try {
       const res = await fetch(`/api/evaluation-periods/${selectedPeriodId}/rubrics/items/${itemId}`, {
         method: "DELETE",
@@ -135,15 +130,17 @@ export default function RubricsPage() {
             c.id === categoryId ? { ...c, items: c.items.filter((i) => i.id !== itemId) } : c
           )
         )
+        invalidate(rubricUrl)
       }
     } catch {
       alert("Failed to delete item")
     }
-  }, [selectedPeriodId])
+  }, [selectedPeriodId, rubricUrl])
 
   // updateCategoryName and deleteCategory available for future use
 
   const saveAll = useCallback(async () => {
+    if (!rubricUrl) return
     setSaving(true)
     try {
       const res = await fetch(`/api/evaluation-periods/${selectedPeriodId}/rubric`, {
@@ -154,6 +151,7 @@ export default function RubricsPage() {
       const data = await res.json()
       if (data.rubric) {
         setCategories(data.rubric)
+        invalidate(rubricUrl)
         alert("Rubric saved")
       }
     } catch {
@@ -161,7 +159,7 @@ export default function RubricsPage() {
     } finally {
       setSaving(false)
     }
-  }, [selectedPeriodId, categories])
+  }, [selectedPeriodId, categories, rubricUrl])
 
   if (lockedEndpoint) {
     return (
@@ -193,7 +191,7 @@ export default function RubricsPage() {
 
       {errorMessage && (
         <div className="px-4">
-          <ErrorState message={errorMessage} onRetry={() => { setErrorMessage(""); setLoading(true); setLockedEndpoint(""); window.location.reload() }} />
+          <ErrorState message={errorMessage} onRetry={() => { setLockedEndpoint(""); invalidate("/api/evaluation-periods"); if (rubricUrl) invalidate(rubricUrl) }} />
         </div>
       )}
 
