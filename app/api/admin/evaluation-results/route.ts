@@ -90,41 +90,39 @@ export async function GET(request: NextRequest) {
       if (fs !== undefined) g.sentimentScores.push(fs)
     }
 
-    const departments = Array.from(deptGroups.values())
-      .filter((g) => g.departmentId !== "__unknown__")
-      .map((g) => {
-        const avgRating = g.generalRatings.length > 0
-          ? Math.round(g.generalRatings.reduce((a, b) => a + b, 0) / g.generalRatings.length * 100) / 100
+    const departments = Array.from(deptGroups.values()).map((g) => {
+      const avgRating = g.generalRatings.length > 0
+        ? Math.round(g.generalRatings.reduce((a, b) => a + b, 0) / g.generalRatings.length * 100) / 100
+        : null
+
+      const deptCatAverages: Record<string, number | null> = {}
+      for (const key of catKeys) {
+        const vals = g.catSums[key]
+        deptCatAverages[key] = vals.length > 0
+          ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) / 100
           : null
+      }
 
-        const deptCatAverages: Record<string, number | null> = {}
-        for (const key of catKeys) {
-          const vals = g.catSums[key]
-          deptCatAverages[key] = vals.length > 0
-            ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) / 100
-            : null
-        }
+      const rubrics = findHighestLowestRubrics(deptCatAverages)
+      const avgSentiment = g.sentimentScores.length > 0
+        ? Math.round(g.sentimentScores.reduce((a, b) => a + b, 0) / g.sentimentScores.length * 100) / 100
+        : null
 
-        const rubrics = findHighestLowestRubrics(deptCatAverages)
-        const avgSentiment = g.sentimentScores.length > 0
-          ? Math.round(g.sentimentScores.reduce((a, b) => a + b, 0) / g.sentimentScores.length * 100) / 100
-          : null
+      const dept = deptMap.get(g.departmentId)
 
-        const dept = deptMap.get(g.departmentId)
-
-        return {
-          departmentId: g.departmentId,
-          departmentName: dept?.name ?? "Unknown",
-          departmentCode: dept?.code ?? "",
-          facultyCount: g.facultyIds.size,
-          totalRespondents: g.totalRespondents,
-          avgRating,
-          remarks: getRemark(avgRating),
-          highestRubrics: rubrics.highest,
-          lowestRubrics: rubrics.lowest,
-          sentimentScore: avgSentiment,
-        }
-      })
+      return {
+        departmentId: g.departmentId,
+        departmentName: dept?.name ?? (g.departmentId === "__unknown__" ? "Unassigned" : "Unknown"),
+        departmentCode: dept?.code ?? "",
+        facultyCount: g.facultyIds.size,
+        totalRespondents: g.totalRespondents,
+        avgRating,
+        remarks: getRemark(avgRating),
+        highestRubrics: rubrics.highest,
+        lowestRubrics: rubrics.lowest,
+        sentimentScore: avgSentiment,
+      }
+    })
 
     return NextResponse.json({ departments })
   } catch (e) {

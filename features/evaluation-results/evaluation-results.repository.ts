@@ -75,6 +75,50 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     }
 
     const userDeptMap = new Map(users.map((u) => [u.id, u.departmentId]))
+
+    const facIdsWithNullDept = allFacultyIds.filter((id) => !userDeptMap.get(id))
+    if (facIdsWithNullDept.length > 0) {
+      const { data: fsRows } = await supabase
+        .from("faculty_subjects")
+        .select("faculty_id, section_id")
+        .in("faculty_id", facIdsWithNullDept)
+        .eq("semesterId", semesterId)
+
+      if (fsRows && fsRows.length > 0) {
+        const sectionIds = [...new Set(fsRows.map((r) => r.section_id).filter(Boolean))]
+        if (sectionIds.length > 0) {
+          const { data: sectionRows } = await supabase
+            .from("sections")
+            .select("id, departmentCourseId")
+            .in("id", sectionIds)
+
+          if (sectionRows && sectionRows.length > 0) {
+            const dcIds = [...new Set(sectionRows.map((r) => r.departmentCourseId).filter(Boolean))]
+            if (dcIds.length > 0) {
+              const { data: dcRows } = await supabase
+                .from("department_courses")
+                .select("id, departmentId")
+                .in("id", dcIds)
+
+              if (dcRows && dcRows.length > 0) {
+                const dcDeptMap = new Map(dcRows.map((r) => [r.id, r.departmentId]))
+                const sectionDeptMap = new Map(
+                  sectionRows.map((r) => [r.id, dcDeptMap.get(r.departmentCourseId)])
+                )
+
+                for (const fs of fsRows) {
+                  const deptId = sectionDeptMap.get(fs.section_id)
+                  if (deptId && !userDeptMap.get(fs.faculty_id)) {
+                    userDeptMap.set(fs.faculty_id, deptId)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     const existingMap = new Map(existingResults.map((r) => [r.facultyId, r.id]))
 
     const nameToColumn: Record<string, string> = {
