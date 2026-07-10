@@ -88,12 +88,11 @@ export default function BulkDepartmentsCoursesImport({ previewOnly, onImportComp
 
   const fetchReferenceData = useCallback(async () => {
     try {
-      const [deptRes, courseRes] = await Promise.all([
-        fetch("/api/admin/departments"),
-        fetch("/api/admin/department-courses"),
-      ])
-      if (deptRes.ok) { const d = await deptRes.json(); setDepartments((d || []).map((x: { id: string; code: string }) => ({ id: x.id, code: x.code }))) }
-      if (courseRes.ok) { const d = await courseRes.json(); setCourses((d || []).map((x: { id: string; departmentId: string; code: string }) => ({ id: x.id, departmentId: x.departmentId, code: x.code }))) }
+      const res = await fetch("/api/import/departments-courses/reference")
+      if (!res.ok) return
+      const d = await res.json()
+      setDepartments((d.departments || []).map((x: { id: string; code: string }) => ({ id: x.id, code: x.code })))
+      setCourses((d.departmentCourses || []).map((x: { id: string; departmentId: string; code: string }) => ({ id: x.id, departmentId: x.departmentId, code: x.code })))
     } catch { /* silent */ }
   }, [])
 

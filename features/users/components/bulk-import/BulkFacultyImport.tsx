@@ -87,18 +87,17 @@ export default function BulkFacultyImport({ departmentId, semesterId }: { depart
   const [existingFacultyEmails, setExistingFacultyEmails] = useState<string[]>([])
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/data/evaluation-mappings?type=subjects").then((r) => r.json()),
-      fetch("/api/data/evaluation-mappings?type=sections").then((r) => r.json()),
-      fetch("/api/admin/users").then((r) => r.json()),
-    ]).then(([subjectsRes, sectionsRes, usersRes]) => {
-      setExistingSubjects((subjectsRes.data || []).map((s: { code: string }) => ({ code: s.code })))
-      setExistingSections((sectionsRes.data || []).map((s: { name: string; program: string }) => ({ name: s.name, program: s.program })))
-      const faculties = (usersRes.users || []).filter(
-        (u: { role: string }) => u.role.includes("FACULTY") || u.role.includes("DEAN"),
-      )
-      setExistingFacultyEmails(faculties.map((f: { email: string }) => f.email.toLowerCase()))
-    }).catch(() => {})
+    fetch("/api/import/faculties/reference")
+      .then((r) => r.json())
+      .then((d) => {
+        setExistingSubjects((d.subjects || []).map((s: { code: string }) => ({ code: s.code })))
+        setExistingSections((d.sections || []).map((s: { name: string; program: string }) => ({ name: s.name, program: s.program })))
+        const faculties = (d.users || []).filter(
+          (u: { role: string }) => u.role && (u.role.includes("FACULTY") || u.role.includes("DEAN")),
+        )
+        setExistingFacultyEmails(faculties.map((f: { email: string }) => f.email.toLowerCase()))
+      })
+      .catch(() => {})
   }, [])
 
   const paginatedRows = previewRows

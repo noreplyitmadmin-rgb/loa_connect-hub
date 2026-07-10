@@ -89,14 +89,12 @@ export default function BulkSectionImport({ previewOnly, onImportComplete }: { p
 
   const fetchReferenceData = useCallback(async () => {
     try {
-      const [deptRes, courseRes, secRes] = await Promise.all([
-        fetch("/api/admin/departments"),
-        fetch("/api/admin/department-courses"),
-        fetch("/api/data/evaluation-mappings?type=sections"),
-      ])
-      if (deptRes.ok) { const d = await deptRes.json(); setDepartments((d || []).map((x: { id: string; code: string; name: string }) => ({ id: x.id, code: x.code, name: x.name }))) }
-      if (courseRes.ok) { const d = await courseRes.json(); setCourses((d || []).map((x: { id: string; departmentId: string; code: string; department: { code: string } }) => ({ id: x.id, departmentId: x.departmentId, code: x.code, department: x.department }))) }
-      if (secRes.ok) { const d = await secRes.json(); setExistingSections((d.data || []).map((x: { name: string; departmentCourseId: string; id: string }) => ({ name: x.name, departmentCourseId: x.departmentCourseId, id: x.id }))) }
+      const res = await fetch("/api/import/sections/reference")
+      if (!res.ok) return
+      const d = await res.json()
+      setDepartments((d.departments || []).map((x: { id: string; code: string; name: string }) => ({ id: x.id, code: x.code, name: x.name })))
+      setCourses((d.departmentCourses || []).map((x: { id: string; departmentId: string; code: string; department: { code: string } }) => ({ id: x.id, departmentId: x.departmentId, code: x.code, department: x.department })))
+      setExistingSections((d.sections || []).map((x: { name: string; departmentCourseId: string; id: string }) => ({ name: x.name, departmentCourseId: x.departmentCourseId, id: x.id })))
     } catch { /* silent */ }
   }, [])
 

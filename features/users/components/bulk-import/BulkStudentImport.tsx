@@ -97,27 +97,20 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
 
   const fetchReferenceData = useCallback(async () => {
     try {
-      const [subRes, secRes, usrRes, fsRes, dcRes] = await Promise.all([
-        fetch("/api/data/evaluation-mappings?type=subjects"),
-        fetch("/api/data/evaluation-mappings?type=sections"),
-        fetch("/api/admin/users"),
-        fetch("/api/data/evaluation-mappings?type=faculty-subject"),
-        fetch("/api/admin/department-courses"),
-      ])
-      if (subRes.ok) { const d = await subRes.json(); setExistingSubjects(d.data || []) }
-      if (secRes.ok) { const d = await secRes.json(); setExistingSections(d.data || []) }
-      if (usrRes.ok) {
-        const d = await usrRes.json()
-        const allUsers: { email: string; role: string; id: string }[] = d.users || []
-        setExistingUsers(allUsers.map((u) => ({ email: u.email.toLowerCase() })))
-        setExistingFacultyUsers(
-          allUsers
-            .filter((u) => u.role.includes("FACULTY") || u.role.includes("DEAN"))
-            .map((u) => ({ email: u.email.toLowerCase(), id: u.id })),
-        )
-      }
-      if (fsRes.ok) { const d = await fsRes.json(); setExistingFacultySubjects(d.data || []) }
-      if (dcRes.ok) { const d = await dcRes.json(); setExistingDCourses((d || []).map((c: { code: string; id: string }) => ({ code: c.code, id: c.id }))) }
+      const res = await fetch("/api/import/students/reference")
+      if (!res.ok) return
+      const d = await res.json()
+      setExistingSubjects(d.subjects || [])
+      setExistingSections(d.sections || [])
+      const allUsers: { email: string; role: string; id: string }[] = d.users || []
+      setExistingUsers(allUsers.map((u) => ({ email: u.email })))
+      setExistingFacultyUsers(
+        allUsers
+          .filter((u) => u.role && (u.role.includes("FACULTY") || u.role.includes("DEAN")))
+          .map((u) => ({ email: u.email, id: u.id })),
+      )
+      setExistingFacultySubjects(d.facultySubjects || [])
+      setExistingDCourses((d.departmentCourses || []).map((c: { code: string; id: string }) => ({ code: c.code, id: c.id })))
     } catch { /* silent */ }
   }, [])
 

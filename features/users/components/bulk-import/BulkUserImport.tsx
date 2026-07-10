@@ -106,26 +106,23 @@ export default function BulkUserImport({
 
   const fetchReferenceData = useCallback(async () => {
     try {
-      const [usersRes, coursesData] = await Promise.all([
-        fetch("/api/admin/users").then((r) => r.json()),
-        fetch("/api/admin/department-courses").then((r) => r.json()),
-      ])
-      if (usersRes.users) {
-        setExistingEmails(new Set((usersRes.users as { email: string }[]).map((u) => u.email.toLowerCase())))
+      const res = await fetch("/api/import/users/reference")
+      if (!res.ok) return
+      const d = await res.json()
+      if (d.users) {
+        setExistingEmails(new Set((d.users as { email: string }[]).map((u) => u.email.toLowerCase())))
       }
-      if (usersRes.departments) {
+      if (d.departments) {
         const map = new Map<string, string>()
-        for (const d of usersRes.departments as { code: string; id: string }[]) {
-          map.set(d.code.toUpperCase(), d.id)
+        for (const dept of d.departments as { code: string; id: string }[]) {
+          map.set(dept.code.toUpperCase(), dept.id)
         }
         setDeptMap(map)
       }
-      if (Array.isArray(coursesData)) {
-        setDeptCourses(coursesData as DeptCourse[])
+      if (Array.isArray(d.departmentCourses)) {
+        setDeptCourses(d.departmentCourses as DeptCourse[])
       }
-    } catch {
-      // silent
-    }
+    } catch { /* silent */ }
   }, [])
 
   useEffect(() => { Promise.resolve().then(() => fetchReferenceData()) }, [fetchReferenceData])
