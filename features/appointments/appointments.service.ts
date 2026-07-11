@@ -371,8 +371,8 @@ export async function completeAppointment(id: string, facultyId: string, actionT
   if (!appointment) throw new Error("Appointment not found")
   if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
   if (appointment.status !== "APPROVED") throw new Error("Appointment is not approved")
-  if (!actionTaken || actionTaken.trim().length < 100) {
-    throw new Error("Actions taken must be at least 100 characters")
+  if (!actionTaken || actionTaken.trim().length < 20) {
+    throw new Error("Actions taken must be at least 20 characters")
   }
   return appointmentRepository.update(id, { status: "COMPLETED", actionTaken })
 }

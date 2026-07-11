@@ -98,7 +98,7 @@ describe("completeAppointment", () => {
 
   it("throws if action taken is too short", async () => {
     mockAppointmentRepo.findById.mockResolvedValue(mockAppt({ status: "APPROVED" }))
-    await expect(completeAppointment("apt-1", "faculty-1", "Too short")).rejects.toThrow("Actions taken must be at least 100 characters")
+    await expect(completeAppointment("apt-1", "faculty-1", "Too short")).rejects.toThrow("Actions taken must be at least 20 characters")
   })
 
   it("throws if not approved", async () => {
