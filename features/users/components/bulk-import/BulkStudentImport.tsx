@@ -9,6 +9,7 @@ interface StudentCsvRow {
   subjectCode: string
   section: string
   facultyEmail: string
+  departmentCode: string
 }
 
 interface PreviewRow extends StudentCsvRow {
@@ -17,6 +18,8 @@ interface PreviewRow extends StudentCsvRow {
   isNewFaculty: boolean
   facultyNotAssigned: boolean
   isNewStudent: boolean
+  isInvalidDepartment: boolean
+  resolvedDepartmentId: string | null
 }
 
 interface ImportResult {
@@ -29,8 +32,8 @@ interface ImportResult {
   totalRows: number
 }
 
-const TEMPLATE_HEADERS = "name, email, subject code, section, faculty email"
-const TEMPLATE_SAMPLE = "Alice Student, alice.student@itmlyceumalabang.onmicrosoft.com, CS101, BSIT-32A3, juan.delacruz@lyceumalabang.edu.ph\nBob Martinez, bob.martinez@itmlyceumalabang.onmicrosoft.com, MATH201, BSCS-21B, maria.santos@lyceumalabang.edu.ph"
+const TEMPLATE_HEADERS = "name, email, subject code, section, faculty email, department code"
+const TEMPLATE_SAMPLE = "Alice Student, alice.student@itmlyceumalabang.onmicrosoft.com, CS101, BSIT-32A3, juan.delacruz@lyceumalabang.edu.ph, CCS\nBob Martinez, bob.martinez@itmlyceumalabang.onmicrosoft.com, MATH201, BSCS-21B, maria.santos@lyceumalabang.edu.ph, CCS"
 
 function downloadBlob(csv: string, filename: string) {
   const blob = new Blob([csv], { type: "text/csv" })
@@ -47,12 +50,12 @@ function parseClientCsv(text: string): { rows: StudentCsvRow[]; error?: string }
   if (lines.length < 2) return { rows: [], error: "CSV file is empty" }
 
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
-  const expected = ["name", "email", "subject code", "section", "faculty email"]
+  const expected = ["name", "email", "subject code", "section", "faculty email", "department code"]
 
-  if (headers.length < expected.length) {
+  if (headers.length < expected.length - 1) {
     return { rows: [], error: `Expected headers: ${expected.join(", ")}` }
   }
-  for (let i = 0; i < expected.length; i++) {
+  for (let i = 0; i < Math.min(headers.length, expected.length); i++) {
     if (headers[i] !== expected[i]) {
       return { rows: [], error: `Expected header "${expected[i]}" at column ${i + 1}, got "${headers[i]}"` }
     }
@@ -69,6 +72,7 @@ function parseClientCsv(text: string): { rows: StudentCsvRow[]; error?: string }
       subjectCode: cols[2],
       section: cols[3],
       facultyEmail: cols[4],
+      departmentCode: cols[5]?.toUpperCase().trim() || "",
     })
   }
   return { rows }
@@ -76,7 +80,7 @@ function parseClientCsv(text: string): { rows: StudentCsvRow[]; error?: string }
 
 const PREVIEW_PAGE_SIZE = 50
 
-export default function BulkStudentImport({ departmentId, semesterId, previewOnly }: { departmentId?: string | null; semesterId?: string | null; previewOnly?: boolean }) {
+export default function BulkStudentImport({ departmentId: _departmentId, semesterId, previewOnly }: { departmentId?: string | null; semesterId?: string | null; previewOnly?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [previewRows, setPreviewRows] = useState<PreviewRow[] | null>(null)
   const [previewPage, setPreviewPage] = useState(0)
@@ -94,6 +98,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
   const [existingFacultyUsers, setExistingFacultyUsers] = useState<{ email: string; id: string }[]>([])
   const [existingFacultySubjects, setExistingFacultySubjects] = useState<{ subject_id: string; section_id: string; faculty_id: string; id: string }[]>([])
   const [existingDCourses, setExistingDCourses] = useState<{ code: string; id: string }[]>([])
+  const [existingDepartments, setExistingDepartments] = useState<{ code: string; id: string }[]>([])
 
   const fetchReferenceData = useCallback(async () => {
     try {
@@ -111,6 +116,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
       )
       setExistingFacultySubjects(d.facultySubjects || [])
       setExistingDCourses((d.departmentCourses || []).map((c: { code: string; id: string }) => ({ code: c.code, id: c.id })))
+      setExistingDepartments((d.departments || []).map((c: { code: string; id: string }) => ({ code: c.code, id: c.id })))
     } catch { /* silent */ }
   }, [])
 
@@ -118,12 +124,12 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
 
   const blockedRows = useMemo(() => {
     if (!previewRows) return []
-    return previewRows.filter((r) => r.isNewSubject || r.isNewSection || r.isNewFaculty || r.facultyNotAssigned)
+    return previewRows.filter((r) => r.isNewSubject || r.isNewSection || r.isNewFaculty || r.facultyNotAssigned || r.isInvalidDepartment)
   }, [previewRows])
 
   const problemRows = useMemo(() => {
     if (!previewRows) return []
-    return previewRows.filter((r) => r.isNewSubject || r.isNewSection || r.isNewFaculty || r.facultyNotAssigned || r.isNewStudent)
+    return previewRows.filter((r) => r.isNewSubject || r.isNewSection || r.isNewFaculty || r.facultyNotAssigned || r.isNewStudent || r.isInvalidDepartment)
   }, [previewRows])
 
   const visibleRows = problemFilter ? problemRows : previewRows ?? []
@@ -141,6 +147,12 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
     return { section: section ?? null, isNewSection: !dCourse || !section }
   }, [existingDCourses, existingSections])
 
+  const resolveDepartment = useCallback((code: string) => {
+    if (!code) return { departmentId: null, isInvalid: true }
+    const dept = existingDepartments.find((d) => d.code === code.toUpperCase().trim())
+    return { departmentId: dept?.id ?? null, isInvalid: !dept }
+  }, [existingDepartments])
+
   const handlePreview = async () => {
     setPreviewError("")
     setError("")
@@ -156,6 +168,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
       const fe = r.facultyEmail.toLowerCase().trim()
       const isNewFaculty = !existingFacultyUsers.some((u) => u.email === fe)
       const isNewStudent = !existingUsers.some((u) => u.email === r.email.toLowerCase().trim())
+      const { departmentId: resolvedDepartmentId, isInvalid: isInvalidDepartment } = resolveDepartment(r.departmentCode)
       let facultyNotAssigned = false
       if (!isNewSubject && !isNewSection && !isNewFaculty) {
         const sub = existingSubjects.find((s) => s.code === r.subjectCode)
@@ -166,23 +179,26 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
           )
         }
       }
-      return { ...r, isNewSubject, isNewSection, isNewFaculty, facultyNotAssigned, isNewStudent }
+      return { ...r, isNewSubject, isNewSection, isNewFaculty, facultyNotAssigned, isNewStudent, isInvalidDepartment, resolvedDepartmentId }
     })
     setPreviewRows(withFlags)
     setPreviewPage(0)
   }
 
-  const handleFieldChange = (index: number, field: "name" | "subjectCode" | "section" | "facultyEmail", value: string) => {
+  const handleFieldChange = (index: number, field: "name" | "subjectCode" | "section" | "facultyEmail" | "departmentCode", value: string) => {
     if (!previewRows) return
     const next = [...previewRows]
     const updated = { ...next[index], [field]: value }
-    if (field === "subjectCode" || field === "section" || field === "facultyEmail") {
+    if (field === "subjectCode" || field === "section" || field === "facultyEmail" || field === "departmentCode") {
       const { section: sec, isNewSection } = resolveSection(updated.section)
       updated.isNewSubject = !existingSubjects.some((s) => s.code === updated.subjectCode)
       updated.isNewSection = isNewSection
       const fe = updated.facultyEmail.toLowerCase().trim()
       updated.isNewFaculty = !existingFacultyUsers.some((u) => u.email === fe)
       updated.isNewStudent = !existingUsers.some((u) => u.email === updated.email.toLowerCase().trim())
+      const dept = resolveDepartment(updated.departmentCode)
+      updated.isInvalidDepartment = dept.isInvalid
+      updated.resolvedDepartmentId = dept.departmentId
       updated.facultyNotAssigned = false
       if (!updated.isNewSubject && !updated.isNewSection && !updated.isNewFaculty) {
         const sub = existingSubjects.find((s) => s.code === updated.subjectCode)
@@ -201,7 +217,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
   const handleRemoveRow = (index: number) => {
     if (!previewRows) return
     const removed = previewRows[index]
-    setRemovedRows((prev) => [...prev, { row: removed.row, email: removed.email, name: removed.name, subjectCode: removed.subjectCode, section: removed.section, facultyEmail: removed.facultyEmail }])
+    setRemovedRows((prev) => [...prev, { row: removed.row, email: removed.email, name: removed.name, subjectCode: removed.subjectCode, section: removed.section, facultyEmail: removed.facultyEmail, departmentCode: removed.departmentCode }])
     const next = previewRows.filter((_, i) => i !== index)
     if (next.length === 0) {
       setRemovedRows([])
@@ -223,7 +239,6 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          departmentId,
           semesterId,
           rows: previewRows.map((r) => ({
             email: r.email,
@@ -231,6 +246,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
             subjectCode: r.subjectCode,
             section: r.section,
             facultyEmail: r.facultyEmail || undefined,
+            departmentId: r.resolvedDepartmentId || undefined,
           })),
         }),
       })
@@ -352,6 +368,7 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
                     <th>Subject Code</th>
                     <th>Section</th>
                     <th>Faculty Email</th>
+                    <th>Dept</th>
                     <th>Will Create</th>
                     <th className="w-12"></th>
                   </tr>
@@ -387,15 +404,23 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
                           />
                         </td>
                         <td>
+                          <input
+                            value={r.departmentCode}
+                            onChange={(e) => handleFieldChange(absIdx, "departmentCode", e.target.value.toUpperCase())}
+                            className={`w-16 bg-surface-dim/50 border border-transparent focus:border-gold-400 rounded-lg px-2 py-1.5 outline-none text-[13px] uppercase ${r.isInvalidDepartment ? "text-red-600" : ""}`}
+                          />
+                        </td>
+                        <td>
                           <div className="flex flex-wrap gap-1">
-                            {r.isNewSubject && <span className="badge-red text-[10px]">Subject not found</span>}
-                            {r.isNewSection && <span className="badge-red text-[10px]">Section not found</span>}
-                            {r.isNewFaculty && <span className="badge-red text-[10px]">Faculty not found</span>}
-                            {r.facultyNotAssigned && <span className="badge-red text-[10px]">Faculty Loading Mismatch</span>}
-                            {r.isNewStudent && !r.isNewSubject && !r.isNewSection && !r.isNewFaculty && !r.facultyNotAssigned && (
+                            {r.isInvalidDepartment && <span className="badge-red text-[10px]">Dept code</span>}
+                            {!r.isInvalidDepartment && r.isNewSubject && <span className="badge-red text-[10px]">Subject not found</span>}
+                            {!r.isInvalidDepartment && r.isNewSection && <span className="badge-red text-[10px]">Section not found</span>}
+                            {!r.isInvalidDepartment && r.isNewFaculty && <span className="badge-red text-[10px]">Faculty not found</span>}
+                            {!r.isInvalidDepartment && r.facultyNotAssigned && <span className="badge-red text-[10px]">Faculty Loading Mismatch</span>}
+                            {!r.isInvalidDepartment && r.isNewStudent && !r.isNewSubject && !r.isNewSection && !r.isNewFaculty && !r.facultyNotAssigned && (
                               <span className="badge-amber text-[10px]">New Student</span>
                             )}
-                            {!r.isNewSubject && !r.isNewSection && !r.isNewFaculty && !r.facultyNotAssigned && !r.isNewStudent && (
+                            {!r.isInvalidDepartment && !r.isNewSubject && !r.isNewSection && !r.isNewFaculty && !r.facultyNotAssigned && !r.isNewStudent && (
                               <span className="badge-emerald text-[10px]">Ready</span>
                             )}
                           </div>
@@ -483,8 +508,8 @@ export default function BulkStudentImport({ departmentId, semesterId, previewOnl
             <button
               type="button"
               onClick={() => {
-                const headers = ["name", "email", "subject code", "section", "faculty email"]
-                const csv = [headers.join(","), ...removedRows.map((r) => [r.name, r.email, r.subjectCode, r.section, r.facultyEmail].map((v) => `"${v}"`).join(","))].join("\n")
+                const headers = ["name", "email", "subject code", "section", "faculty email", "department code"]
+                const csv = [headers.join(","), ...removedRows.map((r) => [r.name, r.email, r.subjectCode, r.section, r.facultyEmail, r.departmentCode].map((v) => `"${v}"`).join(","))].join("\n")
                 downloadBlob(csv, "removed-rows.csv")
               }}
               className="flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border border-default bg-surface-hover hover:bg-surface-dim transition-colors"

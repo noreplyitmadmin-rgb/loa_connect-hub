@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { departmentId: bodyDeptId = null, semesterId: bodySemesterId = null } = body
     semesterId = bodySemesterId
-    const rawRows = body.rows as { email: string; name?: string; subjectCode: string; section: string; facultyEmail?: string }[] | undefined
+    const rawRows = body.rows as { email: string; name?: string; subjectCode: string; section: string; facultyEmail?: string; departmentId?: string }[] | undefined
     if (!rawRows || !Array.isArray(rawRows) || rawRows.length === 0) {
       return NextResponse.json({ error: "Rows array is required" }, { status: 400 })
     }
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         sectionName,
         sectionProgram: program,
         facultyEmail: r.facultyEmail?.toLowerCase().trim() || undefined,
+        departmentId: r.departmentId || undefined,
       }
     })
   } else {

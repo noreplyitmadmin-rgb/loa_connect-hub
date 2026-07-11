@@ -15,6 +15,7 @@ export interface StudentCsvRow {
   sectionName: string
   sectionProgram: string
   facultyEmail?: string
+  departmentId?: string | null
 }
 
 export interface StudentImportResult {
@@ -71,6 +72,7 @@ export function parseStudentCsv(text: string): {
     const sectionRaw = cols[3].trim()
     const { program, name: sectionName } = parseSectionIdentifier(sectionRaw)
     const facultyEmail = cols[4]?.toLowerCase().trim() || ""
+    const departmentCode = cols[5]?.toUpperCase().trim() || ""
 
     if (!displayName) { errors.push({ row: i + 1, message: "Name is required" }); continue }
     if (!email) { errors.push({ row: i + 1, message: "Email is required" }); continue }
@@ -80,8 +82,9 @@ export function parseStudentCsv(text: string): {
     if (!subjectCode) { errors.push({ row: i + 1, message: "Subject code is required" }); continue }
     if (!sectionName) { errors.push({ row: i + 1, message: "Section is required" }); continue }
     if (!facultyEmail) { errors.push({ row: i + 1, message: "Faculty email is required" }); continue }
+    if (!departmentCode) { errors.push({ row: i + 1, message: "Department code is required" }); continue }
 
-    rows.push({ email, name: displayName, subjectCode, sectionName, sectionProgram: program, facultyEmail })
+    rows.push({ email, name: displayName, subjectCode, sectionName, sectionProgram: program, facultyEmail, departmentId: undefined })
   }
 
   return { rows, errors }
@@ -105,12 +108,17 @@ export async function importStudents(
   const missingEmails = uniqueEmails.filter((e) => !userMap.has(e))
   if (missingEmails.length > 0) {
     const nameByEmail = new Map(rows.map((r) => [r.email.toLowerCase().trim(), r.name]))
+    const deptIdByEmail = new Map<string, string | null>()
+    for (const r of rows) {
+      const key = r.email.toLowerCase().trim()
+      if (!deptIdByEmail.has(key)) deptIdByEmail.set(key, r.departmentId ?? departmentId ?? null)
+    }
     const createdUsers = await userRepository.createMany(
       missingEmails.map((email) => ({
         email,
         name: nameByEmail.get(email) || email.split("@")[0] || email,
         role: "STUDENT",
-        departmentId,
+        departmentId: deptIdByEmail.get(email) ?? departmentId ?? null,
       })),
     )
     for (const [, user] of createdUsers) {
