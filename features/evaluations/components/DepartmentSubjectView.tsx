@@ -36,13 +36,16 @@ interface Props {
   search: string
   onSearchChange: (v: string) => void
   basePath?: string
+  visibilityMap?: Record<string, boolean>
+  onVisibilityChange?: (facultyId: string, visible: boolean) => void
+  onBulkVisibilityChange?: (visible: boolean) => void
 }
 
 type ViewTab = "by_subject" | "by_faculty"
 
 type SortKey = "facultyName" | "subjectName" | "avgRating" | "sentimentScore" | "totalRespondents"
 
-export default function DepartmentSubjectView({ subjects, departmentId, semesterId, search, onSearchChange, basePath = "/admin/evaluations/results" }: Props) {
+export default function DepartmentSubjectView({ subjects, departmentId, semesterId, search, onSearchChange, basePath = "/admin/evaluations/results", visibilityMap = {}, onVisibilityChange, onBulkVisibilityChange }: Props) {
   const router = useRouter()
   const [viewTab, setViewTab] = useState<ViewTab>("by_subject")
   const [sortKey, setSortKey] = useState<SortKey>("avgRating")
@@ -156,6 +159,10 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
     { key: "by_faculty", label: "By Faculty" },
   ]
 
+  const uniqueFacultyIds = useMemo(() => [...new Set(subjects.map((s) => s.facultyId))], [subjects])
+  const allVisible = uniqueFacultyIds.length > 0 && uniqueFacultyIds.every((id) => visibilityMap[id])
+  const allHidden = uniqueFacultyIds.length > 0 && uniqueFacultyIds.every((id) => !visibilityMap[id])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -191,6 +198,29 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
             : `${facultyGroups.length} facult${facultyGroups.length !== 1 ? "ies" : "y"}`
           }
         </span>
+        {onBulkVisibilityChange && uniqueFacultyIds.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onBulkVisibilityChange(!allVisible)}
+            className={`ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+              allVisible
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                : "bg-surface text-tertiary border border-default hover:bg-surface-hover hover:text-secondary"
+            }`}
+          >
+            {allVisible ? (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+            )}
+            {allVisible ? "All Visible" : "Show All"}
+          </button>
+        )}
       </div>
 
       {viewTab === "by_subject" ? (
@@ -215,6 +245,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                 <th className="pb-3 pr-4 cursor-pointer hover:text-secondary text-right" onClick={() => toggleSort("totalRespondents")}>
                   Responses{sortArrow("totalRespondents")}
                 </th>
+                {onVisibilityChange && <th className="pb-3 w-10"></th>}
               </tr>
             </thead>
             <tbody>
@@ -273,6 +304,34 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                     )}
                   </td>
                   <td className="py-3 pr-4 text-right text-sm text-secondary">{row.totalRespondents}</td>
+                  {onVisibilityChange && (
+                    <td className="py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onVisibilityChange(row.facultyId, !visibilityMap[row.facultyId])
+                        }}
+                        className={`inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                          visibilityMap[row.facultyId]
+                            ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
+                            : "bg-surface-tertiary text-tertiary hover:bg-amber-100 hover:text-amber-600"
+                        }`}
+                        title={visibilityMap[row.facultyId] ? "Visible to faculty — click to hide" : "Hidden from faculty — click to show"}
+                      >
+                        {visibilityMap[row.facultyId] ? (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        )}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -325,6 +384,32 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </button>
+                    {onVisibilityChange && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onVisibilityChange(group.facultyId, !visibilityMap[group.facultyId])
+                        }}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          visibilityMap[group.facultyId]
+                            ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
+                            : "bg-surface-tertiary text-tertiary hover:bg-amber-100 hover:text-amber-600"
+                        }`}
+                        title={visibilityMap[group.facultyId] ? "Visible to faculty — click to hide" : "Hidden from faculty — click to show"}
+                      >
+                        {visibilityMap[group.facultyId] ? (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                     <span className="text-tertiary text-xs">{isExpanded ? "\u25B2" : "\u25BC"}</span>
                   </div>
                 </div>
