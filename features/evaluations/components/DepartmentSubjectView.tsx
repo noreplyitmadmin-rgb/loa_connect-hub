@@ -202,6 +202,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
           <button
             type="button"
             onClick={() => onBulkVisibilityChange(!allVisible)}
+            title={allVisible ? "Hide evaluation results from all faculty" : "Show evaluation results to all faculty"}
             className={`ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
               allVisible
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
