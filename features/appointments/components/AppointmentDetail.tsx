@@ -11,6 +11,13 @@ import type { AppointmentDetailDto } from "@/lib/types"
 import { useApiGet, invalidate } from "@/lib/api/client"
 import { hasRole } from "@/lib/utils/roles"
 
+type FileEntry = {
+  id: string
+  file: File
+  status: "pending" | "uploading" | "success" | "error"
+  error?: string
+}
+
 function getInitial(name: string) {
   return name?.charAt(0)?.toUpperCase() || "?"
 }
@@ -43,7 +50,7 @@ export default function AppointmentDetail() {
   const [teamsLinkError, setTeamsLinkError] = useState("")
   const [showCompleteForm, setShowCompleteForm] = useState(false)
   const [actionTaken, setActionTaken] = useState("")
-  const [completeFiles, setCompleteFiles] = useState<File[]>([])
+  const [fileEntries, setFileEntries] = useState<FileEntry[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const [completeError, setCompleteError] = useState("")
   const [previewFile, setPreviewFile] = useState<AppointmentDetailDto["files"][number] | null>(null)
@@ -197,6 +204,44 @@ export default function AppointmentDetail() {
     }
   }
 
+  const uploadSingleFile = async (entry: FileEntry): Promise<FileEntry> => {
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          resolve(result.split(",")[1])
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(entry.file)
+      })
+
+      const res = await fetch(`/api/appointments/${appointmentId}/files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: [{
+            fileName: entry.file.name,
+            fileType: entry.file.type,
+            fileData: base64,
+            fileSize: entry.file.size,
+          }],
+        }),
+      })
+
+      if (!res.ok) {
+        const text = await res.text()
+        let msg = "Failed to upload"
+        try { msg = JSON.parse(text).error || msg } catch { msg = text || msg }
+        return { ...entry, status: "error" as const, error: msg }
+      }
+
+      return { ...entry, status: "success" as const }
+    } catch {
+      return { ...entry, status: "error" as const, error: "Network error" }
+    }
+  }
+
   const handleCompleteSubmit = async () => {
     if (pendingRef.current) return
     pendingRef.current = true
@@ -212,51 +257,50 @@ export default function AppointmentDetail() {
     setActionLoading("complete")
 
     try {
-      const filesToUpload = [...completeFiles]
-      setCompleteFiles([])
-      setUploadingFiles(true)
-
-      for (const f of filesToUpload) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const result = reader.result as string
-            resolve(result.split(",")[1])
-          }
-          reader.onerror = reject
-          reader.readAsDataURL(f)
-        })
-
-        const fileRes = await fetch(`/api/appointments/${appointmentId}/files`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            files: [{
-              fileName: f.name,
-              fileType: f.type,
-              fileData: base64,
-              fileSize: f.size,
-            }],
-          }),
-        })
-
-        if (!fileRes.ok) {
-          const text = await fileRes.text()
-          try {
-            const fileData = JSON.parse(text)
-            setCompleteError(fileData.error || "Failed to upload files")
-          } catch {
-            setCompleteError(text || "Failed to upload files")
-          }
-          setActionLoading("")
-          setUploadingFiles(false)
-          pendingRef.current = false
-          return
-        }
+      const pendingEntries = fileEntries.filter((e) => e.status === "pending" || e.status === "error")
+      if (pendingEntries.length === 0 && fileEntries.length === 0) {
+        setCompleteError("Please select at least one screenshot")
+        pendingRef.current = false
+        setActionLoading("")
+        return
       }
 
+      setUploadingFiles(true)
+
+      // Mark all pending/error entries as uploading
+      setFileEntries((prev) =>
+        prev.map((e) => (e.status === "pending" || e.status === "error") ? { ...e, status: "uploading" as const, error: undefined } : e)
+      )
+
+      const results = await Promise.allSettled(pendingEntries.map((e) => uploadSingleFile({ ...e, status: "uploading" as const })))
+
+      // Merge results back into entries
+      const resultEntries = results.map((r) => {
+        if (r.status === "fulfilled") return r.value
+        // Promise itself rejected (shouldn't happen since uploadSingleFile catches)
+        return { status: "error" as const, error: "Upload failed" } as FileEntry
+      })
+
+      // Build updated full list: successful entries stay, failed stay for retry
+      const updatedEntries: FileEntry[] = fileEntries.map((e) => {
+        const result = resultEntries.find((r) => r.id === e.id)
+        return result || e
+      })
+
+      setFileEntries(updatedEntries)
       setUploadingFiles(false)
 
+      const allSucceeded = updatedEntries.every((e) => e.status === "success")
+
+      if (!allSucceeded) {
+        const failedCount = updatedEntries.filter((e) => e.status === "error").length
+        setCompleteError(`${failedCount} file(s) failed to upload. Fix the issues and retry.`)
+        pendingRef.current = false
+        setActionLoading("")
+        return
+      }
+
+      // All files uploaded — call complete
       const res = await fetch(`/api/appointments/${appointmentId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -269,7 +313,7 @@ export default function AppointmentDetail() {
         setLocalStatus("COMPLETED")
         setShowCompleteForm(false)
         setActionTaken("")
-        setCompleteFiles([])
+        setFileEntries([])
         invalidate("/api/appointments")
       } else {
         try {
@@ -688,10 +732,15 @@ export default function AppointmentDetail() {
                     type="file"
                     accept="image/png,image/jpeg,image/gif,image/webp"
                     multiple
-                    disabled={completeFiles.length >= 3}
+                    disabled={fileEntries.length >= 3 || uploadingFiles}
                     onChange={(e) => {
                       const newFiles = Array.from(e.target.files || [])
-                      setCompleteFiles((prev) => [...prev, ...newFiles].slice(0, 3))
+                      const entries: FileEntry[] = newFiles.map((f) => ({
+                        id: crypto.randomUUID(),
+                        file: f,
+                        status: "pending" as const,
+                      }))
+                      setFileEntries((prev) => [...prev, ...entries].slice(0, 3))
                     }}
                     id="screenshot-upload"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -704,21 +753,40 @@ export default function AppointmentDetail() {
                       <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 2.955a.75.75 0 101.5-1.5l-4.25-4.25a.75.75 0 00-1.06 0L5.295 6.09a.75.75 0 101.5 1.5L9.25 4.636V13.25z" />
                       <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5a2.75 2.75 0 002.75-2.75v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
                     </svg>
-                    {completeFiles.length === 0 ? "Choose files" : `${completeFiles.length} file(s) selected`}
+                    {fileEntries.length === 0 ? "Choose files" : `${fileEntries.length} file(s) selected`}
                   </label>
                 </div>
-                {completeFiles.length > 0 && (
+                {fileEntries.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {completeFiles.map((f, i) => (
-                      <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface text-xs text-secondary">
-                        <span className="truncate max-w-[120px]">{f.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setCompleteFiles((prev) => prev.filter((_, j) => j !== i))}
-                          className="text-red-500 hover:text-red-700 font-bold leading-none"
-                        >
-                          &times;
-                        </button>
+                    {fileEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${
+                          entry.status === "success"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : entry.status === "error"
+                            ? "bg-red-50 text-red-700"
+                            : entry.status === "uploading"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-surface text-secondary"
+                        }`}
+                      >
+                        {entry.status === "success" && <span>&#10003;</span>}
+                        {entry.status === "error" && <span>&#10007;</span>}
+                        {entry.status === "uploading" && <span className="animate-pulse">...</span>}
+                        <span className="truncate max-w-[120px]">{entry.file.name}</span>
+                        {entry.status === "error" && entry.error && (
+                          <span className="text-[10px] text-red-500 truncate max-w-[80px]">({entry.error})</span>
+                        )}
+                        {(entry.status === "pending" || entry.status === "error") && (
+                          <button
+                            type="button"
+                            onClick={() => setFileEntries((prev) => prev.filter((e) => e.id !== entry.id))}
+                            className="text-red-500 hover:text-red-700 font-bold leading-none"
+                          >
+                            &times;
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -731,7 +799,7 @@ export default function AppointmentDetail() {
                 <SubmitButton
                   onClick={handleCompleteSubmit}
                   loading={actionLoading === "complete"}
-                  disabled={actionLoading === "complete"}
+                  disabled={actionLoading === "complete" || uploadingFiles}
                   variant="ios-primary"
                   className="w-full sm:w-auto py-3 sm:py-2"
                 >
@@ -742,7 +810,7 @@ export default function AppointmentDetail() {
                     if (uploadingFiles) return
                     setShowCompleteForm(false)
                     setActionTaken("")
-                    setCompleteFiles([])
+                    setFileEntries([])
                     setCompleteError("")
                   }}
                   variant="ios-plain"
