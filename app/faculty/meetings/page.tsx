@@ -83,30 +83,8 @@ export default async function MeetingsPage(props: {
   const weekRange = getWeekRange(today)
   const monthRange = getMonthRange(today)
 
-  const filtered = meetings.filter((m: MeetingData) => {
-    if (activeFilter === "this_week") {
-      const d = new Date(m.date)
-      if (!(d >= weekRange.start && d <= weekRange.end)) return false
-    }
-    if (activeFilter === "this_month") {
-      const d = new Date(m.date)
-      if (!(d >= monthRange.start && d <= monthRange.end)) return false
-    }
-    if (mineOnly && m.organizerId !== userId) {
-      return false
-    }
-    if (activeTab !== "all" && m.status.toLowerCase() !== activeTab) {
-      return false
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      if (!m.title.toLowerCase().includes(q) && !(m.description || "").toLowerCase().includes(q)) {
-        return false
-      }
-    }
-    if (!showInternal && m.meetingType !== "CONSULTATION") {
-      return false
-    }
+  const filtered = baseFiltered.filter((m: MeetingData) => {
+    if (activeTab !== "all" && m.status.toLowerCase() !== activeTab) return false
     return true
   })
 
@@ -128,11 +106,29 @@ export default async function MeetingsPage(props: {
       : timeB.localeCompare(timeA)
   })
 
+  const baseFiltered = meetings.filter((m: MeetingData) => {
+    if (activeFilter === "this_week") {
+      const d = new Date(m.date)
+      if (!(d >= weekRange.start && d <= weekRange.end)) return false
+    }
+    if (activeFilter === "this_month") {
+      const d = new Date(m.date)
+      if (!(d >= monthRange.start && d <= monthRange.end)) return false
+    }
+    if (mineOnly && m.organizerId !== userId) return false
+    if (!showInternal && m.meetingType !== "CONSULTATION") return false
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      if (!m.title.toLowerCase().includes(q) && !(m.description || "").toLowerCase().includes(q)) return false
+    }
+    return true
+  })
+
   const counts = {
-    pending: meetings.filter((m: MeetingData) => m.status === "PENDING").length,
-    approved: meetings.filter((m: MeetingData) => m.status === "APPROVED").length,
-    completed: meetings.filter((m: MeetingData) => m.status === "COMPLETED").length,
-    cancelled: meetings.filter((m: MeetingData) => m.status === "CANCELLED").length,
+    pending: baseFiltered.filter((m: MeetingData) => m.status === "PENDING").length,
+    approved: baseFiltered.filter((m: MeetingData) => m.status === "APPROVED").length,
+    completed: baseFiltered.filter((m: MeetingData) => m.status === "COMPLETED").length,
+    cancelled: baseFiltered.filter((m: MeetingData) => m.status === "CANCELLED").length,
   }
 
   return (
