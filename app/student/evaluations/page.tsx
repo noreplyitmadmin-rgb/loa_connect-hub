@@ -182,9 +182,7 @@ export default function StudentEvaluationsPage() {
               Faculty Evaluations
               <span className="inline-block ml-2">📝</span>
             </h1>
-            <p className="text-sm text-tertiary mt-1">
-              {outOfRange ? "" : `${completed} of ${total} completed`}
-            </p>
+
           </div>
         </div>
       </div>
