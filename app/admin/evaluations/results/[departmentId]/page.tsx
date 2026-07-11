@@ -56,15 +56,15 @@ export default function DepartmentDetailPage() {
   )
   const department = resultsData?.department ?? null
   const subjects = useMemo(() => resultsData?.subjects ?? [], [resultsData])
-  const apiVisibilityMap = resultsData?.visibilityMap ?? {}
   const error = resultsError?.message || ""
   const loading = !resultsData && !resultsError && !!semesterId
 
   useEffect(() => {
-    if (Object.keys(apiVisibilityMap).length > 0 && Object.keys(visibilityMap).length === 0) {
-      setVisibilityMap(apiVisibilityMap)
+    const map = resultsData?.visibilityMap ?? {}
+    if (Object.keys(map).length > 0 && Object.keys(visibilityMap).length === 0) {
+      Promise.resolve().then(() => setVisibilityMap(map))
     }
-  }, [apiVisibilityMap])
+  }, [resultsData, visibilityMap])
 
   const deptMetrics = useMemo(() => {
     if (subjects.length === 0) return null

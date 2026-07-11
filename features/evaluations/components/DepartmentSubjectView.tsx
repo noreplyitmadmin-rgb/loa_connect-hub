@@ -161,7 +161,6 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
 
   const uniqueFacultyIds = useMemo(() => [...new Set(subjects.map((s) => s.facultyId))], [subjects])
   const allVisible = uniqueFacultyIds.length > 0 && uniqueFacultyIds.every((id) => visibilityMap[id])
-  const allHidden = uniqueFacultyIds.length > 0 && uniqueFacultyIds.every((id) => !visibilityMap[id])
 
   return (
     <div className="space-y-4">

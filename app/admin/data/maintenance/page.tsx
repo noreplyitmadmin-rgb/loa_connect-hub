@@ -5,7 +5,7 @@ import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
-type ModalType = "consultations" | "students" | null
+type ModalType = "consultations" | "students" | "reset-db" | null
 
 export default function DataManagementPage() {
   const [modalType, setModalType] = useState<ModalType>(null)
@@ -22,7 +22,7 @@ export default function DataManagementPage() {
   }
 
   const handleExportAndDelete = async () => {
-    if (!modalType) return
+    if (!modalType || modalType === "reset-db") return
     setLoading(true)
     setResult(null)
 
@@ -78,7 +78,42 @@ export default function DataManagementPage() {
     }
   }
 
+  const handleResetDb = async () => {
+    if (modalType !== "reset-db") return
+    setLoading(true)
+    setResult(null)
+
+    try {
+      const res = await fetch("/api/admin/data/reset-db", { method: "POST" })
+      if (res.status === 403) { setLockedEndpoint("/api/admin/data/reset-db"); return }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || "Failed to reset database")
+      }
+
+      const data = await res.json()
+      setResult({
+        type: "success",
+        message: `Database reset completed. ${data.statementsExecuted} statements executed successfully.`,
+      })
+      closeModal()
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "An unknown error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirm = () => {
+    if (modalType === "reset-db") {
+      handleResetDb()
+    } else {
+      handleExportAndDelete()
+    }
+  }
+
   const isStudents = modalType === "students"
+  const isResetDb = modalType === "reset-db"
 
   if (lockedEndpoint) {
     return (
@@ -141,16 +176,33 @@ export default function DataManagementPage() {
         </button>
       </div>
 
+      <div className="rounded-2xl border border-red-200 bg-surface shadow-sm p-6">
+        <h2 className="text-lg font-bold text-primary mb-2">Reset Database</h2>
+        <p className="text-sm text-tertiary mb-5">
+          This will drop and recreate all tables, indexes, and seed data from the schema file.
+          All existing data (users, appointments, evaluations, etc.) will be permanently lost.
+          This action CANNOT be undone.
+        </p>
+        <button
+          onClick={() => setModalType("reset-db")}
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+        >
+          Reset Entire Database
+        </button>
+      </div>
+
       {modalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={closeModal}>
           <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-primary">
-              {isStudents ? "Confirm Export & Delete Students" : "Confirm Export & Clear"}
+              {isResetDb ? "Confirm Database Reset" : isStudents ? "Confirm Export & Delete Students" : "Confirm Export & Clear"}
             </h2>
             <p className="text-sm text-red-600 font-semibold">
-              {isStudents
-                ? "This will permanently delete ALL student records. Their appointments will be preserved but orphaned. This action CANNOT be undone."
-                : "This will permanently delete ALL consultation records. This action CANNOT be undone."}
+              {isResetDb
+                ? "This will drop ALL tables and recreate the entire database from scratch. ALL data will be permanently lost including users, appointments, evaluations, departments, and all other records. This action CANNOT be undone."
+                : isStudents
+                  ? "This will permanently delete ALL student records. Their appointments will be preserved but orphaned. This action CANNOT be undone."
+                  : "This will permanently delete ALL consultation records. This action CANNOT be undone."}
             </p>
             <div>
               <label className="block text-xs font-medium text-secondary mb-1">
@@ -173,11 +225,11 @@ export default function DataManagementPage() {
                 Cancel
               </button>
               <button
-                onClick={handleExportAndDelete}
+                onClick={handleConfirm}
                 disabled={confirmInput !== "CONFIRM" || loading}
                 className="text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full sm:w-auto"
               >
-                {loading ? "Exporting & Deleting..." : "Export & Delete"}
+                {loading ? (isResetDb ? "Resetting..." : "Exporting & Deleting...") : (isResetDb ? "Reset Database" : "Export & Delete")}
               </button>
             </div>
           </div>

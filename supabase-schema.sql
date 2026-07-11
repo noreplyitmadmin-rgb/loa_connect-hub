@@ -1733,3 +1733,48 @@ CREATE TABLE IF NOT EXISTS bug_reports (
 
 CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status);
 CREATE INDEX IF NOT EXISTS idx_bug_reports_createdAt ON bug_reports("createdAt" DESC);
+
+-- =========================================tang================
+-- Migration 25: Seed group_access from access-config export
+-- Source: access-config-2026-07-11.json
+-- =========================================================
+
+INSERT INTO group_access ("groupName", pages, "api_overrides", "updatedAt") VALUES
+  ('ADMIN',
+   '["/","/faq","/403","/admin/evaluations/periods","/admin/evaluations/periods/new","/admin/evaluations/semesters","/admin/evaluations/semesters/new","/admin","/admin/data/maintenance","/admin/data/academic-infrastructure","/admin/evaluations/reports","/admin/audit-trail","/admin/evaluations/reports/sentiment","/admin/evaluations/rubrics","/admin/data/users","/admin/data/users/deleted","/faculty/reports","/admin/reports","/admin/reports/health","/admin/reports/responsiveness","/admin/reports/distribution","/admin/reports/demand","/admin/reports/coverage","/admin/reports/backlog","/admin/evaluations/reports/detail","/admin/consultations","/admin/consultations/reports","/admin/consultations/reports/health","/admin/consultations/reports/distribution","/admin/consultations/reports/demand","/admin/consultations/reports/coverage","/admin/consultations/reports/backlog","/admin/evaluations/disabled","/admin/evaluations/results","/admin/evaluations","/api/semesters","/api/admin/departments","/api/admin/department-courses","/api/admin/subjects","/api/admin/sections","/api/admin/faculty-subjects","/api/admin/student-enrollments","/api/admin/users","/api/data/evaluation-mappings","/api/evaluation-periods","/api/auth/me","/api/import/faculties","/api/evaluation-periods/[id]/rubric","/api/evaluation-periods/[id]/rubrics/items","/api/auth/activate","/api/admin/users/deleted","/api/admin/users/[id]/restore","/api/admin/evaluations/disabled","/api/admin/evaluation-results","/api/dean/evaluation-results/details","/api/admin/evaluation-results/visibility","/admin/evaluations","/admin/evaluations/periods","/admin/evaluations/periods/new"]'::JSONB,
+   '{}'::JSONB,
+   '2026-07-09T07:30:24.502+00:00'::TIMESTAMPTZ),
+  ('DEAN',
+   '["/dean/upload","/faculty/meetings","/faculty/availability","/faq","/dean/m","/faculty/meetings/new","/admin/reports","/dean/reports/evaluation-results","/admin/evaluations/reports","/admin/evaluations/results","/admin/evaluations/reports/sentiment","/403","/admin/etl-hub","/student/evaluations/thank-you","/admin/reports/health","/","/dean","/dean/evaluations/reports","/faculty/evaluations","/dean/evaluations/results","/dean/evaluations","/admin/evaluations/rubrics","/admin/evaluations/disabled","/faculty/evaluations/results","/admin/evaluations","/api/appointments/[id]","/api/appointments/[id]/accept","/api/appointments/[id]/decline","/api/appointments/[id]/teams-link","/api/appointments/slots/[slotId]/teams-link","/api/appointments/[id]/complete","/api/appointments/[id]/files","/api/appointments/[id]/retry-sync","/api/availability-rules","/api/appointments/batch","/api/appointments/faculty-booked","/api/users/primary","/api/users/attendees","/api/admin/evaluation-results","/api/dean/evaluation-results/details","/api/admin/evaluation-results/visibility","/api/data/evaluation-mappings","/api/evaluation-periods","/api/evaluation-comments","/api/auth/onboarding","/api/faculty/evaluation-results","/api/dean/evaluation-results","/api/evaluation-periods/[id]/rubric","/api/evaluation-periods/[id]/rubrics/items","/api/admin/evaluations/disabled","/api/admin/evaluation-results/invalidate","/api/admin/departments","/dean/reports","/dean/reports/evaluation-results","/dean/reports","/dean/reports/evaluation-results","/dean/reports","/dean/reports/evaluation-results"]'::JSONB,
+   '{}'::JSONB,
+   '2026-07-05T01:11:13.286+00:00'::TIMESTAMPTZ),
+  ('FACULTY',
+   '["/","/403","/faq","/faculty","/faculty/availability","/faculty/evaluations","/faculty/evaluations/results","/faculty/meetings","/faculty/meetings/new","/faculty/reports","/faculty/upload","/api/admin/departments","/api/admin/evaluation-results/invalidate","/api/admin/evaluation-results/visibility","/api/appointments/[id]","/api/appointments/[id]/accept","/api/appointments/[id]/complete","/api/appointments/[id]/decline","/api/appointments/[id]/files","/api/appointments/[id]/retry-sync","/api/appointments/[id]/teams-link","/api/appointments/batch","/api/appointments/faculty-booked","/api/appointments/slots/[slotId]/teams-link","/api/auth/onboarding","/api/availability-rules","/api/data/evaluation-mappings","/api/dean/evaluation-results/details","/api/evaluation-periods","/api/faculty/evaluation-results","/api/semesters","/api/users/attendees","/api/users/primary","/faculty/evaluations/results"]'::JSONB,
+   '{}'::JSONB,
+   '2026-07-04T14:54:30.711+00:00'::TIMESTAMPTZ),
+  ('GUEST',
+   '[]'::JSONB,
+   '{}'::JSONB,
+   '2026-05-28T04:55:59.485976+00:00'::TIMESTAMPTZ),
+  ('STUDENT',
+   '["/student/evaluations/history"]'::JSONB,
+   '{}'::JSONB,
+   '2026-07-11T06:30:53.1+00:00'::TIMESTAMPTZ)
+ON CONFLICT ("groupName") DO UPDATE SET
+  pages = EXCLUDED.pages,
+  "api_overrides" = EXCLUDED."api_overrides",
+  "updatedAt" = EXCLUDED."updatedAt";
+
+-- =========================================================
+-- exec_sql: RPC function for executing raw SQL statements
+-- Used by the admin reset-database endpoint.
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION exec_sql(sql_text TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  EXECUTE sql_text;
+END;
+$$;
