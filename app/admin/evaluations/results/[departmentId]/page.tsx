@@ -51,7 +51,7 @@ export default function DepartmentDetailPage() {
   const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({})
   const [toggling, setToggling] = useState(false)
 
-  const { data: resultsData, error: resultsError } = useApiGet<{ department: DepartmentInfo; subjects: SubjectRow[] }>(
+  const { data: resultsData, error: resultsError } = useApiGet<{ department: DepartmentInfo; subjects: SubjectRow[]; visibilityMap: Record<string, boolean> }>(
     semesterId ? `/api/admin/evaluation-results/departments/${encodeURIComponent(departmentId)}?semesterId=${encodeURIComponent(semesterId)}` : null,
   )
   const department = resultsData?.department ?? null
