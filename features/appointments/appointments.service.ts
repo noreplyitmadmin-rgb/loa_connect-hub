@@ -1,6 +1,7 @@
 import { appointmentRepository, userRepository } from "@/lib/repositories/factory"
 import { MIN_TIMESLOT_DURATION_MINUTES, MAX_TIMESLOT_DURATION_MINUTES } from "@/lib/constants"
 import { hasRole } from "@/lib/utils/roles"
+import { isValidTeamsLink } from "@/lib/utils/teams-link"
 import type { AppointmentData, PaginationParams, PagedResult } from "@/lib/types"
 
 type DbRecord = Record<string, unknown>
@@ -290,7 +291,12 @@ export function prepareCreateData(
     title: input.title ?? null,
     description: input.description ?? null,
   }
-  if (input.teamsLink) createData.teamsLink = input.teamsLink
+  if (input.teamsLink) {
+    if (!isValidTeamsLink(input.teamsLink)) {
+      throw new Error("Please enter a valid Microsoft Teams meeting URL (https://teams.microsoft.com/...)")
+    }
+    createData.teamsLink = input.teamsLink.trim()
+  }
   if (!hasRole(creator.role, "STUDENT")) {
     createData.status = "APPROVED"
   }
@@ -320,6 +326,10 @@ export async function createAppointmentWithSlotsAndAttendees(
         const key = `${slot.date}-${slot.startTime}-${slot.endTime}`
         const link = slotLinks[key]
         if (link && typeof link === "string") {
+          if (!isValidTeamsLink(link)) {
+            console.error(`Invalid Teams link for slot ${key}: ${link}`)
+            return Promise.resolve()
+          }
           return appointmentRepository.updateTimeSlot(createdSlot.id, { teamsLink: link.trim() }).catch((err) => {
             console.error("Failed to save slot teams link:", err)
           })
@@ -431,7 +441,10 @@ export async function updateTeamsLink(id: string, facultyId: string, teamsLink: 
   const appointment = await appointmentRepository.findById(id)
   if (!appointment) throw new Error("Appointment not found")
   if (appointment.facultyId !== facultyId) throw new Error("Unauthorized")
-  return appointmentRepository.update(id, { teamsLink })
+  if (!teamsLink || !isValidTeamsLink(teamsLink)) {
+    throw new Error("Please enter a valid Microsoft Teams meeting URL (https://teams.microsoft.com/...)")
+  }
+  return appointmentRepository.update(id, { teamsLink: teamsLink.trim() })
 }
 
 export async function retryTeamsSync(id: string, facultyId: string) {

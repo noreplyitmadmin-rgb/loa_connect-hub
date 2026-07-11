@@ -716,7 +716,8 @@ export default function AppointmentDetail() {
                   onChange={(e) => setActionTaken(e.target.value)}
                   rows={4}
                   placeholder="Describe what actions were taken during this appointment..."
-                  className="input text-xs py-2 w-full resize-none"
+                  disabled={uploadingFiles}
+                  className="input text-xs py-2 w-full resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <p className={`text-[10px] mt-0.5 ${actionTaken.trim().length >= 20 ? "text-emerald-600" : "text-tertiary"}`}>
                   {actionTaken.trim().length}/20 minimum
@@ -808,11 +809,19 @@ export default function AppointmentDetail() {
                 <SubmitButton
                   onClick={() => {
                     if (uploadingFiles) return
+                    const hasSuccess = fileEntries.some((e) => e.status === "success")
+                    if (hasSuccess) {
+                      const ok = window.confirm(
+                        "Some files have already been uploaded successfully. Canceling will discard unsaved changes, but uploaded files cannot be undone. Continue?"
+                      )
+                      if (!ok) return
+                    }
                     setShowCompleteForm(false)
                     setActionTaken("")
                     setFileEntries([])
                     setCompleteError("")
                   }}
+                  disabled={uploadingFiles}
                   variant="ios-plain"
                   className="w-full sm:w-auto py-3 sm:py-2"
                 >

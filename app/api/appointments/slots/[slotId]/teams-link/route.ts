@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { appointmentRepository } from "@/lib/repositories/factory"
 import { hasRole } from "@/lib/utils/roles"
+import { isValidTeamsLink } from "@/lib/utils/teams-link"
 
 export async function POST(request: Request, { params }: { params: Promise<{ slotId: string }> }) {
   const session = await auth()
@@ -28,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slo
       return NextResponse.json({ error: "teamsLink is required" }, { status: 400 })
     }
 
-    if (!/^https:\/\/teams\.microsoft\.com\/.*/.test(teamsLink.trim())) {
+    if (!isValidTeamsLink(teamsLink)) {
       return NextResponse.json(
         { error: "Please enter a valid Microsoft Teams meeting URL (https://teams.microsoft.com/...)" },
         { status: 400 }
