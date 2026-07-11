@@ -83,29 +83,6 @@ export default async function MeetingsPage(props: {
   const weekRange = getWeekRange(today)
   const monthRange = getMonthRange(today)
 
-  const filtered = baseFiltered.filter((m: MeetingData) => {
-    if (activeTab !== "all" && m.status.toLowerCase() !== activeTab) return false
-    return true
-  })
-
-  // CORRECTED SORTING LOGIC
-  const sorted = [...filtered].sort((a: MeetingData, b: MeetingData) => {
-    const dateA = new Date(a.date).getTime()
-    const dateB = new Date(b.date).getTime()
-    const dateCmp = dateA - dateB
-
-    if (dateCmp !== 0) {
-      return activeSort === "asc" ? dateCmp : -dateCmp
-    }
-
-    const timeA = a.startTime || ""
-    const timeB = b.startTime || ""
-
-    return activeSort === "asc"
-      ? timeA.localeCompare(timeB)
-      : timeB.localeCompare(timeA)
-  })
-
   const baseFiltered = meetings.filter((m: MeetingData) => {
     if (activeFilter === "this_week") {
       const d = new Date(m.date)
@@ -122,6 +99,28 @@ export default async function MeetingsPage(props: {
       if (!m.title.toLowerCase().includes(q) && !(m.description || "").toLowerCase().includes(q)) return false
     }
     return true
+  })
+
+  const filtered = baseFiltered.filter((m: MeetingData) => {
+    if (activeTab !== "all" && m.status.toLowerCase() !== activeTab) return false
+    return true
+  })
+
+  const sorted = [...filtered].sort((a: MeetingData, b: MeetingData) => {
+    const dateA = new Date(a.date).getTime()
+    const dateB = new Date(b.date).getTime()
+    const dateCmp = dateA - dateB
+
+    if (dateCmp !== 0) {
+      return activeSort === "asc" ? dateCmp : -dateCmp
+    }
+
+    const timeA = a.startTime || ""
+    const timeB = b.startTime || ""
+
+    return activeSort === "asc"
+      ? timeA.localeCompare(timeB)
+      : timeB.localeCompare(timeA)
   })
 
   const counts = {
