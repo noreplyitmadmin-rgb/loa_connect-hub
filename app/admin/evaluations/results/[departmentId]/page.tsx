@@ -195,7 +195,11 @@ export default function DepartmentDetailPage() {
           &larr; Back to Evaluation Results
         </Link>
         <h1 className="text-2xl font-bold text-primary mt-2">
-          {department?.name ?? "Department"} <span className="text-tertiary font-normal">{department?.code}</span>
+          {loading ? (
+            <Skeleton variant="text" className="inline-block w-48 h-7 align-middle" />
+          ) : (
+            <>{department?.name ?? "Department"} <span className="text-tertiary font-normal">{department?.code}</span></>
+          )}
         </h1>
         <p className="text-xs text-tertiary mt-1">
           Per-subject evaluation results. Click a row to view individual evaluation details.
