@@ -327,6 +327,7 @@ export const pageApiMap: Record<string, PageApiEntry> = {
       "/api/evaluations/[id]/comments",
       "/api/evaluations/[id]/submit",
       "/api/evaluations/dispute",
+      "/api/student/evaluations/bootstrap",
     ],
   },
   "/student/evaluations/thank-you": {
