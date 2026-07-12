@@ -192,7 +192,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       if (existingId) {
         toUpdate.push({ id: existingId, data: updateData })
       } else {
-        toInsert.push({ evaluation_period_id: evaluationPeriodId, facultyId: facId, ...updateData })
+        toInsert.push({ evaluation_period_id: evaluationPeriodId, semesterId, facultyId: facId, ...updateData })
       }
     }
 
@@ -210,6 +210,13 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
   },
 
   async setVisibility(evaluationPeriodId, facultyIds, visible) {
+    const { data: ep } = await supabase
+      .from("evaluation_periods")
+      .select("semesterId")
+      .eq("id", evaluationPeriodId)
+      .single()
+    const semesterId = ep?.semesterId
+
     const { data: existing } = await supabase
       .from("evaluation_results")
       .select("facultyId")
@@ -234,6 +241,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
         .from("evaluation_results")
         .insert(toInsert.map((facultyId) => ({
           evaluation_period_id: evaluationPeriodId,
+          semesterId,
           facultyId,
           is_results_visible: visible,
           totalRespondents: 0,

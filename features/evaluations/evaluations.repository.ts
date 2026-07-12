@@ -148,9 +148,15 @@ export const evaluationRepository: IEvaluationRepository = {
   },
 
   async create(evaluationPeriodId, evaluatorId, evaluateeId, facultySubjectId, source) {
+    const { data: ep } = await supabase
+      .from("evaluation_periods")
+      .select("semesterId")
+      .eq("id", evaluationPeriodId)
+      .single()
+
     const { data, error } = await supabase
       .from("evaluations")
-      .insert({ evaluation_period_id: evaluationPeriodId, evaluatorId, evaluateeId, facultySubjectId, source: source ?? null })
+      .insert({ evaluation_period_id: evaluationPeriodId, semesterId: ep?.semesterId, evaluatorId, evaluateeId, facultySubjectId, source: source ?? null })
       .select("*")
       .single()
     if (error) throw error
