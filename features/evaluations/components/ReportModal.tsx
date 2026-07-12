@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { formatPeriodLabel } from "@/lib/evaluation-utils"
 import { getRemark, getRemarkColor } from "./EvaluationDashboard"
 import { SentimentBadge } from "./evaluation/SentimentBadge"
 
@@ -15,6 +16,8 @@ interface Period {
   id: string
   name?: string
   title?: string
+  semesterId?: string
+  semesterTitle?: string
 }
 
 interface Result {
@@ -267,12 +270,13 @@ export default function ReportModal({
       const res = await fetch(`/api/data/evaluation-mappings?type=faculty`)
       if (!res.ok) return
       const data = await res.json()
+      const currentPeriod = periods.find((p) => p.id === periodId)
       const filtered = (data.data || []).filter(
-        (m: SubjectMapping) => m.faculty?.id === facultyId && m.semesterId === periodId
+        (m: SubjectMapping) => m.faculty?.id === facultyId && m.semesterId === currentPeriod?.semesterId
       )
       setFacultySubjects((prev) => ({ ...prev, [facultyId]: filtered }))
     } catch { /* ignore */ }
-  }, [periodId, facultySubjects])
+  }, [periodId, facultySubjects, periods])
 
   // When faculty selected, load details + subjects
   useEffect(() => {
@@ -294,7 +298,7 @@ export default function ReportModal({
     return list.filter((r) => (facultyNames[r.facultyId] || r.facultyId).toLowerCase().includes(q))
   }, [results, facultySearch, facultyNames])
 
-  const periodName = periods.find((p) => p.id === periodId)?.name || periods.find((p) => p.id === periodId)?.title || periodId
+  const periodName = formatPeriodLabel(periods.find((p) => p.id === periodId) || { id: periodId })
   const departmentName = departments.find((d) => d.id === deptId)?.name ?? ""
 
   // Department filter: disabled when dashboard already has a department
@@ -882,7 +886,7 @@ export default function ReportModal({
                 className="px-2.5 py-1.5 rounded-lg text-xs text-secondary bg-surface border border-default focus:outline-none focus:ring-2 focus:ring-brand-500/40 min-w-[140px]"
               >
                 {periods.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name || p.title || p.id}</option>
+                  <option key={p.id} value={p.id}>{formatPeriodLabel(p)}</option>
                 ))}
               </select>
             </div>

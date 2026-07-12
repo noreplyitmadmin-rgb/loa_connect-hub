@@ -9,12 +9,14 @@ import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import { useApiGet, invalidate } from "@/lib/api/client"
 import { EVALUATION_CATEGORIES } from "@/features/evaluations/constants"
+import { formatPeriodLabel } from "@/lib/evaluation-utils"
 
 interface Period {
   id: string
   name?: string
   title?: string
   isActive?: boolean
+  semesterTitle?: string
 }
 
 interface FacultyResult {
@@ -118,7 +120,7 @@ export default function FacultyEvaluationsPage() {
         >
           <option value="">Select period...</option>
           {periods.map((p) => (
-            <option key={p.id} value={p.id}>{p.name || p.title || p.id}</option>
+            <option key={p.id} value={p.id}>{formatPeriodLabel(p)}</option>
           ))}
         </select>
       </div>

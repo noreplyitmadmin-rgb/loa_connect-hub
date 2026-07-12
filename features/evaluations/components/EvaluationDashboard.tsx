@@ -5,6 +5,7 @@ import { SkeletonMetricGrid, SkeletonTable } from "@/components/ui/Skeleton"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import { formatPeriodLabel } from "@/lib/evaluation-utils"
 import type { DepartmentData } from "@/lib/types"
 import { SentimentBadge } from "./evaluation/SentimentBadge"
 import ReasonModal from "@/components/ui/ReasonModal"
@@ -35,6 +36,8 @@ interface Period {
   name?: string
   title?: string
   isActive?: boolean
+  semesterId?: string
+  semesterTitle?: string
 }
 
 interface StudentRow {
@@ -290,7 +293,7 @@ export default function EvaluationDashboard({
     const doc = new jsPDF("portrait")
     const pageW = doc.internal.pageSize.getWidth()
     const name = facultyNames[facultyResult.facultyId] || facultyResult.facultyId
-    const periodName = periods.find((p) => p.id === selectedPeriod)?.name || periods.find((p) => p.id === selectedPeriod)?.title || selectedPeriod
+    const periodName = formatPeriodLabel(periods.find((p) => p.id === selectedPeriod) || { id: selectedPeriod })
     const overall = facultyResult.generalRating ?? 0
     const remarkLabel = getRemark(overall) ?? ""
 
@@ -430,7 +433,7 @@ export default function EvaluationDashboard({
     const doc = new jsPDF("portrait")
     const pageW = doc.internal.pageSize.getWidth()
     const name = facultyNames[facultyResult.facultyId] || facultyResult.facultyId
-    const periodName = periods.find((p) => p.id === selectedPeriod)?.name || periods.find((p) => p.id === selectedPeriod)?.title || selectedPeriod
+    const periodName = formatPeriodLabel(periods.find((p) => p.id === selectedPeriod) || { id: selectedPeriod })
     const overall = facultyResult.generalRating ?? 0
     const remarkLabel = getRemark(overall) ?? ""
 
@@ -685,7 +688,7 @@ export default function EvaluationDashboard({
                     className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm text-secondary bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all min-w-0 sm:min-w-[160px]"
                   >
                     {periods.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name || p.title || p.id}</option>
+                      <option key={p.id} value={p.id}>{formatPeriodLabel(p)}</option>
                     ))}
                   </select>
                 </div>

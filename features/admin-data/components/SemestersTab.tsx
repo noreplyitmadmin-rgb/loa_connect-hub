@@ -26,6 +26,7 @@ interface EvaluationPeriod {
   endDate: string | null
   isActive: boolean
   createdAt: string
+  semesterTitle?: string
 }
 
 export function SemestersTab() {
@@ -44,6 +45,7 @@ export function SemestersTab() {
   const [saving, setSaving] = useState(false)
 
   const [periodModalSemesterId, setPeriodModalSemesterId] = useState<string | null>(null)
+  const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null)
   const todayStr = new Date().toISOString().split("T")[0]
   const [periodName, setPeriodName] = useState("")
   const [periodSource, setPeriodSource] = useState("")
@@ -131,6 +133,43 @@ export function SemestersTab() {
       setPeriodStartDate(todayStr)
       setPeriodEndDate("")
       showSuccessMessage("Evaluation period created!")
+      invalidate(...INVALIDATE_KEYS)
+    } catch (err) { setError((err as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  const handleUpdatePeriod = async (periodId: string) => {
+    if (!periodName || !periodStartDate) return
+
+    const start = new Date(periodStartDate + "T00:00:00")
+    if (periodEndDate) {
+      const end = new Date(periodEndDate + "T00:00:00")
+      if (end <= start) {
+        setError("End date must be after the start date")
+        return
+      }
+    }
+
+    setSaving(true); setError("")
+    try {
+      const res = await fetch(`/api/evaluation-periods/${periodId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: periodName,
+          source: periodSource || null,
+          startDate: periodStartDate,
+          endDate: periodEndDate || null,
+        }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
+      setPeriodModalSemesterId(null)
+      setEditingPeriodId(null)
+      setPeriodName("")
+      setPeriodSource("")
+      setPeriodStartDate(todayStr)
+      setPeriodEndDate("")
+      showSuccessMessage("Evaluation period updated!")
       invalidate(...INVALIDATE_KEYS)
     } catch (err) { setError((err as Error).message) }
     finally { setSaving(false) }
@@ -327,7 +366,7 @@ export function SemestersTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-sm font-bold text-primary">Create Evaluation Period</h2>
+              <h2 className="text-sm font-bold text-primary">{editingPeriodId ? "Edit Evaluation Period" : "Create Evaluation Period"}</h2>
             </div>
             <p className="text-[11px] text-tertiary">Define an evaluation phase (e.g., Pre-Semester, Midterm, Post-Semester) under this semester. Students can submit evaluations within the date window.</p>
             <div className="space-y-3">
@@ -373,8 +412,12 @@ export function SemestersTab() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <IosButton variant="gray" onClick={() => { setPeriodModalSemesterId(null); setPeriodName(""); setPeriodSource(""); setPeriodStartDate(todayStr); setPeriodEndDate("") }}>Cancel</IosButton>
-              <IosButton type="button" loading={saving} variant="primary" onClick={() => handleCreatePeriod(periodModalSemesterId)}>Create Period</IosButton>
+              <IosButton variant="gray" onClick={() => { setPeriodModalSemesterId(null); setEditingPeriodId(null); setPeriodName(""); setPeriodSource(""); setPeriodStartDate(todayStr); setPeriodEndDate("") }}>Cancel</IosButton>
+              {editingPeriodId ? (
+                <IosButton type="button" loading={saving} variant="primary" onClick={() => handleUpdatePeriod(editingPeriodId)}>Save Changes</IosButton>
+              ) : (
+                <IosButton type="button" loading={saving} variant="primary" onClick={() => handleCreatePeriod(periodModalSemesterId)}>Create Period</IosButton>
+              )}
             </div>
           </div>
         </div>
@@ -465,6 +508,7 @@ export function SemestersTab() {
           <IosButton variant="tinted" size="sm" onClick={() => {
             if (semesters.length > 0) {
               const activeSemester = semesters.find((s) => s.isActive) || semesters[0]
+              setEditingPeriodId(null)
               setPeriodModalSemesterId(activeSemester.id)
               setPeriodName("")
               setPeriodSource("")
@@ -496,7 +540,7 @@ export function SemestersTab() {
                     return (
                       <tr key={period.id}>
                         <td className="font-medium">{period.name}</td>
-                        <td className="text-xs text-tertiary">{sem?.title || period.semesterId}</td>
+                        <td className="text-xs text-tertiary">{period.semesterTitle || sem?.title || period.semesterId}</td>
                         <td className="text-xs text-tertiary">{period.source || "—"}</td>
                         <td className="text-xs">{period.startDate}</td>
                         <td className="text-xs">{period.endDate || <span className="text-tertiary">N/A</span>}</td>
@@ -506,7 +550,7 @@ export function SemestersTab() {
                           </span>
                         </td>
                         <td className="px-6 py-4 space-x-2 text-center">
-                          <IosButton variant="plain" size="xs" onClick={() => { setPeriodModalSemesterId(period.semesterId); setPeriodName(period.name); setPeriodSource(period.source || ""); setPeriodStartDate(period.startDate); setPeriodEndDate(period.endDate || ""); }}>
+                          <IosButton variant="plain" size="xs" onClick={() => { setEditingPeriodId(period.id); setPeriodModalSemesterId(period.semesterId); setPeriodName(period.name); setPeriodSource(period.source || ""); setPeriodStartDate(period.startDate); setPeriodEndDate(period.endDate || ""); }}>
                             Edit
                           </IosButton>
                           {period.isActive ? (

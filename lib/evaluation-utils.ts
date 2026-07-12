@@ -123,3 +123,8 @@ export function getRemarkColor(remarks: string | null): string {
     default: return "bg-surface-tertiary text-tertiary"
   }
 }
+
+export function formatPeriodLabel(period: { name?: string; title?: string; semesterTitle?: string; id: string }): string {
+  const base = period.name || period.title || period.id
+  return period.semesterTitle ? `${base} — ${period.semesterTitle}` : base
+}

@@ -7,6 +7,7 @@ import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import { SentimentBadge } from "@/features/evaluations/components/evaluation/SentimentBadge"
+import { formatPeriodLabel } from "@/lib/evaluation-utils"
 
 interface CommentRow {
   id: string
@@ -44,7 +45,9 @@ const SENTIMENT_BG: Record<string, string> = {
 
 interface Semester {
   id: string
-  title: string
+  title?: string
+  name?: string
+  semesterTitle?: string
 }
 
 export default function SentimentAnalysisPage() {
@@ -154,7 +157,7 @@ export default function SentimentAnalysisPage() {
         >
           <option value="">All Semesters</option>
           {semesters.map((s) => (
-            <option key={s.id} value={s.id}>{s.title}</option>
+            <option key={s.id} value={s.id}>{formatPeriodLabel(s)}</option>
           ))}
         </select>
       </div>

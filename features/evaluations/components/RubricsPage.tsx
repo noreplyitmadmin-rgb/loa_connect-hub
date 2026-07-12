@@ -7,6 +7,7 @@ import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import ErrorState from "@/components/ui/ErrorState"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import { formatPeriodLabel } from "@/lib/evaluation-utils"
 
 interface RubricItem {
   id: string
@@ -28,6 +29,7 @@ interface Period {
   name?: string
   title?: string
   isActive?: boolean
+  semesterTitle?: string
 }
 
 export default function RubricsPage() {
@@ -184,7 +186,7 @@ export default function RubricsPage() {
         >
           <option value="">Select period...</option>
           {periods.map((p) => (
-            <option key={p.id} value={p.id}>{p.name || p.title || p.id}</option>
+            <option key={p.id} value={p.id}>{formatPeriodLabel(p)}</option>
           ))}
         </select>
       </div>

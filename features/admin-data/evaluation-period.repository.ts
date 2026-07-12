@@ -1,40 +1,47 @@
 import { supabase } from "@/lib/db"
 import type { EvaluationPeriodData, IEvaluationPeriodRepository } from "@/lib/types"
 
+type RawPeriodRow = Record<string, unknown> & { semesters?: { title: string } | null }
+
+function flatten(row: RawPeriodRow): EvaluationPeriodData {
+  const { semesters, ...rest } = row
+  return { ...rest, semesterTitle: semesters?.title ?? undefined } as EvaluationPeriodData
+}
+
 export const evaluationPeriodRepository: IEvaluationPeriodRepository = {
   async list(filter) {
-    let q = supabase.from("evaluation_periods").select("*").order("createdAt", { ascending: false })
+    let q = supabase.from("evaluation_periods").select("*, semesters!inner(title)").order("createdAt", { ascending: false })
     if (filter?.semesterId) q = q.eq("semesterId", filter.semesterId)
     if (filter?.isActive !== undefined) q = q.eq("isActive", filter.isActive)
     const { data, error } = await q
     if (error) throw error
-    return data as EvaluationPeriodData[]
+    return (data as RawPeriodRow[]).map(flatten)
   },
 
   async findById(id) {
-    const { data, error } = await supabase.from("evaluation_periods").select("*").eq("id", id).single()
+    const { data, error } = await supabase.from("evaluation_periods").select("*, semesters!inner(title)").eq("id", id).single()
     if (error) {
       if (error.code === "PGRST116") return null
       throw error
     }
-    return data as EvaluationPeriodData
+    return flatten(data as RawPeriodRow)
   },
 
   async findActive() {
-    const { data, error } = await supabase.from("evaluation_periods").select("*").eq("isActive", true)
+    const { data, error } = await supabase.from("evaluation_periods").select("*, semesters!inner(title)").eq("isActive", true)
     if (error) throw error
     if (data.length !== 1) return null
-    return data[0] as EvaluationPeriodData
+    return flatten(data[0] as RawPeriodRow)
   },
 
   async findBySemester(semesterId) {
     const { data, error } = await supabase
       .from("evaluation_periods")
-      .select("*")
+      .select("*, semesters!inner(title)")
       .eq("semesterId", semesterId)
       .order("createdAt", { ascending: true })
     if (error) throw error
-    return data as EvaluationPeriodData[]
+    return (data as RawPeriodRow[]).map(flatten)
   },
 
   async create(input) {

@@ -143,6 +143,7 @@ export interface EvaluationPeriodData {
   endDate: string | null
   isActive: boolean
   createdAt: Date
+  semesterTitle?: string
 }
 
 export interface CreateEvaluationPeriodInput {

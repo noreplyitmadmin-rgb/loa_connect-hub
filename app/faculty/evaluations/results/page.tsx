@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Skeleton from "@/components/ui/Skeleton"
 import LockedTab from "@/components/ui/LockedTab"
 import { useApiGet } from "@/lib/api/client"
-import { getRemarkColor } from "@/lib/evaluation-utils"
+import { getRemarkColor, formatPeriodLabel } from "@/lib/evaluation-utils"
 
 interface SubjectRow {
   facultySubjectId: string
@@ -23,6 +23,7 @@ interface Period {
   id: string
   title?: string
   name?: string
+  semesterTitle?: string
 }
 
 export default function FacultyEvaluationResultsPage() {
@@ -80,7 +81,7 @@ export default function FacultyEvaluationResultsPage() {
         >
           <option value="">Select a period...</option>
           {periods.map((p) => (
-            <option key={p.id} value={p.id}>{p.title || p.name || p.id}</option>
+            <option key={p.id} value={p.id}>{formatPeriodLabel(p)}</option>
           ))}
         </select>
       </div>
