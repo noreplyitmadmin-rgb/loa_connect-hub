@@ -21,8 +21,8 @@ export async function GET(
 
   try {
     const { searchParams } = new URL(request.url)
-    const semesterId = searchParams.get("semesterId")
-    if (!semesterId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
+    const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
+    if (!evaluationPeriodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
     // Get the faculty-subject record
     const { data: fsData, error: fsErr } = await supabase
@@ -60,7 +60,7 @@ export async function GET(
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
       .select("id, evaluatorId, submittedAt, createdAt")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("evaluateeId", fsData.faculty_id)
       .eq("facultySubjectId", facultySubjectId)
       .eq("status", "SUBMITTED")

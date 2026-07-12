@@ -12,9 +12,9 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const periodId = searchParams.get("periodId")
+    const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("periodId")
     const facultyId = searchParams.get("facultyId")
-    if (!periodId || !facultyId) {
+    if (!evaluationPeriodId || !facultyId) {
       return NextResponse.json({ error: "periodId and facultyId are required" }, { status: 400 })
     }
 
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       if (!dept) return NextResponse.json({ students: [] })
     }
 
-    const students = await getStudentBreakdownsForFaculty(periodId, facultyId)
+    const students = await getStudentBreakdownsForFaculty(evaluationPeriodId, facultyId)
     const anonymized = students.map((s, i) => ({
       id: `S${i + 1}`,
       ...s,

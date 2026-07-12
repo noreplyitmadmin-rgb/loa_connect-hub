@@ -33,7 +33,7 @@ export interface EvalReportDepartment {
 }
 
 export interface EvalReportData {
-  semesterId: string
+  evaluationPeriodId: string
   departments: EvalReportDepartment[]
   facultyResults: EvalReportFaculty[]
 }
@@ -49,9 +49,9 @@ const CATEGORY_KEYS: (keyof EvalReportFaculty)[] = [
   "assessmentAndFeedback",
 ]
 
-async function getActiveSemesterId(): Promise<string | null> {
+async function getActiveEvaluationPeriodId(): Promise<string | null> {
   const { data } = await supabase
-    .from("semesters")
+    .from("evaluation_periods")
     .select("id")
     .eq("isActive", true)
     .single()
@@ -74,14 +74,14 @@ function avg(nums: (number | null)[]): number | null {
   return Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 100) / 100
 }
 
-export async function getAdminEvalReportData(semesterId?: string): Promise<EvalReportData> {
-  const activeSemesterId = semesterId ?? (await getActiveSemesterId())
-  if (!activeSemesterId) return { semesterId: "", departments: [], facultyResults: [] }
+export async function getAdminEvalReportData(evaluationPeriodId?: string): Promise<EvalReportData> {
+  const activePeriodId = evaluationPeriodId ?? (await getActiveEvaluationPeriodId())
+  if (!activePeriodId) return { evaluationPeriodId: "", departments: [], facultyResults: [] }
 
   const { data: results } = await supabase
     .from("evaluation_results")
     .select("*")
-    .eq("semesterId", activeSemesterId)
+    .eq("evaluation_period_id", activePeriodId)
   const rows = (results ?? []) as Array<Record<string, unknown>>
 
   const facultyIds = [...new Set(rows.map((r) => r.facultyId as string))]
@@ -93,7 +93,6 @@ export async function getAdminEvalReportData(semesterId?: string): Promise<EvalR
 
   const deptNameMap = await getDepartmentNameMap()
 
-  // Group by department
   const deptMap = new Map<string, EvalReportFaculty[]>()
   for (const r of rows) {
     const facultyId = r.facultyId as string
@@ -139,7 +138,7 @@ export async function getAdminEvalReportData(semesterId?: string): Promise<EvalR
   departments.sort((a, b) => (b.avgGeneralRating ?? 0) - (a.avgGeneralRating ?? 0))
 
   return {
-    semesterId: activeSemesterId,
+    evaluationPeriodId: activePeriodId,
     departments,
     facultyResults: rows.map((r) => {
       const facultyId = r.facultyId as string
@@ -163,22 +162,21 @@ export async function getAdminEvalReportData(semesterId?: string): Promise<EvalR
   }
 }
 
-export async function getDeanEvalReportData(deanId: string, semesterId?: string): Promise<EvalReportData> {
-  const activeSemesterId = semesterId ?? (await getActiveSemesterId())
-  if (!activeSemesterId) return { semesterId: "", departments: [], facultyResults: [] }
+export async function getDeanEvalReportData(deanId: string, evaluationPeriodId?: string): Promise<EvalReportData> {
+  const activePeriodId = evaluationPeriodId ?? (await getActiveEvaluationPeriodId())
+  if (!activePeriodId) return { evaluationPeriodId: "", departments: [], facultyResults: [] }
 
-  // Resolve dean's department
   const { data: dept } = await supabase
     .from("departments")
     .select("id, name")
     .eq("deanId", deanId)
     .single()
-  if (!dept) return { semesterId: "", departments: [], facultyResults: [] }
+  if (!dept) return { evaluationPeriodId: "", departments: [], facultyResults: [] }
 
   const { data: results } = await supabase
     .from("evaluation_results")
     .select("*")
-    .eq("semesterId", activeSemesterId)
+    .eq("evaluation_period_id", activePeriodId)
     .eq("departmentId", dept.id)
   const rows = (results ?? []) as Array<Record<string, unknown>>
 
@@ -209,7 +207,7 @@ export async function getDeanEvalReportData(deanId: string, semesterId?: string)
   })
 
   return {
-    semesterId: activeSemesterId,
+    evaluationPeriodId: activePeriodId,
     departments: [{
       departmentId: dept.id,
       departmentName: dept.name,
@@ -229,14 +227,14 @@ export async function getDeanEvalReportData(deanId: string, semesterId?: string)
   }
 }
 
-export async function getFacultyEvalReportData(facultyId: string, semesterId?: string): Promise<EvalReportData> {
-  const activeSemesterId = semesterId ?? (await getActiveSemesterId())
-  if (!activeSemesterId) return { semesterId: "", departments: [], facultyResults: [] }
+export async function getFacultyEvalReportData(facultyId: string, evaluationPeriodId?: string): Promise<EvalReportData> {
+  const activePeriodId = evaluationPeriodId ?? (await getActiveEvaluationPeriodId())
+  if (!activePeriodId) return { evaluationPeriodId: "", departments: [], facultyResults: [] }
 
   const { data: results } = await supabase
     .from("evaluation_results")
     .select("*")
-    .eq("semesterId", activeSemesterId)
+    .eq("evaluation_period_id", activePeriodId)
     .eq("facultyId", facultyId)
   const rows = (results ?? []) as Array<Record<string, unknown>>
 
@@ -265,7 +263,7 @@ export async function getFacultyEvalReportData(facultyId: string, semesterId?: s
   }))
 
   return {
-    semesterId: activeSemesterId,
+    evaluationPeriodId: activePeriodId,
     departments: deptId ? [{
       departmentId: deptId,
       departmentName: deptNameMap.get(deptId) ?? deptId,

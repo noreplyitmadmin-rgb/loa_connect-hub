@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
 import { getEvaluation, getEvaluationRatings, getEvaluationComment } from "@/features/evaluations/evaluations.service"
-import { getActiveSemester } from "@/features/admin-data/semesters.service"
 import { rubricRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,11 +69,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (includes.has("rubric")) {
-      const activePeriod = await getActiveSemester()
-      if (activePeriod) {
-        const rubric = await rubricRepository.getCategoriesWithItems(activePeriod.id)
-        responseBody.rubric = rubric
-      }
+      const rubric = await rubricRepository.getCategoriesWithItems(evaluation.evaluationPeriodId)
+      responseBody.rubric = rubric
     }
 
     return NextResponse.json(responseBody)

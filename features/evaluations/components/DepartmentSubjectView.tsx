@@ -32,7 +32,7 @@ interface SubjectRow {
 interface Props {
   subjects: SubjectRow[]
   departmentId: string
-  semesterId: string
+  evaluationPeriodId: string
   search: string
   onSearchChange: (v: string) => void
   basePath?: string
@@ -45,7 +45,7 @@ type ViewTab = "by_subject" | "by_faculty"
 
 type SortKey = "facultyName" | "subjectName" | "avgRating" | "sentimentScore" | "totalRespondents"
 
-export default function DepartmentSubjectView({ subjects, departmentId, semesterId, search, onSearchChange, basePath = "/admin/evaluations/results", visibilityMap = {}, onVisibilityChange, onBulkVisibilityChange }: Props) {
+export default function DepartmentSubjectView({ subjects, departmentId, evaluationPeriodId, search, onSearchChange, basePath = "/admin/evaluations/results", visibilityMap = {}, onVisibilityChange, onBulkVisibilityChange }: Props) {
   const router = useRouter()
   const [viewTab, setViewTab] = useState<ViewTab>("by_subject")
   const [sortKey, setSortKey] = useState<SortKey>("avgRating")
@@ -131,7 +131,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
   const handleConsolidatedPdf = useCallback(async (facultyId: string, _facultyName: string, _facultyEmail: string) => {
     try {
       const res = await fetch(
-        `${apiPrefix}/evaluation-results/departments/${encodeURIComponent(departmentId)}/faculty/${encodeURIComponent(facultyId)}?semesterId=${encodeURIComponent(semesterId)}`,
+        `${apiPrefix}/evaluation-results/departments/${encodeURIComponent(departmentId)}/faculty/${encodeURIComponent(facultyId)}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`,
       )
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Request failed" }))
@@ -152,7 +152,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
     } catch (e) {
       console.error("Consolidated PDF error:", e)
     }
-  }, [apiPrefix, departmentId, semesterId])
+  }, [apiPrefix, departmentId, evaluationPeriodId])
 
   const tabs: { key: ViewTab; label: string }[] = [
     { key: "by_subject", label: "By Subject & Section" },
@@ -254,7 +254,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                   key={row.facultySubjectId}
                   onClick={() =>
                     router.push(
-                      `${basePath}/${departmentId}/${row.facultySubjectId}?semesterId=${encodeURIComponent(semesterId)}`,
+                      `${basePath}/${departmentId}/${row.facultySubjectId}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`,
                     )
                   }
                   className="border-b border-default hover:bg-surface-hover cursor-pointer transition-colors"
@@ -433,7 +433,7 @@ export default function DepartmentSubjectView({ subjects, departmentId, semester
                             key={s.facultySubjectId}
                             onClick={() =>
                               router.push(
-                                `${basePath}/${departmentId}/${s.facultySubjectId}?semesterId=${encodeURIComponent(semesterId)}`,
+                                `${basePath}/${departmentId}/${s.facultySubjectId}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`,
                               )
                             }
                             className="border-b border-default hover:bg-surface-hover cursor-pointer transition-colors"

@@ -13,7 +13,7 @@ interface CommentRow {
   comment: string
   sentimentLabel: string | null
   sentimentScore: number | null
-  evaluation: { evaluateeId: string; semesterId: string }
+  evaluation: { evaluateeId: string; evaluationPeriodId: string }
 }
 
 const DISPLAY_ORDER = ["positive", "negative", "neutral", "mixed", "gibberish"]
@@ -88,7 +88,7 @@ export default function SentimentAnalysisPage() {
   useEffect(() => {
     if (!selectedSemester) return
     Promise.resolve().then(async () => {
-      const res = await fetch(`/api/evaluation-comments?semesterId=${selectedSemester}`)
+      const res = await fetch(`/api/evaluation-comments?evaluationPeriodId=${selectedSemester}`)
       if (!res.ok) return
       const data = await res.json()
       setComments(data.comments || [])

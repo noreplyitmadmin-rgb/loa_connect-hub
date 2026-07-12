@@ -18,13 +18,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const semesterId = searchParams.get("semesterId")
-    if (!semesterId) return NextResponse.json({ error: "semesterId is required" }, { status: 400 })
+    const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
+    if (!evaluationPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
 
     const { data: visRow } = await supabase
       .from("evaluation_results")
       .select("is_results_visible")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("facultyId", userId)
       .maybeSingle()
     if (!visRow || !visRow.is_results_visible) {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
       .select("id, facultySubjectId, submittedAt")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("evaluateeId", userId)
       .eq("status", "SUBMITTED")
     if (evErr) throw evErr

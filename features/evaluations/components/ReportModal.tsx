@@ -19,7 +19,7 @@ interface Period {
 
 interface Result {
   id: string
-  semesterId: string
+  evaluationPeriodId: string
   facultyId: string
   departmentId: string | null
   totalRespondents: number

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
-import { getSemesters } from "@/features/admin-data/semesters.service"
+import { getEvaluationPeriods, getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import { getPendingEvaluations, getMyEvaluations } from "@/features/evaluations/evaluations.service"
 import { rubricRepository } from "@/lib/repositories/factory"
 
@@ -18,15 +18,15 @@ export async function GET() {
   }
 
   try {
-    const periods = await getSemesters()
-    const active = periods.find((p: { isActive: boolean }) => p.isActive)
-    const activeSemesterId = active?.id ?? null
+    const periods = await getEvaluationPeriods()
+    const activePeriod = await getActiveEvaluationPeriod()
+    const activePeriodId = activePeriod?.id ?? null
 
     const [pending, evaluations, rubric] = await Promise.all([
-      activeSemesterId ? getPendingEvaluations(userId, activeSemesterId) : Promise.resolve([]),
-      activeSemesterId ? getMyEvaluations(userId, activeSemesterId) : Promise.resolve([]),
-      activeSemesterId
-        ? rubricRepository.getCategoriesWithItems(activeSemesterId).catch(() => null)
+      activePeriodId ? getPendingEvaluations(userId, activePeriodId) : Promise.resolve([]),
+      activePeriodId ? getMyEvaluations(userId, activePeriodId) : Promise.resolve([]),
+      activePeriodId
+        ? rubricRepository.getCategoriesWithItems(activePeriodId).catch(() => null)
         : Promise.resolve(null),
     ])
 
@@ -100,7 +100,8 @@ export async function GET() {
 
     return NextResponse.json({
       periods,
-      activeSemesterId,
+      activePeriodId,
+      activePeriodName: activePeriod?.name ?? null,
       pending: enrichedPending,
       evaluations: enrichedEvaluations,
       rubric,

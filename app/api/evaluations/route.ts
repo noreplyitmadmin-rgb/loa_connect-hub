@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
 import { getOrCreateEvaluation, getEvaluation, getMyEvaluations } from "@/features/evaluations/evaluations.service"
-import { getActiveSemester } from "@/features/admin-data/semesters.service"
+import { getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import type { EvaluationData } from "@/lib/types"
 
 async function enrichEvaluation(evaluation: EvaluationData) {
@@ -53,11 +53,11 @@ export async function GET() {
   }
 
   try {
-    const activeSemester = await getActiveSemester()
-    if (!activeSemester) {
-      return NextResponse.json({ error: "No active semester" }, { status: 400 })
+    const activePeriod = await getActiveEvaluationPeriod()
+    if (!activePeriod) {
+      return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
-    const evaluations = await getMyEvaluations(userId, activeSemester.id)
+    const evaluations = await getMyEvaluations(userId, activePeriod.id)
     const result = await Promise.all(evaluations.map(enrichEvaluation))
     return NextResponse.json({ evaluations: result })
   } catch {
@@ -79,7 +79,6 @@ export async function POST(request: Request) {
   try {
     const { periodId, evaluateeId, facultySubjectId, source, id } = await request.json()
 
-    // If an evaluation id is provided, skip enrollment check and return it directly
     if (id) {
       const existing = await getEvaluation(id)
       if (!existing || existing.evaluatorId !== userId) {
@@ -89,19 +88,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ evaluation: enriched }, { status: 200 })
     }
 
-    const activeSemesterId = periodId || (await getActiveSemester())?.id
-    if (!activeSemesterId) {
+    const activePeriodId = periodId || (await getActiveEvaluationPeriod())?.id
+    if (!activePeriodId) {
       return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
 
     if (source !== "unenrolled") {
-      // Validate that the facultySubjectId belongs to one of the student's enrollments
+      const { data: evalPeriod } = await supabase
+        .from("evaluation_periods")
+        .select("semesterId")
+        .eq("id", activePeriodId)
+        .single()
+
+      if (!evalPeriod) {
+        return NextResponse.json({ error: "Invalid evaluation period" }, { status: 400 })
+      }
+
       const { data: enrollment } = await supabase
         .from("student_enrollments")
         .select("id")
         .eq("student_id", userId)
         .eq("faculty_subject_id", facultySubjectId)
-        .eq("semesterId", activeSemesterId)
+        .eq("semesterId", evalPeriod.semesterId)
         .maybeSingle()
 
       if (!enrollment) {
@@ -110,7 +118,7 @@ export async function POST(request: Request) {
     }
 
     const fsId = facultySubjectId || null
-    const evaluation = await getOrCreateEvaluation(activeSemesterId, userId, evaluateeId, fsId, source)
+    const evaluation = await getOrCreateEvaluation(activePeriodId, userId, evaluateeId, fsId, source)
     const enriched = await enrichEvaluation(evaluation)
 
     return NextResponse.json({ evaluation: enriched }, { status: 200 })

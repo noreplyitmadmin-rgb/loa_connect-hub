@@ -10,20 +10,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const semesterId = searchParams.get("semesterId")
-    if (!semesterId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
+    const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
+    if (!evaluationPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
 
-    let results = await evaluationResultRepository.list(semesterId)
+    let results = await evaluationResultRepository.list(evaluationPeriodId)
     if (results.length === 0) {
-      await evaluationResultRepository.computeAll(semesterId)
-      results = await evaluationResultRepository.list(semesterId)
+      await evaluationResultRepository.computeAll(evaluationPeriodId)
+      results = await evaluationResultRepository.list(evaluationPeriodId)
       if (results.length === 0) return NextResponse.json({ departments: [] })
     }
 
     const { data: sentimentRows } = await supabase
       .from("evaluations")
       .select("evaluateeId, evaluation_comments(sentimentScore)")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("status", "SUBMITTED")
       .eq("isDisabled", false)
       .not("facultySubjectId", "is", null)

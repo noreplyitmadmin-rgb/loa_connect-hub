@@ -46,15 +46,15 @@ export default function GroupDetailPage() {
   const searchParams = useSearchParams()
   const departmentId = params.departmentId as string
   const facultySubjectId = params.facultySubjectId as string
-  const semesterId = searchParams.get("semesterId") || ""
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId") || ""
 
   const { data, error: dataError, isLoading } = useApiGet<GroupDetailData>(
-    semesterId
-      ? `/api/admin/evaluation-results/departments/${encodeURIComponent(departmentId)}/groups/${encodeURIComponent(facultySubjectId)}?semesterId=${encodeURIComponent(semesterId)}`
+    evaluationPeriodId
+      ? `/api/admin/evaluation-results/departments/${encodeURIComponent(departmentId)}/groups/${encodeURIComponent(facultySubjectId)}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`
       : null,
   )
   const error = dataError?.message || ""
-  const loading = isLoading && !!semesterId
+  const loading = isLoading && !!evaluationPeriodId
 
   const formatScore = (v: number | null) => (v !== null ? v.toFixed(2) : "\u2014")
 
@@ -76,7 +76,7 @@ export default function GroupDetailPage() {
     <div className="w-full space-y-8 pb-12">
       <div className="flex items-center justify-between">
         <Link
-          href={`/admin/evaluations/results/${departmentId}?semesterId=${encodeURIComponent(semesterId)}`}
+          href={`/admin/evaluations/results/${departmentId}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`}
           className="text-xs text-amber-600 hover:underline"
         >
           &larr; Back to department

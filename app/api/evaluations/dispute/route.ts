@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
 import { evaluationRepository } from "@/features/evaluations/evaluations.repository"
-import { getActiveSemester } from "@/features/admin-data/semesters.service"
+import { getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import nodemailer from "nodemailer"
 
 const emailEnabled = () => process.env.EMAIL_FEATURE_FLAG === "true"
@@ -28,9 +28,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "facultySubjectId and evaluateeId are required" }, { status: 400 })
     }
 
-    const activeSemester = await getActiveSemester()
-    if (!activeSemester) {
-      return NextResponse.json({ error: "No active semester" }, { status: 400 })
+    const activePeriod = await getActiveEvaluationPeriod()
+    if (!activePeriod) {
+      return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
+    }
+
+    const { data: evalPeriod } = await supabase
+      .from("evaluation_periods")
+      .select("semesterId")
+      .eq("id", activePeriod.id)
+      .single()
+
+    if (!evalPeriod) {
+      return NextResponse.json({ error: "Invalid evaluation period" }, { status: 400 })
     }
 
     const { data: enrollment } = await supabase
@@ -38,24 +48,25 @@ export async function POST(request: Request) {
       .select("id")
       .eq("student_id", userId)
       .eq("faculty_subject_id", facultySubjectId)
-      .eq("semesterId", activeSemester.id)
+      .eq("semesterId", evalPeriod.semesterId)
       .maybeSingle()
 
     if (!enrollment) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const existing = await evaluationRepository.findByComposite(activeSemester.id, userId, facultySubjectId)
+    const existing = await evaluationRepository.findByComposite(activePeriod.id, userId, facultySubjectId)
     const remarks = `Reported as wrong section/subject : ${subjectName || "Unknown"} for Faculty: ${evaluateeName || evaluateeId}`
     if (existing) {
       await supabase.from("evaluations").update({ isDisabled: true, status: "INVALID", remarks }).eq("id", existing.id)
     } else {
-      await evaluationRepository.create(activeSemester.id, userId, evaluateeId, facultySubjectId, "dispute")
+      await evaluationRepository.create(activePeriod.id, userId, evaluateeId, facultySubjectId, "dispute")
       await supabase
         .from("evaluations")
         .update({ isDisabled: true, status: "INVALID", remarks })
         .eq("evaluatorId", userId)
         .eq("facultySubjectId", facultySubjectId)
+        .eq("evaluation_period_id", activePeriod.id)
     }
 
     await supabase.from("audit_logs").insert({

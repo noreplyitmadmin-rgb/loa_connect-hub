@@ -31,12 +31,12 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const periodId = searchParams.get("periodId")
+    const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("periodId")
     const userId = (session.user as Record<string, unknown>).id as string
-    if (!periodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
+    if (!evaluationPeriodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
     // Check visibility
-    const visMap = await evaluationResultRepository.getVisibilityMap(periodId)
+    const visMap = await evaluationResultRepository.getVisibilityMap(evaluationPeriodId)
     if (!visMap.get(userId)) {
       return NextResponse.json({ error: "Results are not visible yet. Admin has not enabled 'Allow User To View Results' for this evaluation period." }, { status: 403 })
     }
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
       .select("id")
-      .eq("semesterId", periodId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("evaluateeId", userId)
       .eq("status", "SUBMITTED")
     if (evErr) throw evErr
@@ -84,8 +84,8 @@ export async function GET(request: Request) {
       : null
 
     const result: Record<string, unknown> = {
-      id: `${periodId}_${userId}`,
-      semesterId: periodId,
+      id: `${evaluationPeriodId}_${userId}`,
+      evaluationPeriodId,
       facultyId: userId,
       departmentId: null,
       totalRespondents: evaluationIds.length,

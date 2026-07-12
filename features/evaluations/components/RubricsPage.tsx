@@ -19,7 +19,7 @@ interface RubricItem {
 interface RubricCategory {
   id: string
   name: string
-  semesterId: string
+  evaluationPeriodId: string
   items: RubricItem[]
 }
 

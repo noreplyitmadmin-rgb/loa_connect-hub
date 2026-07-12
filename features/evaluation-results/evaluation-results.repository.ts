@@ -2,8 +2,8 @@ import { supabase } from "@/lib/db"
 import type { EvaluationResultData, IEvaluationResultRepository, StudentBreakdownItem, FacultyEvalDetail } from "@/lib/types"
 
 export const evaluationResultRepository: IEvaluationResultRepository = {
-  async list(semesterId, filters) {
-    let q = supabase.from("evaluation_results").select("*").eq("semesterId", semesterId)
+  async list(evaluationPeriodId, filters) {
+    let q = supabase.from("evaluation_results").select("*").eq("evaluation_period_id", evaluationPeriodId)
     if (filters?.departmentId) q = q.eq("departmentId", filters.departmentId)
     if (filters?.facultyId) q = q.eq("facultyId", filters.facultyId)
     const { data, error } = await q
@@ -11,11 +11,11 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     return data as EvaluationResultData[]
   },
 
-  async findByFaculty(semesterId, facultyId) {
+  async findByFaculty(evaluationPeriodId, facultyId) {
     const { data, error } = await supabase
       .from("evaluation_results")
       .select("*")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("facultyId", facultyId)
       .single()
     if (error) {
@@ -25,12 +25,12 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     return data as EvaluationResultData
   },
 
-  async compute(semesterId, facultyId) {
+  async compute(evaluationPeriodId, facultyId) {
     const filterFaculty = facultyId ? { evaluateeId: facultyId } : {}
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
       .select("id, evaluateeId, facultySubjectId")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("status", "SUBMITTED")
       .eq("isDisabled", false)
       .not("facultySubjectId", "is", null)
@@ -48,6 +48,14 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
 
     const allFacultyIds = Array.from(facEvalMap.keys())
 
+    const { data: evalPeriod } = await supabase
+      .from("evaluation_periods")
+      .select("semesterId")
+      .eq("id", evaluationPeriodId)
+      .single()
+
+    const semesterId = evalPeriod?.semesterId
+
     const [ratingsResult, usersResult, existingResult] = await Promise.all([
       supabase
         .from("evaluation_ratings")
@@ -57,7 +65,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       supabase
         .from("evaluation_results")
         .select("id, facultyId")
-        .eq("semesterId", semesterId)
+        .eq("evaluation_period_id", evaluationPeriodId)
         .in("facultyId", allFacultyIds),
     ])
     if (ratingsResult.error) throw ratingsResult.error
@@ -77,7 +85,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     const userDeptMap = new Map(users.map((u) => [u.id, u.departmentId]))
 
     const facIdsWithNullDept = allFacultyIds.filter((id) => !userDeptMap.get(id))
-    if (facIdsWithNullDept.length > 0) {
+    if (facIdsWithNullDept.length > 0 && semesterId) {
       const { data: fsRows } = await supabase
         .from("faculty_subjects")
         .select("faculty_id, section_id")
@@ -184,7 +192,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       if (existingId) {
         toUpdate.push({ id: existingId, data: updateData })
       } else {
-        toInsert.push({ semesterId, facultyId: facId, ...updateData })
+        toInsert.push({ evaluation_period_id: evaluationPeriodId, facultyId: facId, ...updateData })
       }
     }
 
@@ -197,15 +205,15 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     }
   },
 
-  async computeAll(semesterId) {
-    await this.compute(semesterId)
+  async computeAll(evaluationPeriodId) {
+    await this.compute(evaluationPeriodId)
   },
 
-  async setVisibility(semesterId, facultyIds, visible) {
+  async setVisibility(evaluationPeriodId, facultyIds, visible) {
     const { data: existing } = await supabase
       .from("evaluation_results")
       .select("facultyId")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .in("facultyId", facultyIds)
 
     const existingSet = new Set((existing || []).map((r) => r.facultyId))
@@ -216,7 +224,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       const { error } = await supabase
         .from("evaluation_results")
         .update({ is_results_visible: visible })
-        .eq("semesterId", semesterId)
+        .eq("evaluation_period_id", evaluationPeriodId)
         .in("facultyId", toUpdate)
       if (error) throw error
     }
@@ -225,7 +233,7 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
       const { error } = await supabase
         .from("evaluation_results")
         .insert(toInsert.map((facultyId) => ({
-          semesterId,
+          evaluation_period_id: evaluationPeriodId,
           facultyId,
           is_results_visible: visible,
           totalRespondents: 0,
@@ -234,11 +242,11 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     }
   },
 
-  async getVisibilityMap(semesterId) {
+  async getVisibilityMap(evaluationPeriodId) {
     const { data, error } = await supabase
       .from("evaluation_results")
       .select("facultyId, is_results_visible")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
     if (error) throw error
     return new Map((data || []).map((r) => [r.facultyId, r.is_results_visible]))
   },
@@ -256,15 +264,15 @@ const nameToColumn: Record<string, keyof StudentBreakdownItem> = {
 }
 
 export async function getStudentBreakdownsForFaculty(
-  semesterId: string,
+  evaluationPeriodId: string,
   facultyId: string,
 ): Promise<StudentBreakdownItem[]> {
-  const result = await getStudentBreakdownsForFaculties(semesterId, [facultyId])
+  const result = await getStudentBreakdownsForFaculties(evaluationPeriodId, [facultyId])
   return result.get(facultyId) || []
 }
 
 async function getStudentBreakdownsForFaculties(
-  semesterId: string,
+  evaluationPeriodId: string,
   facultyIds: string[],
 ): Promise<Map<string, StudentBreakdownItem[]>> {
   if (facultyIds.length === 0) return new Map()
@@ -283,7 +291,7 @@ async function getStudentBreakdownsForFaculties(
       ),
       evaluation_comments(comment, sentimentLabel, sentimentScore)
     `)
-    .eq("semesterId", semesterId)
+    .eq("evaluation_period_id", evaluationPeriodId)
     .in("evaluateeId", facultyIds)
     .eq("status", "SUBMITTED")
     .eq("isDisabled", false)
@@ -346,13 +354,13 @@ async function getStudentBreakdownsForFaculties(
 }
 
 export async function getDeanDetails(
-  semesterId: string,
+  evaluationPeriodId: string,
   departmentId: string,
 ): Promise<FacultyEvalDetail[]> {
   const { data: results, error: resErr } = await supabase
     .from("evaluation_results")
     .select("*")
-    .eq("semesterId", semesterId)
+    .eq("evaluation_period_id", evaluationPeriodId)
     .eq("departmentId", departmentId)
   if (resErr) throw resErr
   if (!results || results.length === 0) return []
@@ -366,7 +374,7 @@ export async function getDeanDetails(
   if (uErr) throw uErr
   const nameMap = new Map((users || []).map((u) => [u.id, u.name]))
 
-  const studentsMap = await getStudentBreakdownsForFaculties(semesterId, facultyIds)
+  const studentsMap = await getStudentBreakdownsForFaculties(evaluationPeriodId, facultyIds)
   const details: FacultyEvalDetail[] = results.map((r) => ({
     facultyId: r.facultyId,
     facultyName: nameMap.get(r.facultyId) || r.facultyId,

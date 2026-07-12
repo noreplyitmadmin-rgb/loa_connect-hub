@@ -12,7 +12,7 @@ import ReportModal from "./ReportModal"
 
 interface Result {
   id: string
-  semesterId: string
+  evaluationPeriodId: string
   facultyId: string
   facultySubjectId?: string
   departmentId: string | null
@@ -239,7 +239,7 @@ export default function EvaluationDashboard({
       const res = await fetch("/api/admin/evaluation-results/visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ semesterId: selectedPeriod, facultyIds: [facultyId], visible }),
+        body: JSON.stringify({ evaluationPeriodId: selectedPeriod, facultyIds: [facultyId], visible }),
       })
       if (res.status === 403) { setLockedEndpoint("/api/admin/evaluation-results/visibility"); setVisibilityMap((m) => ({ ...m, [facultyId]: prev })); return }
     } catch {
@@ -260,7 +260,7 @@ export default function EvaluationDashboard({
       const res = await fetch("/api/admin/evaluation-results/visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ semesterId: selectedPeriod, facultyIds, visible }),
+        body: JSON.stringify({ evaluationPeriodId: selectedPeriod, facultyIds, visible }),
       })
       if (res.status === 403) { setLockedEndpoint("/api/admin/evaluation-results/visibility"); setVisibilityMap(prev); return }
     } catch {

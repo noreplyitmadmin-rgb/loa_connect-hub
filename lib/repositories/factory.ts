@@ -8,6 +8,7 @@ import type {
   IAuditLogRepository,
   IReportsRepository,
   ISemesterRepository,
+  IEvaluationPeriodRepository,
   ISubjectRepository,
   ISectionRepository,
   IFacultySubjectRepository,
@@ -27,6 +28,7 @@ import { passwordResetTokenRepository as supabaseTokenRepo } from "@/features/us
 import { auditLogRepository as supabaseAuditLogRepo } from "@/features/audit/audit.repository"
 import { reportsRepository as supabaseReportsRepo } from "@/features/reports/reports.repository"
 import { semesterRepository as supabaseSemesterRepo } from "@/features/admin-data/semester.repository"
+import { evaluationPeriodRepository as supabaseEvalPeriodRepo } from "@/features/admin-data/evaluation-period.repository"
 import { subjectRepository as supabaseSubjectRepo } from "@/features/admin-data/subject.repository"
 import { sectionRepository as supabaseSectionRepo } from "@/features/admin-data/section.repository"
 import { facultySubjectRepository as supabaseFacultySubjectRepo } from "@/features/admin-data/faculty-subject.repository"
@@ -45,6 +47,7 @@ export const passwordResetTokenRepository: IPasswordResetTokenRepository = supab
 export const auditLogRepository: IAuditLogRepository = supabaseAuditLogRepo
 export const reportsRepository: IReportsRepository = supabaseReportsRepo
 export const semesterRepository: ISemesterRepository = supabaseSemesterRepo
+export const evaluationPeriodRepository: IEvaluationPeriodRepository = supabaseEvalPeriodRepo
 export const subjectRepository: ISubjectRepository = supabaseSubjectRepo
 export const sectionRepository: ISectionRepository = supabaseSectionRepo
 export const facultySubjectRepository: IFacultySubjectRepository = supabaseFacultySubjectRepo

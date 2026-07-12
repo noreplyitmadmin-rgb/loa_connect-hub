@@ -15,7 +15,7 @@ export default async function FacultyEvalReportPage() {
   return (
     <EvaluationReportContent
       role="faculty"
-      semesterId={data.semesterId}
+      evaluationPeriodId={data.evaluationPeriodId}
       initialData={data}
     />
   )

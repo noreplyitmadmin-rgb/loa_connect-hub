@@ -22,8 +22,8 @@ export async function GET(
 
   try {
     const { searchParams } = new URL(request.url)
-    const semesterId = searchParams.get("semesterId")
-    if (!semesterId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
+    const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
+    if (!evaluationPeriodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
     // Get faculty in this department
     const { data: facUsers, error: fuErr } = await supabase
@@ -40,7 +40,7 @@ export async function GET(
     const { data: evals, error: evErr } = await supabase
       .from("evaluations")
       .select("id, evaluateeId, facultySubjectId, submittedAt")
-      .eq("semesterId", semesterId)
+      .eq("evaluation_period_id", evaluationPeriodId)
       .eq("status", "SUBMITTED")
       .in("evaluateeId", facIds)
     if (evErr) throw evErr
@@ -145,7 +145,7 @@ export async function GET(
       .single()
 
     // Get visibility map
-    const visMap = await evaluationResultRepository.getVisibilityMap(semesterId)
+    const visMap = await evaluationResultRepository.getVisibilityMap(evaluationPeriodId)
     const visibilityMap: Record<string, boolean> = {}
     for (const item of subjectsList) {
       visibilityMap[item.facultyId as string] = visMap.get(item.facultyId as string) ?? false

@@ -1766,6 +1766,150 @@ ON CONFLICT ("groupName") DO UPDATE SET
   "updatedAt" = EXCLUDED."updatedAt";
 
 -- =========================================================
+-- Migration 30: Evaluation Periods
+-- =========================================================
+-- Separates evaluation periods from semesters. A semester can
+-- have multiple evaluation periods (e.g., Pre-Semester, Post-Semester).
+-- Evaluation-specific tables now reference evaluation_periods
+-- instead of semesters directly.
+
+-- ── 30a. Create evaluation_periods table ──────────────────
+
+CREATE TABLE IF NOT EXISTS evaluation_periods (
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "semesterId"    TEXT NOT NULL REFERENCES semesters(id) ON DELETE CASCADE,
+  name            TEXT NOT NULL,
+  source          TEXT DEFAULT NULL,
+  "startDate"     DATE,
+  "endDate"       DATE,
+  "isActive"      BOOLEAN NOT NULL DEFAULT FALSE,
+  "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_periods_semester ON evaluation_periods("semesterId");
+CREATE INDEX IF NOT EXISTS idx_eval_periods_active ON evaluation_periods("isActive");
+
+-- ── 30b. Add evaluation_period_id to child tables ─────────
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_categories' AND column_name = 'evaluation_period_id'
+  ) THEN
+    ALTER TABLE rubric_categories ADD COLUMN evaluation_period_id TEXT REFERENCES evaluation_periods(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_rubric_categories_period ON rubric_categories(evaluation_period_id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rating_scales' AND column_name = 'evaluation_period_id'
+  ) THEN
+    ALTER TABLE rating_scales ADD COLUMN evaluation_period_id TEXT REFERENCES evaluation_periods(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_rating_scales_period ON rating_scales(evaluation_period_id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluations' AND column_name = 'evaluation_period_id'
+  ) THEN
+    ALTER TABLE evaluations ADD COLUMN evaluation_period_id TEXT REFERENCES evaluation_periods(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_evaluations_period ON evaluations(evaluation_period_id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluation_results' AND column_name = 'evaluation_period_id'
+  ) THEN
+    ALTER TABLE evaluation_results ADD COLUMN evaluation_period_id TEXT REFERENCES evaluation_periods(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_eval_results_period ON evaluation_results(evaluation_period_id);
+  END IF;
+END $$;
+
+-- ── 30c. Migrate existing data: create evaluation_periods from semesters ──
+
+DO $$
+DECLARE
+  _sem RECORD;
+  _ep_id TEXT;
+BEGIN
+  FOR _sem IN SELECT id, title, "evalStartDate", "evalEndDate", "isActive" FROM semesters
+  LOOP
+    -- Create an evaluation period for each semester that has eval dates or is active
+    IF _sem."evalStartDate" IS NOT NULL OR _sem."isActive" = TRUE THEN
+      _ep_id := gen_random_uuid()::TEXT;
+      INSERT INTO evaluation_periods (id, "semesterId", name, source, "startDate", "endDate", "isActive")
+      VALUES (_ep_id, _sem.id, _sem.title || ' - Evaluation', NULL, _sem."evalStartDate", _sem."evalEndDate", _sem."isActive")
+      ON CONFLICT DO NOTHING;
+
+      -- Migrate rubric_categories
+      UPDATE rubric_categories SET evaluation_period_id = _ep_id
+      WHERE "semesterId" = _sem.id AND evaluation_period_id IS NULL;
+
+      -- Migrate rating_scales
+      UPDATE rating_scales SET evaluation_period_id = _ep_id
+      WHERE "semesterId" = _sem.id AND evaluation_period_id IS NULL;
+
+      -- Migrate evaluations
+      UPDATE evaluations SET evaluation_period_id = _ep_id
+      WHERE "semesterId" = _sem.id AND evaluation_period_id IS NULL;
+
+      -- Migrate evaluation_results
+      UPDATE evaluation_results SET evaluation_period_id = _ep_id
+      WHERE "semesterId" = _sem.id AND evaluation_period_id IS NULL;
+    END IF;
+  END LOOP;
+END $$;
+
+-- ── 30d. Update UNIQUE constraints to use evaluation_period_id ──
+
+-- evaluations: drop old UNIQUE on (semesterId, evaluatorId, facultySubjectId)
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_semesterId_evaluatorId_facultySubjectId_key;
+ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS "evaluations_semesterId_evaluatorId_facultySubjectId_key";
+
+-- Add new UNIQUE on (evaluation_period_id, evaluatorId, facultySubjectId)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'evaluations_period_evaluator_fs_unique'
+  ) THEN
+    ALTER TABLE evaluations ADD CONSTRAINT evaluations_period_evaluator_fs_unique
+      UNIQUE (evaluation_period_id, "evaluatorId", "facultySubjectId");
+  END IF;
+END $$;
+
+-- evaluation_results: drop old UNIQUE on (semesterId, facultyId, subjectId)
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_semesterId_facultyId_subjectId_key;
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS "evaluation_results_semesterId_facultyId_subjectId_key";
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS evaluation_results_semesterId_facultyId_key;
+ALTER TABLE evaluation_results DROP CONSTRAINT IF EXISTS "evaluation_results_semesterId_facultyId_key";
+
+-- Add new UNIQUE on (evaluation_period_id, facultyId, subjectId)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'eval_results_period_faculty_subject_unique'
+  ) THEN
+    ALTER TABLE evaluation_results ADD CONSTRAINT eval_results_period_faculty_subject_unique
+      UNIQUE (evaluation_period_id, "facultyId", "subjectId");
+  END IF;
+END $$;
+
+-- ── 30e. Add is_results_visible column if missing ────────
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluation_results' AND column_name = 'is_results_visible'
+  ) THEN
+    ALTER TABLE evaluation_results ADD COLUMN "is_results_visible" BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- =========================================================
 -- exec_sql: RPC function for executing raw SQL statements
 -- Used by the admin reset-database endpoint.
 -- =========================================================

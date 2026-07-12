@@ -10,12 +10,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { periodId, facultyId, facultySubjectId, reason } = body as { periodId?: string; facultyId?: string; facultySubjectId?: string; reason?: string }
-    if (!periodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
+    const { periodId, evaluationPeriodId, facultyId, facultySubjectId, reason } = body as {
+      periodId?: string
+      evaluationPeriodId?: string
+      facultyId?: string
+      facultySubjectId?: string
+      reason?: string
+    }
+
+    const targetPeriodId = evaluationPeriodId || periodId
+    if (!targetPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
     if (!facultyId && !facultySubjectId) return NextResponse.json({ error: "facultyId or facultySubjectId is required" }, { status: 400 })
 
-    // Build query to mark matching evaluations as disabled
-    let q = supabase.from("evaluations").update({ isDisabled: true }).eq("semesterId", periodId).eq("status", "SUBMITTED")
+    let q = supabase.from("evaluations").update({ isDisabled: true }).eq("evaluation_period_id", targetPeriodId).eq("status", "SUBMITTED")
     if (facultySubjectId) {
       q = q.eq("facultySubjectId", facultySubjectId)
     } else if (facultyId) {
@@ -25,11 +32,9 @@ export async function POST(request: NextRequest) {
     const { error } = await q
     if (error) throw error
 
-    // Recompute aggregated results for the period
-    await evaluationResultRepository.computeAll(periodId)
+    await evaluationResultRepository.computeAll(targetPeriodId)
 
-    // Audit
-    await logAuditEvent({ action: "invalidate_evaluations", details: JSON.stringify({ periodId, facultyId, facultySubjectId, reason }) }).catch(() => {})
+    await logAuditEvent({ action: "invalidate_evaluations", details: JSON.stringify({ evaluationPeriodId: targetPeriodId, facultyId, facultySubjectId, reason }) }).catch(() => {})
 
     return NextResponse.json({ success: true })
   } catch (e) {

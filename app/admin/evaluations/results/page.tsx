@@ -46,7 +46,7 @@ export default function AdminEvaluationResultsPage() {
   }, [periods, selectedPeriod])
 
   const { data: resultsData, error: resultsError } = useApiGet<{ departments: DepartmentRow[] }>(
-    selectedPeriod ? `/api/admin/evaluation-results?semesterId=${encodeURIComponent(selectedPeriod)}` : null,
+    selectedPeriod ? `/api/admin/evaluation-results?evaluationPeriodId=${encodeURIComponent(selectedPeriod)}` : null,
   )
   const departments = useMemo(() => resultsData?.departments ?? [], [resultsData])
   const error = resultsError?.message || ""
@@ -153,7 +153,7 @@ export default function AdminEvaluationResultsPage() {
               {sortedDepartments.map((dept) => (
                 <tr
                   key={dept.departmentId}
-                  onClick={() => router.push(`/admin/evaluations/results/${dept.departmentId}?semesterId=${encodeURIComponent(selectedPeriod)}`)}
+                  onClick={() => router.push(`/admin/evaluations/results/${dept.departmentId}?evaluationPeriodId=${encodeURIComponent(selectedPeriod)}`)}
                   className="border-b border-default hover:bg-surface-hover cursor-pointer transition-colors"
                 >
                   <td className="py-3 pr-4">

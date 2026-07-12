@@ -19,7 +19,7 @@ interface StudentRow {
 
 interface Props {
   role: "admin" | "dean" | "faculty"
-  semesterId: string
+  evaluationPeriodId: string
   initialData: EvalReportData
 }
 
@@ -162,7 +162,7 @@ function CategoryBar({ label, value }: { label: string; value: number | null }) 
   )
 }
 
-export default function EvaluationReportContent({ role, semesterId, initialData }: Props) {
+export default function EvaluationReportContent({ role, evaluationPeriodId, initialData }: Props) {
   const [drillLevel, setDrillLevel] = useState<0 | 1 | 2>(role === "admin" ? 0 : 1)
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null)
   const [selectedFaculty, setSelectedFaculty] = useState<EvalReportFaculty | null>(null)
@@ -190,10 +190,10 @@ export default function EvaluationReportContent({ role, semesterId, initialData 
     setSelectedFaculty(faculty)
     setDrillLevel(2)
     setLoadingStudents(true)
-    const students = await fetchStudentBreakdown(semesterId, faculty.facultyId)
+    const students = await fetchStudentBreakdown(evaluationPeriodId, faculty.facultyId)
     setStudentData(students)
     setLoadingStudents(false)
-  }, [semesterId])
+  }, [evaluationPeriodId])
 
   const drillIntoDepartment = useCallback((deptId: string) => {
     setSelectedDeptId(deptId)
@@ -335,7 +335,7 @@ export default function EvaluationReportContent({ role, semesterId, initialData 
     pdf.save(`eval-report_${[deptPart, facultyPart, ts].filter(Boolean).join("_")}.pdf`)
   }, [showStudentBreakdown, showFacultyTable, showDeptOverview, selectedFaculty, selectedDeptId, studentData, filteredFaculty, initialData.departments, role])
 
-  if (!semesterId || initialData.departments.length === 0) {
+  if (!evaluationPeriodId || initialData.departments.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
         <p className="text-sm text-tertiary">No evaluation data available for the active semester.</p>

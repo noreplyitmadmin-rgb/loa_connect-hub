@@ -1,11 +1,11 @@
 import { evaluationRepository, studentEnrollmentRepository } from "@/lib/repositories/factory"
 
-export async function getPendingEvaluations(evaluatorId: string, semesterId: string) {
-  return evaluationRepository.findPending(evaluatorId, semesterId)
+export async function getPendingEvaluations(evaluatorId: string, evaluationPeriodId: string) {
+  return evaluationRepository.findPending(evaluatorId, evaluationPeriodId)
 }
 
-export async function getMyEvaluations(evaluatorId: string, semesterId?: string) {
-  return evaluationRepository.findByEvaluator(evaluatorId, semesterId)
+export async function getMyEvaluations(evaluatorId: string, evaluationPeriodId?: string) {
+  return evaluationRepository.findByEvaluator(evaluatorId, evaluationPeriodId)
 }
 
 export async function getEvaluation(id: string) {
@@ -19,10 +19,10 @@ export async function getEvaluationIfOwner(evaluationId: string, userId: string)
   return evaluation
 }
 
-export async function getOrCreateEvaluation(semesterId: string, evaluatorId: string, evaluateeId: string, facultySubjectId: string, source?: string | null) {
-  const existing = await evaluationRepository.findByComposite(semesterId, evaluatorId, facultySubjectId)
+export async function getOrCreateEvaluation(evaluationPeriodId: string, evaluatorId: string, evaluateeId: string, facultySubjectId: string, source?: string | null) {
+  const existing = await evaluationRepository.findByComposite(evaluationPeriodId, evaluatorId, facultySubjectId)
   if (existing) return existing
-  return evaluationRepository.create(semesterId, evaluatorId, evaluateeId, facultySubjectId, source)
+  return evaluationRepository.create(evaluationPeriodId, evaluatorId, evaluateeId, facultySubjectId, source)
 }
 
 export async function saveRatings(evaluationId: string, ratings: { itemId: string; rating: number }[]) {

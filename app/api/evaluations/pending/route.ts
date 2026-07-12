@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
 import { supabase } from "@/lib/supabase"
-import { getActiveSemester } from "@/features/admin-data/semesters.service"
+import { getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import { getPendingEvaluations } from "@/features/evaluations/evaluations.service"
 
 export async function GET() {
@@ -17,11 +17,11 @@ export async function GET() {
   }
 
   try {
-    const activeSemester = await getActiveSemester()
-    if (!activeSemester) {
-      return NextResponse.json({ error: "No active semester" }, { status: 400 })
+    const activePeriod = await getActiveEvaluationPeriod()
+    if (!activePeriod) {
+      return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
-    const pending = await getPendingEvaluations(userId, activeSemester.id)
+    const pending = await getPendingEvaluations(userId, activePeriod.id)
     if (pending.length === 0) return NextResponse.json({ pending: [] })
 
     const facultyIds = [...new Set(pending.map((p) => p.evaluateeId))]

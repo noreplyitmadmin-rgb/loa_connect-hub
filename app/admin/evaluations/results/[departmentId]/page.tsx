@@ -44,7 +44,7 @@ export default function DepartmentDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const departmentId = params.departmentId as string
-  const semesterId = searchParams.get("semesterId") || ""
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId") || ""
 
   const [search, setSearch] = useState("")
   const [pdfMode, setPdfMode] = useState<"per_subject" | "per_faculty">("per_subject")
@@ -52,12 +52,12 @@ export default function DepartmentDetailPage() {
   const [toggling, setToggling] = useState(false)
 
   const { data: resultsData, error: resultsError } = useApiGet<{ department: DepartmentInfo; subjects: SubjectRow[]; visibilityMap: Record<string, boolean> }>(
-    semesterId ? `/api/admin/evaluation-results/departments/${encodeURIComponent(departmentId)}?semesterId=${encodeURIComponent(semesterId)}` : null,
+    evaluationPeriodId ? `/api/admin/evaluation-results/departments/${encodeURIComponent(departmentId)}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}` : null,
   )
   const department = resultsData?.department ?? null
   const subjects = useMemo(() => resultsData?.subjects ?? [], [resultsData])
   const error = resultsError?.message || ""
-  const loading = !resultsData && !resultsError && !!semesterId
+  const loading = !resultsData && !resultsError && !!evaluationPeriodId
 
   useEffect(() => {
     const map = resultsData?.visibilityMap ?? {}
@@ -132,7 +132,7 @@ export default function DepartmentDetailPage() {
       const res = await fetch("/api/admin/evaluation-results/visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ semesterId, facultyIds: [facultyId], visible }),
+        body: JSON.stringify({ evaluationPeriodId, facultyIds: [facultyId], visible }),
       })
       if (!res.ok) setVisibilityMap((m) => ({ ...m, [facultyId]: prev }))
     } catch {
@@ -140,7 +140,7 @@ export default function DepartmentDetailPage() {
     } finally {
       setToggling(false)
     }
-  }, [semesterId, toggling, visibilityMap])
+  }, [evaluationPeriodId, toggling, visibilityMap])
 
   const bulkSetVisibility = useCallback(async (visible: boolean) => {
     if (toggling) return
@@ -154,7 +154,7 @@ export default function DepartmentDetailPage() {
       const res = await fetch("/api/admin/evaluation-results/visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ semesterId, facultyIds, visible }),
+        body: JSON.stringify({ evaluationPeriodId, facultyIds, visible }),
       })
       if (!res.ok) setVisibilityMap(prev)
     } catch {
@@ -162,7 +162,7 @@ export default function DepartmentDetailPage() {
     } finally {
       setToggling(false)
     }
-  }, [semesterId, subjects, toggling, visibilityMap])
+  }, [evaluationPeriodId, subjects, toggling, visibilityMap])
 
   const handleDeptPdf = useCallback(() => {
     if (!department || subjects.length === 0) return
@@ -189,7 +189,7 @@ export default function DepartmentDetailPage() {
     <div className="w-full space-y-6 pb-12">
       <div>
         <Link
-          href={`/admin/evaluations/results?semesterId=${encodeURIComponent(semesterId)}`}
+          href={`/admin/evaluations/results?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`}
           className="text-xs text-amber-600 hover:underline"
         >
           &larr; Back to Evaluation Results
@@ -306,7 +306,7 @@ export default function DepartmentDetailPage() {
           <DepartmentSubjectView
             subjects={subjects}
             departmentId={departmentId}
-            semesterId={semesterId}
+            evaluationPeriodId={evaluationPeriodId}
             search={search}
             onSearchChange={setSearch}
             visibilityMap={visibilityMap}
