@@ -28,28 +28,28 @@ interface Period {
 export default function FacultyEvaluationResultsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const semesterId = searchParams.get("semesterId")
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
 
-  const [selectedSemester, setSelectedSemester] = useState(semesterId ?? "")
+  const [selectedSemester, setSelectedSemester] = useState(evaluationPeriodId ?? "")
 
   const { data: periodsData } = useApiGet<{ periods: Period[] }>("/api/evaluation-periods")
   const periods = useMemo(() => periodsData?.periods ?? [], [periodsData])
 
   useEffect(() => {
-    if (periods.length > 0 && !semesterId) {
+    if (periods.length > 0 && !evaluationPeriodId) {
       const active = periods.find((p) => p.title?.toLowerCase().includes("active") || p.name?.toLowerCase().includes("active"))
       const target = active || periods[0]
       if (target) {
         Promise.resolve().then(() => {
           setSelectedSemester(target.id)
-          router.replace(`/faculty/evaluations/results?semesterId=${encodeURIComponent(target.id)}`)
+          router.replace(`/faculty/evaluations/results?evaluationPeriodId=${encodeURIComponent(target.id)}`)
         })
       }
     }
-  }, [periods, semesterId, router])
+  }, [periods, evaluationPeriodId, router])
 
   const { data: subjectsData, error: subjectsError } = useApiGet<{ subjects: SubjectRow[] }>(
-    selectedSemester ? `/api/faculty/evaluation-results/subjects?semesterId=${encodeURIComponent(selectedSemester)}` : null,
+    selectedSemester ? `/api/faculty/evaluation-results/subjects?evaluationPeriodId=${encodeURIComponent(selectedSemester)}` : null,
   )
   const subjects = subjectsData?.subjects ?? []
   const isLocked = !!subjectsError && selectedSemester
@@ -57,7 +57,7 @@ export default function FacultyEvaluationResultsPage() {
 
   const handlePeriodChange = (id: string) => {
     setSelectedSemester(id)
-    router.replace(`/faculty/evaluations/results?semesterId=${encodeURIComponent(id)}`)
+    router.replace(`/faculty/evaluations/results?evaluationPeriodId=${encodeURIComponent(id)}`)
   }
 
   const formatScore = (v: number | null) => (v !== null ? v.toFixed(2) : "\u2014")
@@ -119,7 +119,7 @@ export default function FacultyEvaluationResultsPage() {
                   key={row.facultySubjectId}
                   onClick={() =>
                     router.push(
-                      `/faculty/evaluations/results/${row.facultySubjectId}?semesterId=${encodeURIComponent(selectedSemester)}`,
+                      `/faculty/evaluations/results/${row.facultySubjectId}?evaluationPeriodId=${encodeURIComponent(selectedSemester)}`,
                     )
                   }
                   className="border-b border-default hover:bg-surface-hover cursor-pointer transition-colors"

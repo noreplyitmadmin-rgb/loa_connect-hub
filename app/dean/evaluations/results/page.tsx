@@ -14,7 +14,7 @@ interface Period {
 export default function DeanEvaluationResultsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const semesterId = searchParams.get("semesterId")
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
   const redirectedRef = useRef(false)
 
   const { data: periodsData } = useApiGet<{ periods: Period[] }>("/api/evaluation-periods")
@@ -24,15 +24,15 @@ export default function DeanEvaluationResultsPage() {
   const loading = deptData === undefined
 
   useEffect(() => {
-    if (semesterId && deptId && !redirectedRef.current) {
+    if (evaluationPeriodId && deptId && !redirectedRef.current) {
       redirectedRef.current = true
-      router.replace(`/dean/evaluations/results/${deptId}?semesterId=${encodeURIComponent(semesterId)}`)
+      router.replace(`/dean/evaluations/results/${deptId}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`)
     }
-  }, [semesterId, deptId, router])
+  }, [evaluationPeriodId, deptId, router])
 
   const handleSelect = (id: string) => {
     if (deptId) {
-      router.replace(`/dean/evaluations/results/${deptId}?semesterId=${encodeURIComponent(id)}`)
+      router.replace(`/dean/evaluations/results/${deptId}?evaluationPeriodId=${encodeURIComponent(id)}`)
     }
   }
 
@@ -62,7 +62,7 @@ export default function DeanEvaluationResultsPage() {
       <div className="flex items-center gap-3">
         <label className="text-xs font-semibold text-secondary">Period</label>
         <select
-          value={semesterId ?? ""}
+          value={evaluationPeriodId ?? ""}
           onChange={(e) => handleSelect(e.target.value)}
           className="input text-xs px-3 py-2 rounded-lg border border-strong bg-surface"
         >

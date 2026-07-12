@@ -43,18 +43,18 @@ export default function DeanDepartmentDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const departmentId = params.departmentId as string
-  const semesterId = searchParams.get("semesterId") || ""
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId") || ""
 
   const [search, setSearch] = useState("")
   const [pdfMode, setPdfMode] = useState<"per_subject" | "per_faculty">("per_subject")
 
   const { data: resultsData, error: resultsError } = useApiGet<{ department: DepartmentInfo; subjects: SubjectRow[] }>(
-    semesterId ? `/api/dean/evaluation-results/departments/${encodeURIComponent(departmentId)}?semesterId=${encodeURIComponent(semesterId)}` : null,
+    evaluationPeriodId ? `/api/dean/evaluation-results/departments/${encodeURIComponent(departmentId)}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}` : null,
   )
   const department = resultsData?.department ?? null
   const subjects = useMemo(() => resultsData?.subjects ?? [], [resultsData])
-  const isLocked = !!resultsError && !!semesterId
-  const loading = !resultsData && !resultsError && !!semesterId
+  const isLocked = !!resultsError && !!evaluationPeriodId
+  const loading = !resultsData && !resultsError && !!evaluationPeriodId
 
   const deptMetrics = useMemo(() => {
     if (subjects.length === 0) return null
@@ -243,7 +243,7 @@ export default function DeanDepartmentDetailPage() {
           <DepartmentSubjectView
             subjects={subjects}
             departmentId={departmentId}
-            semesterId={semesterId}
+            evaluationPeriodId={evaluationPeriodId}
             search={search}
             onSearchChange={setSearch}
             basePath="/dean/evaluations/results"

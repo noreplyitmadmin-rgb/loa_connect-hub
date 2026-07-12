@@ -45,15 +45,15 @@ export default function DeanGroupDetailPage() {
   const searchParams = useSearchParams()
   const departmentId = params.departmentId as string
   const facultySubjectId = params.facultySubjectId as string
-  const semesterId = searchParams.get("semesterId") || ""
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId") || ""
 
   const { data, error: dataError, isLoading } = useApiGet<GroupDetailData>(
-    semesterId
-      ? `/api/dean/evaluation-results/departments/${encodeURIComponent(departmentId)}/groups/${encodeURIComponent(facultySubjectId)}?semesterId=${encodeURIComponent(semesterId)}`
+    evaluationPeriodId
+      ? `/api/dean/evaluation-results/departments/${encodeURIComponent(departmentId)}/groups/${encodeURIComponent(facultySubjectId)}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`
       : null,
   )
   const error = dataError?.message || ""
-  const loading = isLoading && !!semesterId
+  const loading = isLoading && !!evaluationPeriodId
 
   const formatScore = (v: number | null) => (v !== null ? v.toFixed(2) : "\u2014")
 

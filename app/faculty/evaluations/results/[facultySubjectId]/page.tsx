@@ -45,15 +45,15 @@ export default function FacultySubjectDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const facultySubjectId = params.facultySubjectId as string
-  const semesterId = searchParams.get("semesterId") || ""
+  const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId") || ""
 
   const { data, error: dataError, isLoading } = useApiGet<FacultyEvalData>(
-    semesterId
-      ? `/api/faculty/evaluation-results/subjects/${encodeURIComponent(facultySubjectId)}?semesterId=${encodeURIComponent(semesterId)}`
+    evaluationPeriodId
+      ? `/api/faculty/evaluation-results/subjects/${encodeURIComponent(facultySubjectId)}?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`
       : null,
   )
   const error = dataError?.message || ""
-  const loading = isLoading && !!semesterId
+  const loading = isLoading && !!evaluationPeriodId
 
   const formatScore = (v: number | null) => (v !== null ? v.toFixed(2) : "\u2014")
 
@@ -74,7 +74,7 @@ export default function FacultySubjectDetailPage() {
     <div className="w-full space-y-8 pb-12">
       <div className="flex items-center justify-between">
         <Link
-          href={`/faculty/evaluations/results?semesterId=${encodeURIComponent(semesterId)}`}
+          href={`/faculty/evaluations/results?evaluationPeriodId=${encodeURIComponent(evaluationPeriodId)}`}
           className="text-xs text-amber-600 hover:underline"
         >
           &larr; Back to Evaluations
