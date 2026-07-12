@@ -67,11 +67,11 @@ export default function StudentEvaluationsPage() {
         const data = await res.json()
 
         const active = (data.periods || []).find((p: { isActive: boolean }) => p.isActive)
-        if (active?.evalStartDate) {
+        if (active?.startDate) {
           const now = Date.now()
-          const start = new Date(active.evalStartDate).getTime()
-          const end = active.evalEndDate
-            ? new Date(active.evalEndDate).getTime() + 86_399_999
+          const start = new Date(active.startDate).getTime()
+          const end = active.endDate
+            ? new Date(active.endDate).getTime() + 86_399_999
             : Infinity
           if (now < start || now > end) {
             setOutOfRange(true)
