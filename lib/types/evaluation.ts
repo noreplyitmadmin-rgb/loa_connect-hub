@@ -180,12 +180,29 @@ export interface FacultySubjectData {
   semesterId: string | null
 }
 
+export interface FacultySubjectWithEmbeds extends FacultySubjectData {
+  faculty: { id: string; name: string; email: string; departmentId: string | null } | null
+  subject: { id: string; code: string; name: string } | null
+  section: { id: string; name: string; program: string } | null
+}
+
 export interface StudentEnrollmentData {
   id: string
   student_id: string
   section_id: string
   faculty_subject_id: string | null
   semesterId: string | null
+}
+
+export interface StudentEnrollmentWithEmbeds extends StudentEnrollmentData {
+  student: { id: string; name: string; email: string } | null
+  section: { id: string; name: string; program: string } | null
+  faculty_subject: {
+    id: string
+    faculty: { id: string; name: string; email: string } | null
+    subject: { id: string; code: string; name: string } | null
+    section: { id: string; name: string; program: string } | null
+  } | null
 }
 
 export interface RubricCategoryData {
@@ -309,6 +326,7 @@ export interface ISubjectRepository {
   findByCode(code: string): Promise<SubjectData | null>
   findById(id: string): Promise<SubjectData | null>
   findByIds(ids: string[]): Promise<SubjectData[]>
+  create(data: { code: string; name: string; isDisabled?: boolean }): Promise<SubjectData>
   update(id: string, data: Partial<SubjectData>): Promise<SubjectData>
 }
 
@@ -323,9 +341,11 @@ export interface ISectionRepository {
 
 export interface IFacultySubjectRepository {
   list(filters?: { faculty_id?: string; section_id?: string; semesterId?: string }): Promise<FacultySubjectData[]>
+  listAllWithEmbeds(): Promise<FacultySubjectWithEmbeds[]>
   replaceBySection(section_id: string, items: { faculty_id: string; subject_id: string; semesterId?: string | null }[]): Promise<void>
   findById(id: string): Promise<FacultySubjectData | null>
   create(data: { faculty_id: string; subject_id: string; section_id: string; semesterId?: string | null }): Promise<FacultySubjectData>
+  update(id: string, data: Partial<FacultySubjectData>): Promise<FacultySubjectData>
   findBySubjectAndSection(subject_id: string, section_id: string): Promise<FacultySubjectData | null>
   findBySubjectSectionAndFaculty(subject_id: string, section_id: string, faculty_id: string): Promise<FacultySubjectData | null>
 }
@@ -339,6 +359,8 @@ export interface IStudentEnrollmentRepository {
   findById(id: string): Promise<StudentEnrollmentData | null>
   deleteById(id: string): Promise<void>
   getDistinctFaculty(student_id: string, semesterId?: string): Promise<string[]>
+  countBySectionIds(sectionIds: string[]): Promise<Record<string, number>>
+  listAllWithEmbeds(): Promise<StudentEnrollmentWithEmbeds[]>
   getFacultySubjectsByStudent(student_id: string, faculty_id: string, semesterId: string): Promise<{ id: string; code: string; title: string }[]>
 }
 
@@ -372,6 +394,7 @@ export interface IEvaluationRepository {
   invalidateById(id: string, remarks: string): Promise<void>
   invalidateByEvaluatorAndPeriod(evaluatorId: string, facultySubjectId: string, evaluationPeriodId: string, remarks: string): Promise<void>
   listSubmittedWithSentiment(evaluationPeriodId: string): Promise<{ evaluateeId: string; sentimentScore: number | null }[]>
+  invalidateByFacultySubject(facultySubjectId: string, remarks: string): Promise<void>
   countSubmittedByFacultyIds(facultyIds: string[]): Promise<number>
   countDistinctSubmittedEvaluateesByFacultyIds(facultyIds: string[]): Promise<{ total: number; distinctEvaluatees: number }>
 }

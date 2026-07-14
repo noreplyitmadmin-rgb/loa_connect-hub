@@ -54,6 +54,11 @@ export const subjectRepository: ISubjectRepository = {
     if (error) throw error
     return (data || []) as SubjectData[]
   },
+  async create(fields) {
+    const { data, error } = await supabase.from("subjects").insert(fields).select("*").single()
+    if (error) throw error
+    return data as SubjectData
+  },
   async update(id, fields) {
     const { data, error } = await supabase.from("subjects").update(fields).eq("id", id).select("*").single()
     if (error) throw error

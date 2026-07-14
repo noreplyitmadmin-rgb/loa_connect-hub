@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { StudentEnrollmentData, IStudentEnrollmentRepository } from "@/lib/types"
+import type { StudentEnrollmentData, StudentEnrollmentWithEmbeds, IStudentEnrollmentRepository } from "@/lib/types"
 
 export const studentEnrollmentRepository: IStudentEnrollmentRepository = {
   async list(filters) {
@@ -117,5 +117,37 @@ export const studentEnrollmentRepository: IStudentEnrollmentRepository = {
   async deleteById(id) {
     const { error } = await supabase.from("student_enrollments").delete().eq("id", id)
     if (error) throw error
+  },
+
+  async countBySectionIds(sectionIds) {
+    if (sectionIds.length === 0) return {}
+    const { data, error } = await supabase
+      .from("student_enrollments")
+      .select("section_id")
+      .in("section_id", sectionIds)
+    if (error) throw error
+    return (data || []).reduce<Record<string, number>>((acc, r) => {
+      acc[r.section_id] = (acc[r.section_id] || 0) + 1
+      return acc
+    }, {})
+  },
+
+  async listAllWithEmbeds() {
+    const { data, error } = await supabase
+      .from("student_enrollments")
+      .select(`
+        id,
+        "semesterId",
+        student:student_id (id, name, email),
+        section:section_id (id, name, program),
+        faculty_subject:faculty_subject_id (
+          id,
+          faculty:faculty_id (id, name, email),
+          subject:subject_id (id, code, name),
+          section:section_id (id, name, program)
+        )
+      `)
+    if (error) throw error
+    return (data || []) as unknown as StudentEnrollmentWithEmbeds[]
   },
 }

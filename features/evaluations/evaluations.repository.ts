@@ -311,6 +311,13 @@ export const evaluationRepository: IEvaluationRepository = {
     }
     return result
   },
+  async invalidateByFacultySubject(facultySubjectId, remarks) {
+    const { error } = await supabase
+      .from("evaluations")
+      .update({ status: "INVALID", remarks, isDisabled: true, updatedAt: new Date().toISOString() })
+      .eq("facultySubjectId", facultySubjectId)
+    if (error) throw error
+  },
   async countSubmittedByFacultyIds(facultyIds) {
     if (facultyIds.length === 0) return 0
     const { count, error } = await supabase

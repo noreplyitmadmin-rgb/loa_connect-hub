@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
 import { logAuditEvent } from "@/lib/services/audit"
+import { subjectRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: NextRequest) {
   const authErr = await requireAdmin(request)
@@ -16,17 +16,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Code and Name are required" }, { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from("subjects")
-      .insert({ code: code.toUpperCase(), name, isDisabled: false })
-      .select("*")
-      .single()
-
-    if (error) {
-      if (error.code === "23505") {
+    let data
+    try {
+      data = await subjectRepository.create({ code: code.toUpperCase(), name, isDisabled: false })
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505") {
         return NextResponse.json({ error: "Subject code already exists" }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw error
     }
 
     const currentUserId = (session!.user as Record<string, unknown>).id as string

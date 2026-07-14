@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
 import { logAuditEvent } from "@/lib/services/audit"
+import { facultySubjectRepository, evaluationRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: NextRequest) {
   const authErr = await requireAdmin(request)
@@ -16,13 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "oldFacultySubjectId and newFacultyId are required" }, { status: 400 })
     }
 
-    const { data: oldRecord, error: fetchErr } = await supabase
-      .from("faculty_subjects")
-      .select("id, faculty_id, subject_id, section_id, \"semesterId\"")
-      .eq("id", oldFacultySubjectId)
-      .single()
+    const oldRecord = await facultySubjectRepository.findById(oldFacultySubjectId)
 
-    if (fetchErr || !oldRecord) {
+    if (!oldRecord) {
       return NextResponse.json({ error: "Faculty-subject mapping not found" }, { status: 404 })
     }
 
@@ -30,25 +26,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "New faculty is the same as current faculty" }, { status: 400 })
     }
 
-    const { error: updateErr } = await supabase
-      .from("faculty_subjects")
-      .update({ faculty_id: newFacultyId })
-      .eq("id", oldFacultySubjectId)
-
-    if (updateErr) {
-      if (updateErr.code === "23505") {
+    try {
+      await facultySubjectRepository.update(oldFacultySubjectId, { faculty_id: newFacultyId })
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505") {
         return NextResponse.json({ error: "This subject-section is already assigned to another faculty" }, { status: 409 })
       }
-      return NextResponse.json({ error: updateErr.message }, { status: 500 })
+      throw error
     }
 
-    // Invalidate all existing evaluations for this faculty-subject mapping
     const adminName = (session!.user as Record<string, unknown>).name as string || "Unknown"
     const remarks = `Invalidated by user: ${adminName} - change of faculty assigned for the subject/section`
-    await supabase
-      .from("evaluations")
-      .update({ status: "INVALID", remarks, isDisabled: true, updatedAt: new Date().toISOString() })
-      .eq("facultySubjectId", oldFacultySubjectId)
+    await evaluationRepository.invalidateByFacultySubject(oldFacultySubjectId, remarks)
 
     const currentUserId = (session!.user as Record<string, unknown>).id as string
     await logAuditEvent({

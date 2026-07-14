@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { FacultySubjectData, IFacultySubjectRepository } from "@/lib/types"
+import type { FacultySubjectData, FacultySubjectWithEmbeds, IFacultySubjectRepository } from "@/lib/types"
 
 export const facultySubjectRepository: IFacultySubjectRepository = {
   async list(filters) {
@@ -10,6 +10,23 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
     const { data, error } = await q
     if (error) throw error
     return data as FacultySubjectData[]
+  },
+
+  async listAllWithEmbeds() {
+    const { data, error } = await supabase
+      .from("faculty_subjects")
+      .select(`
+        id,
+        faculty_id,
+        subject_id,
+        section_id,
+        "semesterId",
+        faculty:faculty_id (id, name, email, "departmentId"),
+        subject:subject_id (id, code, name),
+        section:section_id (id, name, program)
+      `)
+    if (error) throw error
+    return (data || []) as unknown as FacultySubjectWithEmbeds[]
   },
 
   async replaceBySection(section_id, items) {
@@ -32,6 +49,12 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
 
   async create(fields) {
     const { data, error } = await supabase.from("faculty_subjects").insert(fields).select("*").single()
+    if (error) throw error
+    return data as FacultySubjectData
+  },
+
+  async update(id, fields) {
+    const { data, error } = await supabase.from("faculty_subjects").update(fields).eq("id", id).select("*").single()
     if (error) throw error
     return data as FacultySubjectData
   },
