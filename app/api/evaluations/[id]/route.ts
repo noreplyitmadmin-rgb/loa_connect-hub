@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { supabase } from "@/lib/supabase"
 import { getEvaluation, getEvaluationRatings, getEvaluationComment } from "@/features/evaluations/evaluations.service"
-import { rubricRepository } from "@/lib/repositories/factory"
+import { rubricRepository, userRepository, facultySubjectRepository, subjectRepository, sectionRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -21,37 +20,37 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (evaluation.status !== "SUBMITTED" && evaluation.status !== "DRAFT") return NextResponse.json({ error: "Not found" }, { status: 404 })
     if (evaluation.isDisabled) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const [facultyRes, fsRes] = await Promise.all([
-      supabase.from("users").select("name").eq("id", evaluation.evaluateeId).single(),
+    const [facultyUser, fsData] = await Promise.all([
+      userRepository.findById(evaluation.evaluateeId),
       evaluation.facultySubjectId
-        ? supabase.from("faculty_subjects").select("subject_id, section_id").eq("id", evaluation.facultySubjectId).single()
-        : Promise.resolve({ data: null }),
+        ? facultySubjectRepository.findById(evaluation.facultySubjectId)
+        : Promise.resolve(null),
     ])
 
     let subjectCode = ""
     let subjectName = ""
     let sectionName = ""
-    if (fsRes.data?.subject_id) {
+    if (fsData?.subject_id) {
       const [subj, sec] = await Promise.all([
-        supabase.from("subjects").select("code, name").eq("id", fsRes.data.subject_id).single(),
-        fsRes.data.section_id
-          ? supabase.from("sections").select("name").eq("id", fsRes.data.section_id).single()
-          : Promise.resolve({ data: null }),
+        subjectRepository.findById(fsData.subject_id),
+        fsData.section_id
+          ? sectionRepository.findById(fsData.section_id)
+          : Promise.resolve(null),
       ])
-      if (subj.data) {
-        subjectCode = subj.data.code
-        subjectName = subj.data.name
+      if (subj) {
+        subjectCode = subj.code
+        subjectName = subj.name
       }
-      if (sec.data) {
-        sectionName = sec.data.name
+      if (sec) {
+        sectionName = sec.name
       }
     }
 
     const responseBody: Record<string, unknown> = {
       evaluation: {
         ...evaluation,
-        evaluateeName: (facultyRes.data as { name: string } | null)?.name || "Unknown",
-        subjectId: fsRes.data?.subject_id || "",
+        evaluateeName: facultyUser?.name || "Unknown",
+        subjectId: fsData?.subject_id || "",
         subjectCode,
         subjectName,
         sectionName,

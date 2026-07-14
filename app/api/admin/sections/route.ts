@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
 import { logAuditEvent } from "@/lib/services/audit"
+import { departmentCourseRepository, sectionRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: NextRequest) {
   const authErr = await requireAdmin(request)
@@ -16,27 +16,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name and Department Course are required" }, { status: 400 })
     }
 
-    const { data: course, error: courseErr } = await supabase
-      .from("department_courses")
-      .select("code")
-      .eq("id", departmentCourseId)
-      .single()
-    if (courseErr || !course) {
+    const course = await departmentCourseRepository.findById(departmentCourseId)
+    if (!course) {
       return NextResponse.json({ error: "Invalid department course" }, { status: 400 })
     }
 
     const sectionName = name.toUpperCase().trim()
-    const { data, error } = await supabase
-      .from("sections")
-      .insert({ name: sectionName, program: course.code, departmentCourseId, isDisabled: false })
-      .select("*")
-      .single()
 
-    if (error) {
-      if (error.code === "23505") {
+    let data
+    try {
+      data = await sectionRepository.create({ name: sectionName, program: course.code, departmentCourseId, isDisabled: false })
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505") {
         return NextResponse.json({ error: `Section "${course.code}-${sectionName}" already exists` }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw error
     }
 
     const currentUserId = (session!.user as Record<string, unknown>).id as string

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
-import { supabase } from "@/lib/supabase"
+import { evaluationRepository } from "@/lib/repositories/factory"
 import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST(request: NextRequest) {
@@ -12,8 +12,7 @@ export async function POST(request: NextRequest) {
     const { ids } = body as { ids: string[] }
     if (!ids || !Array.isArray(ids) || ids.length === 0) return NextResponse.json({ error: "ids required" }, { status: 400 })
 
-    const { error } = await supabase.from("evaluations").update({ isDisabled: false }).in("id", ids)
-    if (error) throw error
+    await evaluationRepository.restoreByIds(ids)
 
     await logAuditEvent({ action: "restore_evaluations", details: JSON.stringify({ ids }) }).catch(() => {})
 

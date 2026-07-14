@@ -13,4 +13,21 @@ export const departmentCourseRepository: IDepartmentCourseRepository = {
     if (error) throw error
     return created as DepartmentCourseData
   },
+  async findAll() {
+    const { data, error } = await supabase.from("department_courses").select("*")
+    if (error) throw error
+    return (data || []) as DepartmentCourseData[]
+  },
+  async findById(id) {
+    const { data, error } = await supabase.from("department_courses").select("*").eq("id", id).single()
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
+    }
+    return data as DepartmentCourseData
+  },
+  async deleteById(id) {
+    const { error } = await supabase.from("department_courses").delete().eq("id", id)
+    if (error) throw error
+  },
 }

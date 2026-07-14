@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase"
+import { departmentRepository, evaluationPeriodRepository } from "@/lib/repositories/factory"
 
 export interface EvalReportFaculty {
   facultyId: string
@@ -50,17 +51,13 @@ const CATEGORY_KEYS: (keyof EvalReportFaculty)[] = [
 ]
 
 async function getActiveEvaluationPeriodId(): Promise<string | null> {
-  const { data } = await supabase
-    .from("evaluation_periods")
-    .select("id")
-    .eq("isActive", true)
-    .single()
-  return data?.id ?? null
+  const active = await evaluationPeriodRepository.findActive()
+  return active?.id ?? null
 }
 
 async function getDepartments(): Promise<{ id: string; name: string; deanId: string | null }[]> {
-  const { data } = await supabase.from("departments").select("id, name, deanId").order("name")
-  return data ?? []
+  const departments = await departmentRepository.listAll()
+  return departments.map((d) => ({ id: d.id, name: d.name, deanId: d.deanId ?? null }))
 }
 
 async function getDepartmentNameMap(): Promise<Map<string, string>> {

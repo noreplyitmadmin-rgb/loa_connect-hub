@@ -97,6 +97,10 @@ export interface EvaluationComment {
   createdAt: Date
 }
 
+export interface EvaluationCommentWithEvaluation extends EvaluationComment {
+  evaluation: EvaluationData
+}
+
 export interface EvaluationResult {
   id: string
   evaluationPeriodId: string
@@ -303,17 +307,25 @@ export interface ISubjectRepository {
   list(): Promise<SubjectData[]>
   upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number }>
   findByCode(code: string): Promise<SubjectData | null>
+  findById(id: string): Promise<SubjectData | null>
+  findByIds(ids: string[]): Promise<SubjectData[]>
+  update(id: string, data: Partial<SubjectData>): Promise<SubjectData>
 }
 
 export interface ISectionRepository {
   list(): Promise<SectionData[]>
   upsertMany(items: { name: string; program: string; departmentCourseId: string }[]): Promise<{ data: Map<string, SectionData>; created: number }>
   findByNameAndProgram(name: string, program: string): Promise<SectionData | null>
+  findById(id: string): Promise<SectionData | null>
+  create(data: { name: string; program: string; departmentCourseId: string; isDisabled?: boolean }): Promise<SectionData>
+  update(id: string, data: Partial<SectionData>): Promise<SectionData>
 }
 
 export interface IFacultySubjectRepository {
   list(filters?: { faculty_id?: string; section_id?: string; semesterId?: string }): Promise<FacultySubjectData[]>
   replaceBySection(section_id: string, items: { faculty_id: string; subject_id: string; semesterId?: string | null }[]): Promise<void>
+  findById(id: string): Promise<FacultySubjectData | null>
+  create(data: { faculty_id: string; subject_id: string; section_id: string; semesterId?: string | null }): Promise<FacultySubjectData>
   findBySubjectAndSection(subject_id: string, section_id: string): Promise<FacultySubjectData | null>
   findBySubjectSectionAndFaculty(subject_id: string, section_id: string, faculty_id: string): Promise<FacultySubjectData | null>
 }
@@ -324,6 +336,8 @@ export interface IStudentEnrollmentRepository {
   addEnrollments(items: { student_id: string; section_id: string; faculty_subject_id?: string | null; semesterId?: string | null }[]): Promise<void>
   findExisting(student_id: string, faculty_subject_id: string, semesterId?: string | null): Promise<StudentEnrollmentData | null>
   create(data: { student_id: string; faculty_subject_id: string; section_id: string; semesterId?: string | null }): Promise<StudentEnrollmentData>
+  findById(id: string): Promise<StudentEnrollmentData | null>
+  deleteById(id: string): Promise<void>
   getDistinctFaculty(student_id: string, semesterId?: string): Promise<string[]>
   getFacultySubjectsByStudent(student_id: string, faculty_id: string, semesterId: string): Promise<{ id: string; code: string; title: string }[]>
 }
@@ -333,6 +347,8 @@ export interface IRubricRepository {
   replaceRubric(evaluationPeriodId: string, categories: { name: string; displayOrder: number; items: { text: string; displayOrder: number; weight?: number }[] }[]): Promise<RubricCategoryData[]>
   copyFromSource(evaluationPeriodId: string, sourcePeriodId: string): Promise<RubricCategoryData[]>
   deleteCategory(id: string): Promise<void>
+  createItem(data: { categoryId: string; text: string; displayOrder: number; weight?: number }): Promise<RubricItemData>
+  updateItem(id: string, data: Partial<RubricItemData>): Promise<RubricItemData>
   deleteItem(id: string): Promise<void>
 }
 
@@ -347,6 +363,17 @@ export interface IEvaluationRepository {
   getRatings(evaluationId: string): Promise<{ itemId: string; rating: number }[]>
   addComment(evaluationId: string, comment: string): Promise<EvaluationComment>
   getComment(evaluationId: string): Promise<EvaluationComment | null>
+  listCommentsWithFilters(filters?: { evaluationPeriodId?: string | null; sentimentLabel?: string | null }): Promise<EvaluationCommentWithEvaluation[]>
+  bulkDisableByPeriod(evaluationPeriodId: string, filter?: { facultyId?: string; facultySubjectId?: string }): Promise<void>
+  restoreByIds(ids: string[]): Promise<void>
+  listDisabled(): Promise<unknown[]>
+  deleteDisabled(ids?: string[]): Promise<void>
+  invalidateByFacultySubjectAndEvaluator(facultySubjectId: string, evaluatorId: string, remarks: string): Promise<void>
+  invalidateById(id: string, remarks: string): Promise<void>
+  invalidateByEvaluatorAndPeriod(evaluatorId: string, facultySubjectId: string, evaluationPeriodId: string, remarks: string): Promise<void>
+  listSubmittedWithSentiment(evaluationPeriodId: string): Promise<{ evaluateeId: string; sentimentScore: number | null }[]>
+  countSubmittedByFacultyIds(facultyIds: string[]): Promise<number>
+  countDistinctSubmittedEvaluateesByFacultyIds(facultyIds: string[]): Promise<{ total: number; distinctEvaluatees: number }>
 }
 
 // ── Dean Report Types ──────────────────────────────────────

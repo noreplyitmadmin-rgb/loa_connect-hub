@@ -64,6 +64,8 @@ export interface IUserRepository {
   restore(id: string): Promise<void>
   permanentDelete(id: string): Promise<void>
   listDeleted(): Promise<UserData[]>
+  countActive(): Promise<number>
+  countByRole(role: string): Promise<number>
 }
 
 // ── Department ──────────────────────────────────────────
@@ -83,6 +85,7 @@ export interface IDepartmentRepository {
   findByDeanId(deanId: string): Promise<DepartmentData | null>
   create(data: { name: string; code: string; deanId?: string | null }): Promise<DepartmentData>
   update(id: string, data: Partial<DepartmentData>): Promise<DepartmentData>
+  countActive(): Promise<number>
 }
 
 // ── Department Course ───────────────────────────────────
@@ -96,8 +99,11 @@ export interface DepartmentCourseData {
 }
 
 export interface IDepartmentCourseRepository {
+  findById(id: string): Promise<DepartmentCourseData | null>
   findByDepartmentAndCode(departmentId: string, code: string): Promise<DepartmentCourseData | null>
   create(data: { departmentId: string; name: string; code: string }): Promise<DepartmentCourseData>
+  findAll(): Promise<DepartmentCourseData[]>
+  deleteById(id: string): Promise<void>
 }
 
 // ── Appointment ─────────────────────────────────────────
@@ -256,6 +262,7 @@ export interface IAuditLogRepository {
   list(limit?: number, offset?: number, filters?: { action?: string; email?: string; dateFrom?: string; dateTo?: string }, orderBy?: string, orderDir?: "asc" | "desc"): Promise<{ logs: AuditLogData[]; total: number }>
   clearAll(): Promise<void>
   getDistinctActions(): Promise<string[]>
+  findByEmailAndActions(email: string, actions: string[], limit?: number): Promise<AuditLogData[]>
 }
 
 // ── Reports ─────────────────────────────────────────────

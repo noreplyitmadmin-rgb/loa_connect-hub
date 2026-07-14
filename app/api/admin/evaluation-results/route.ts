@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
-import { supabase } from "@/lib/db"
+import { evaluationResultRepository, evaluationRepository, departmentRepository } from "@/lib/repositories/factory"
 import { findHighestLowestRubrics, getRemark } from "@/lib/evaluation-utils"
-import { evaluationResultRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request)
@@ -20,23 +19,13 @@ export async function GET(request: NextRequest) {
       if (results.length === 0) return NextResponse.json({ departments: [] })
     }
 
-    const { data: sentimentRows } = await supabase
-      .from("evaluations")
-      .select("evaluateeId, evaluation_comments(sentimentScore)")
-      .eq("evaluation_period_id", evaluationPeriodId)
-      .eq("status", "SUBMITTED")
-      .eq("isDisabled", false)
-      .not("facultySubjectId", "is", null)
+    const sentimentRows = await evaluationRepository.listSubmittedWithSentiment(evaluationPeriodId)
 
     const sentByFaculty = new Map<string, number[]>()
-    for (const row of sentimentRows ?? []) {
-      const facId = row.evaluateeId as string
-      const comments = (row as unknown as { evaluation_comments: { sentimentScore: number | null }[] }).evaluation_comments ?? []
-      for (const c of comments) {
-        if (c.sentimentScore !== null) {
-          if (!sentByFaculty.has(facId)) sentByFaculty.set(facId, [])
-          sentByFaculty.get(facId)!.push(c.sentimentScore)
-        }
+    for (const row of sentimentRows) {
+      if (row.sentimentScore !== null) {
+        if (!sentByFaculty.has(row.evaluateeId)) sentByFaculty.set(row.evaluateeId, [])
+        sentByFaculty.get(row.evaluateeId)!.push(row.sentimentScore)
       }
     }
     const avgSentByFaculty = new Map<string, number>()
@@ -45,11 +34,8 @@ export async function GET(request: NextRequest) {
     }
 
     const deptIds = [...new Set(results.map((r) => r.departmentId).filter(Boolean))]
-    const { data: deptRows } = await supabase
-      .from("departments")
-      .select("id, name, code")
-      .in("id", deptIds)
-    const deptMap = new Map((deptRows ?? []).map((d) => [d.id, d]))
+    const allDepts = await departmentRepository.listAll()
+    const deptMap = new Map(allDepts.filter((d) => deptIds.includes(d.id)).map((d) => [d.id, d]))
 
     const catKeys = [
       "professionalManner", "communicationWithStudent", "studentEngagement",

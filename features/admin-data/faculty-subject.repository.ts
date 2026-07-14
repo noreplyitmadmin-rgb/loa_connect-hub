@@ -21,6 +21,21 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
     if (insErr) throw insErr
   },
 
+  async findById(id) {
+    const { data, error } = await supabase.from("faculty_subjects").select("*").eq("id", id).single()
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
+    }
+    return data as FacultySubjectData
+  },
+
+  async create(fields) {
+    const { data, error } = await supabase.from("faculty_subjects").insert(fields).select("*").single()
+    if (error) throw error
+    return data as FacultySubjectData
+  },
+
   async findBySubjectAndSection(subject_id, section_id) {
     const { data, error } = await supabase
       .from("faculty_subjects")

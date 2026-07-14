@@ -1,30 +1,33 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { requireAdmin } from "@/lib/route-guard"
+import { userRepository, departmentRepository, departmentCourseRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request)
   if (authErr) return authErr
 
-  const [usersRes, deptsRes, dcRes] = await Promise.all([
-    supabase.from("users").select("id, email"),
-    supabase.from("departments").select("id, code"),
-    supabase.from("department_courses").select("id, \"departmentId\", code, name"),
-  ])
+  try {
+    const [users, departments, departmentCourses] = await Promise.all([
+      userRepository.listAll(),
+      departmentRepository.listAll(),
+      departmentCourseRepository.findAll(),
+    ])
 
-  if (usersRes.error) return NextResponse.json({ error: usersRes.error.message }, { status: 500 })
-  if (deptsRes.error) return NextResponse.json({ error: deptsRes.error.message }, { status: 500 })
-  if (dcRes.error) return NextResponse.json({ error: dcRes.error.message }, { status: 500 })
+    const deptsMap = new Map(departments.map((d) => [d.id, d]))
+    const enrichedCourses = departmentCourses.map((c) => ({
+      id: c.id,
+      departmentId: c.departmentId,
+      code: c.code,
+      name: c.name,
+      department: deptsMap.get(c.departmentId) || null,
+    }))
 
-  const deptsMap = new Map((deptsRes.data || []).map((d) => [d.id, d]))
-  const enrichedCourses = (dcRes.data || []).map((c) => ({
-    ...c,
-    department: deptsMap.get(c.departmentId) || null,
-  }))
-
-  return NextResponse.json({
-    users: (usersRes.data || []).map((u) => ({ id: u.id, email: u.email.toLowerCase() })),
-    departments: deptsRes.data || [],
-    departmentCourses: enrichedCourses,
-  })
+    return NextResponse.json({
+      users: users.map((u) => ({ id: u.id, email: u.email.toLowerCase() })),
+      departments: departments.map((d) => ({ id: d.id, code: d.code })),
+      departmentCourses: enrichedCourses,
+    })
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch reference data" }, { status: 500 })
+  }
 }

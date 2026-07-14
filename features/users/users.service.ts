@@ -1,5 +1,4 @@
-import { supabase } from "@/lib/supabase"
-import { userRepository } from "@/lib/repositories/factory"
+import { userRepository, departmentRepository, departmentCourseRepository } from "@/lib/repositories/factory"
 import type { UserData } from "@/lib/types"
 
 export async function softDeleteUser(id: string): Promise<void> {
@@ -99,10 +98,10 @@ function validateEmailDomain(email: string, role: string): string | null {
 }
 
 async function fetchDepartmentMap(): Promise<Map<string, string>> {
-  const { data } = await supabase.from("departments").select("id, code")
+  const departments = await departmentRepository.listAll()
   const map = new Map<string, string>()
-  for (const d of data || []) {
-    map.set((d.code as string).toUpperCase(), d.id as string)
+  for (const d of departments) {
+    map.set(d.code.toUpperCase(), d.id)
   }
   return map
 }
@@ -114,12 +113,12 @@ interface CourseMapEntry {
 }
 
 async function fetchCourseMap(): Promise<Map<string, CourseMapEntry>> {
-  const { data } = await supabase.from("department_courses").select("code, name, departmentId")
+  const courses = await departmentCourseRepository.findAll()
   const map = new Map<string, CourseMapEntry>()
-  for (const c of data || []) {
-    const code = (c.code as string).toUpperCase()
+  for (const c of courses) {
+    const code = c.code.toUpperCase()
     if (!map.has(code)) {
-      map.set(code, { code: c.code as string, departmentId: c.departmentId as string, courseName: c.name as string })
+      map.set(code, { code: c.code, departmentId: c.departmentId, courseName: c.name })
     }
   }
   return map

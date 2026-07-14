@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
-import { evaluationRepository } from "@/features/evaluations/evaluations.repository"
+import { evaluationRepository, evaluationPeriodRepository, studentEnrollmentRepository, auditLogRepository, userRepository } from "@/lib/repositories/factory"
 import { getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import nodemailer from "nodemailer"
 
@@ -33,23 +32,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No active evaluation period" }, { status: 400 })
     }
 
-    const { data: evalPeriod } = await supabase
-      .from("evaluation_periods")
-      .select("semesterId")
-      .eq("id", activePeriod.id)
-      .single()
+    const evalPeriod = await evaluationPeriodRepository.findById(activePeriod.id)
 
     if (!evalPeriod) {
       return NextResponse.json({ error: "Invalid evaluation period" }, { status: 400 })
     }
 
-    const { data: enrollment } = await supabase
-      .from("student_enrollments")
-      .select("id")
-      .eq("student_id", userId)
-      .eq("faculty_subject_id", facultySubjectId)
-      .eq("semesterId", evalPeriod.semesterId)
-      .maybeSingle()
+    const enrollment = await studentEnrollmentRepository.findExisting(userId, facultySubjectId, evalPeriod.semesterId)
 
     if (!enrollment) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -58,18 +47,13 @@ export async function POST(request: Request) {
     const existing = await evaluationRepository.findByComposite(activePeriod.id, userId, facultySubjectId)
     const remarks = `Reported as wrong section/subject : ${subjectName || "Unknown"} for Faculty: ${evaluateeName || evaluateeId}`
     if (existing) {
-      await supabase.from("evaluations").update({ isDisabled: true, status: "INVALID", remarks }).eq("id", existing.id)
+      await evaluationRepository.invalidateById(existing.id, remarks)
     } else {
       await evaluationRepository.create(activePeriod.id, userId, evaluateeId, facultySubjectId, "dispute")
-      await supabase
-        .from("evaluations")
-        .update({ isDisabled: true, status: "INVALID", remarks })
-        .eq("evaluatorId", userId)
-        .eq("facultySubjectId", facultySubjectId)
-        .eq("evaluation_period_id", activePeriod.id)
+      await evaluationRepository.invalidateByEvaluatorAndPeriod(userId, facultySubjectId, activePeriod.id, remarks)
     }
 
-    await supabase.from("audit_logs").insert({
+    await auditLogRepository.create({
       userId,
       email: userEmail,
       action: "EVALUATION_DISPUTE",
@@ -84,12 +68,9 @@ export async function POST(request: Request) {
     })
 
     if (emailEnabled()) {
-      const { data: admins } = await supabase
-        .from("users")
-        .select("email, name")
-        .ilike("role", "%ADMIN%")
+      const admins = await userRepository.listByRole("ADMIN")
 
-      if (admins && admins.length > 0) {
+      if (admins.length > 0) {
         const transporter = nodemailer.createTransport({
           host: "smtp.gmail.com",
           port: 587,

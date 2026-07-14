@@ -106,4 +106,16 @@ export const studentEnrollmentRepository: IStudentEnrollmentRepository = {
 
     return [...new Set(fs.map((r) => r.faculty_id))]
   },
+  async findById(id) {
+    const { data, error } = await supabase.from("student_enrollments").select("*").eq("id", id).single()
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
+    }
+    return data as StudentEnrollmentData
+  },
+  async deleteById(id) {
+    const { error } = await supabase.from("student_enrollments").delete().eq("id", id)
+    if (error) throw error
+  },
 }

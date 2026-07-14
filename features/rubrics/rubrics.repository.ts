@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { RubricCategoryData, IRubricRepository } from "@/lib/types"
+import type { RubricCategoryData, RubricItemData, IRubricRepository } from "@/lib/types"
 
 export const rubricRepository: IRubricRepository = {
   async getCategoriesWithItems(evaluationPeriodId) {
@@ -107,5 +107,15 @@ export const rubricRepository: IRubricRepository = {
   async deleteItem(id) {
     const { error } = await supabase.from("rubric_items").delete().eq("id", id)
     if (error) throw error
+  },
+  async createItem(data) {
+    const { data: created, error } = await supabase.from("rubric_items").insert(data).select("*").single()
+    if (error) throw error
+    return created as RubricItemData
+  },
+  async updateItem(id, fields) {
+    const { data, error } = await supabase.from("rubric_items").update(fields).eq("id", id).select("*").single()
+    if (error) throw error
+    return data as RubricItemData
   },
 }

@@ -1,8 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/db"
-import { departmentRepository } from "@/lib/repositories/factory"
+import { departmentRepository, userRepository, evaluationRepository } from "@/lib/repositories/factory"
 import Link from "next/link"
 
 export default async function DeanEvaluationsPage() {
@@ -22,23 +21,12 @@ export default async function DeanEvaluationsPage() {
     )
   }
 
-  const { data: facultyUsers } = await supabase
-    .from("users")
-    .select("id, name")
-    .eq("departmentId", dept.id)
-    .order("name")
+  const facultyUsers = await userRepository.listByDepartment(dept.id)
+  const facultyCount = facultyUsers.length
+  const facultyIds = facultyUsers.map((u) => u.id)
 
-  const facultyCount = facultyUsers?.length ?? 0
-  const facultyIds = (facultyUsers || []).map((u) => u.id)
-
-  const { data: evaluations } = await supabase
-    .from("evaluations")
-    .select("evaluateeId, id")
-    .eq("status", "SUBMITTED")
-    .in("evaluateeId", facultyIds)
-
-  const evalCount = evaluations?.length ?? 0
-  const evaluatedFaculty = new Set((evaluations || []).map((e) => e.evaluateeId)).size
+  const { total: evalCount, distinctEvaluatees: evaluatedFaculty } =
+    await evaluationRepository.countDistinctSubmittedEvaluateesByFacultyIds(facultyIds)
 
   return (
     <div className="w-full space-y-6 pb-12">

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
 import { logAuditEvent } from "@/lib/services/audit"
+import { subjectRepository } from "@/lib/repositories/factory"
 
 export async function PATCH(
   request: NextRequest,
@@ -19,7 +19,7 @@ export async function PATCH(
     const body = await request.json()
     const { code, name, isDisabled } = body
 
-    const { data: existing } = await supabase.from("subjects").select("*").eq("id", id).single()
+    const existing = await subjectRepository.findById(id)
     if (!existing) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 })
     }
@@ -33,18 +33,14 @@ export async function PATCH(
       return NextResponse.json({ error: "No changes provided" }, { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from("subjects")
-      .update(updateData)
-      .eq("id", id)
-      .select("*")
-      .single()
-
-    if (error) {
-      if (error.code === "23505") {
+    let data
+    try {
+      data = await subjectRepository.update(id, updateData)
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505") {
         return NextResponse.json({ error: "Subject code already exists" }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw error
     }
 
     const currentUserId = (session!.user as Record<string, unknown>).id as string

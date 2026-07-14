@@ -40,4 +40,23 @@ export const subjectRepository: ISubjectRepository = {
     }
     return data as SubjectData
   },
+  async findById(id) {
+    const { data, error } = await supabase.from("subjects").select("*").eq("id", id).single()
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
+    }
+    return data as SubjectData
+  },
+  async findByIds(ids) {
+    if (ids.length === 0) return []
+    const { data, error } = await supabase.from("subjects").select("*").in("id", ids)
+    if (error) throw error
+    return (data || []) as SubjectData[]
+  },
+  async update(id, fields) {
+    const { data, error } = await supabase.from("subjects").update(fields).eq("id", id).select("*").single()
+    if (error) throw error
+    return data as SubjectData
+  },
 }

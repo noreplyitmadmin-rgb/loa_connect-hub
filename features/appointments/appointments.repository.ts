@@ -3,7 +3,7 @@ import type {
   AppointmentData, AppointmentAttendeeData, AppointmentTimeSlotData, AppointmentFileData,
   IAppointmentRepository,
 } from "@/lib/types"
-import { appointmentSelect } from "@/lib/db/common"
+import { appointmentSelect, USER_BRIEF } from "@/lib/db/common"
 import type { DbRecord } from "@/lib/db/common"
 import { logAuditEvent } from "@/lib/services/audit"
 
@@ -144,7 +144,7 @@ export const appointmentRepository: IAppointmentRepository = {
   async listAttendees(appointmentId) {
     const { data, error } = await supabase
       .from("appointment_attendees")
-      .select("*, user:users(*)")
+      .select(`*, user:users(${USER_BRIEF})`)
       .eq("appointmentId", appointmentId)
     if (error) throw error
     return data as unknown as AppointmentAttendeeData[]
@@ -155,7 +155,7 @@ export const appointmentRepository: IAppointmentRepository = {
       .update({ status })
       .eq("appointmentId", appointmentId)
       .eq("userId", userId)
-      .select("*, user:users(*)")
+      .select(`*, user:users(${USER_BRIEF})`)
       .single()
     if (error) throw error
     return data as unknown as AppointmentAttendeeData
@@ -208,7 +208,7 @@ export const appointmentRepository: IAppointmentRepository = {
   async listStudentConflictingSlots(studentId, date, startTime, endTime, excludeSessionGroupId) {
     let query = supabase
       .from("appointment_time_slots")
-      .select("*, appointment:appointments(*)")
+      .select(`*, appointment:appointments(id, "studentId", "facultyId", "meetingType", "sessionGroupId", status)`)
       .eq("date", date)
       .lt("startTime", endTime)
       .gt("endTime", startTime)
@@ -225,7 +225,7 @@ export const appointmentRepository: IAppointmentRepository = {
   async listConflictingSlots(facultyIds, date, startTime, endTime) {
     const { data, error } = await supabase
       .from("appointment_time_slots")
-      .select("*, appointment:appointments!inner(*)")
+      .select(`*, appointment:appointments!inner(id, "facultyId", "meetingType", status)`)
       .eq("date", date)
       .lt("startTime", endTime)
       .gt("endTime", startTime)
@@ -238,7 +238,7 @@ export const appointmentRepository: IAppointmentRepository = {
     const { data: result, error } = await supabase
       .from("appointment_files")
       .insert({ appointmentId, ...data })
-      .select("*")
+      .select("id, appointmentId, fileName, fileType, fileSize, createdAt")
       .single()
     if (error) throw error
     return result as AppointmentFileData

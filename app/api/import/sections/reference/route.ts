@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { requireAdmin } from "@/lib/route-guard"
+import { departmentRepository, departmentCourseRepository, sectionRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request)
   if (authErr) return authErr
 
-  const [deptsRes, coursesRes, secRes] = await Promise.all([
-    supabase.from("departments").select("id, code, name").order("code", { ascending: true }),
-    supabase.from("department_courses").select("id, \"departmentId\", code, name"),
-    supabase.from("sections").select("id, name, program, \"departmentCourseId\"").order("program", { ascending: true }).order("name", { ascending: true }),
-  ])
+  try {
+    const [departments, departmentCourses, sections] = await Promise.all([
+      departmentRepository.listAll(),
+      departmentCourseRepository.findAll(),
+      sectionRepository.list(),
+    ])
 
-  if (deptsRes.error) return NextResponse.json({ error: deptsRes.error.message }, { status: 500 })
-  if (coursesRes.error) return NextResponse.json({ error: coursesRes.error.message }, { status: 500 })
-  if (secRes.error) return NextResponse.json({ error: secRes.error.message }, { status: 500 })
+    const deptsMap = new Map(departments.map((d) => [d.id, d]))
+    const enrichedCourses = departmentCourses.map((c) => ({
+      ...c,
+      department: deptsMap.get(c.departmentId) || null,
+    }))
 
-  const deptsMap = new Map((deptsRes.data || []).map((d) => [d.id, d]))
-  const enrichedCourses = (coursesRes.data || []).map((c) => ({
-    ...c,
-    department: deptsMap.get(c.departmentId) || null,
-  }))
-
-  return NextResponse.json({
-    departments: deptsRes.data || [],
-    departmentCourses: enrichedCourses,
-    sections: secRes.data || [],
-  })
+    return NextResponse.json({
+      departments: departments.map((d) => ({ id: d.id, code: d.code, name: d.name })),
+      departmentCourses: enrichedCourses,
+      sections: sections.map((s) => ({ id: s.id, name: s.name, program: s.program, departmentCourseId: s.departmentCourseId })),
+    })
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch reference data" }, { status: 500 })
+  }
 }

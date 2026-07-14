@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { requireAdmin } from "@/lib/route-guard"
+import { departmentRepository, departmentCourseRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: NextRequest) {
   const authErr = await requireAdmin(request)
   if (authErr) return authErr
 
-  const [deptsRes, coursesRes] = await Promise.all([
-    supabase.from("departments").select("id, code").order("code", { ascending: true }),
-    supabase.from("department_courses").select("id, \"departmentId\", code").order("code", { ascending: true }),
-  ])
+  try {
+    const [departments, departmentCourses] = await Promise.all([
+      departmentRepository.listAll(),
+      departmentCourseRepository.findAll(),
+    ])
 
-  if (deptsRes.error) return NextResponse.json({ error: deptsRes.error.message }, { status: 500 })
-  if (coursesRes.error) return NextResponse.json({ error: coursesRes.error.message }, { status: 500 })
-
-  return NextResponse.json({
-    departments: deptsRes.data || [],
-    departmentCourses: coursesRes.data || [],
-  })
+    return NextResponse.json({
+      departments: departments.map((d) => ({ id: d.id, code: d.code })),
+      departmentCourses: departmentCourses.map((c) => ({ id: c.id, departmentId: c.departmentId, code: c.code })),
+    })
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch reference data" }, { status: 500 })
+  }
 }

@@ -1,31 +1,23 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
 import { getOrCreateEvaluation, getEvaluation, getMyEvaluations } from "@/features/evaluations/evaluations.service"
 import { getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
+import { userRepository, facultySubjectRepository, subjectRepository, evaluationPeriodRepository, studentEnrollmentRepository } from "@/lib/repositories/factory"
 import type { EvaluationData } from "@/lib/types"
 
 async function enrichEvaluation(evaluation: EvaluationData) {
-  const [facultyRes, subjectRes] = await Promise.all([
-    supabase.from("users").select("name").eq("id", evaluation.evaluateeId).single(),
+  const [facultyUser, fsData] = await Promise.all([
+    userRepository.findById(evaluation.evaluateeId),
     evaluation.facultySubjectId
-      ? supabase
-          .from("faculty_subjects")
-          .select("subject_id")
-          .eq("id", evaluation.facultySubjectId)
-          .single()
-      : Promise.resolve({ data: null }),
+      ? facultySubjectRepository.findById(evaluation.facultySubjectId)
+      : Promise.resolve(null),
   ])
 
   let subjectName = ""
   let subjectCode = ""
-  if (subjectRes.data?.subject_id) {
-    const { data: subj } = await supabase
-      .from("subjects")
-      .select("code, name")
-      .eq("id", subjectRes.data.subject_id)
-      .single()
+  if (fsData?.subject_id) {
+    const subj = await subjectRepository.findById(fsData.subject_id)
     if (subj) {
       subjectCode = subj.code
       subjectName = subj.name
@@ -34,8 +26,8 @@ async function enrichEvaluation(evaluation: EvaluationData) {
 
   return {
     ...evaluation,
-    evaluateeName: (facultyRes.data as { name: string } | null)?.name || "Unknown",
-    subjectId: subjectRes.data?.subject_id || "",
+    evaluateeName: facultyUser?.name || "Unknown",
+    subjectId: fsData?.subject_id || "",
     subjectCode,
     subjectName,
   }
@@ -94,23 +86,13 @@ export async function POST(request: Request) {
     }
 
     if (source !== "unenrolled") {
-      const { data: evalPeriod } = await supabase
-        .from("evaluation_periods")
-        .select("semesterId")
-        .eq("id", activePeriodId)
-        .single()
+      const evalPeriod = await evaluationPeriodRepository.findById(activePeriodId)
 
       if (!evalPeriod) {
         return NextResponse.json({ error: "Invalid evaluation period" }, { status: 400 })
       }
 
-      const { data: enrollment } = await supabase
-        .from("student_enrollments")
-        .select("id")
-        .eq("student_id", userId)
-        .eq("faculty_subject_id", facultySubjectId)
-        .eq("semesterId", evalPeriod.semesterId)
-        .maybeSingle()
+      const enrollment = await studentEnrollmentRepository.findExisting(userId, facultySubjectId, evalPeriod.semesterId)
 
       if (!enrollment) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })

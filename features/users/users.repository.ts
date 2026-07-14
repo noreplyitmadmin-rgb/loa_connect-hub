@@ -3,7 +3,7 @@ import type {
   UserData,
   IUserRepository,
 } from "@/lib/types"
-import { USER_SELECT, singleQueryWithRoles, toUsersWithRoles, toUserWithRole, isMissingUserrole } from "@/lib/db/common"
+import { USER_SELECT, USER_SELECT_WITH_PASSWORD, USER_COLUMNS_NO_PASSWORD, singleQueryWithRoles, toUsersWithRoles, toUserWithRole, isMissingUserrole } from "@/lib/db/common"
 import type { QueryError, DbRecord } from "@/lib/db/common"
 import { logAuditEvent } from "@/lib/services/audit"
 
@@ -17,11 +17,11 @@ export const userRepository: IUserRepository = {
     const trimmed = email.trim()
     try {
       return await singleQueryWithRoles(
-        supabase.from("users").select(USER_SELECT).eq("email", trimmed) as unknown as { single(): Promise<{ data: unknown; error: QueryError | null }> }
+        supabase.from("users").select(USER_SELECT_WITH_PASSWORD).eq("email", trimmed) as unknown as { single(): Promise<{ data: unknown; error: QueryError | null }> }
       )
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        const { data } = await supabase.from("users").select("*").ilike("email", trimmed + "%").single()
+        const { data } = await supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).ilike("email", trimmed + "%").single()
         return data ? { ...data, role: "GUEST" } as UserData : null
       }
       throw err
@@ -40,7 +40,7 @@ export const userRepository: IUserRepository = {
       return result
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        const { data } = await supabase.from("users").select("*").in("email", unique)
+        const { data } = await supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).in("email", unique)
         const result = new Map<string, UserData>()
         for (const row of (data || []) as DbRecord[]) {
           result.set((row.email as string).toLowerCase(), { ...row, role: "GUEST" } as unknown as UserData)
@@ -57,7 +57,7 @@ export const userRepository: IUserRepository = {
       )
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        const { data } = await supabase.from("users").select("*").eq("id", id).single()
+        const { data } = await supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).eq("id", id).single()
         return data ? { ...data, role: "GUEST" } as UserData : null
       }
       throw err
@@ -66,7 +66,7 @@ export const userRepository: IUserRepository = {
   async create(input) {
     const { role, ...userFields } = input
     userFields.email = userFields.email?.toLowerCase().trim() ?? userFields.email
-    const { data, error } = await supabase.from("users").insert(userFields).select("*").single()
+    const { data, error } = await supabase.from("users").insert(userFields).select("id, email").single()
     if (error) throw error
 
     if (role) {
@@ -78,7 +78,8 @@ export const userRepository: IUserRepository = {
     }
 
     const { data: withRoles } = await supabase.from("users").select(USER_SELECT).eq("id", data.id).single()
-    const user = toUserWithRole(withRoles)
+    if (!withRoles) throw new Error("Failed to fetch created user")
+    const user = toUserWithRole(withRoles as Record<string, unknown>)
     await logUserAction(user.email, "CREATE_USER", `Created ${role} user: ${user.name}`)
     return user
   },
@@ -89,7 +90,7 @@ export const userRepository: IUserRepository = {
       ...fields,
       email: fields.email.toLowerCase().trim(),
     }))
-    const { data: users, error: userErr } = await supabase.from("users").insert(userFields).select("*")
+    const { data: users, error: userErr } = await supabase.from("users").insert(userFields).select("id, email")
     if (userErr) throw userErr
 
     const roleInserts = (users as DbRecord[]).flatMap((row) => {
@@ -139,7 +140,7 @@ export const userRepository: IUserRepository = {
       return toUsersWithRoles(data)
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        const { data } = await supabase.from("users").select("*").eq("departmentId", departmentId)
+        const { data } = await supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).eq("departmentId", departmentId)
         return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
@@ -156,7 +157,7 @@ export const userRepository: IUserRepository = {
       return toUsersWithRoles(data)
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        const { data } = await supabase.from("users").select("*").in("id", ids)
+        const { data } = await supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).in("id", ids)
         return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
@@ -173,7 +174,7 @@ export const userRepository: IUserRepository = {
       return toUsersWithRoles(data)
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        let query = supabase.from("users").select("*").order("createdAt", { ascending: false })
+        let query = supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).order("createdAt", { ascending: false })
         if (!options?.includeDeleted) {
           query = query.is("deletedAt", null)
         }
@@ -201,7 +202,8 @@ export const userRepository: IUserRepository = {
     }
     const { data: updated, error: fetchErr } = await supabase.from("users").select(USER_SELECT).eq("id", id).single()
     if (fetchErr) throw fetchErr
-    const user = toUserWithRole(updated)
+    if (!updated) throw new Error("Failed to fetch updated user")
+    const user = toUserWithRole(updated as Record<string, unknown>)
     const changes = Object.keys(userFields).concat(role ? ["role"] : []).join(", ")
     await logUserAction(user.email, "UPDATE_USER", `Updated user ${user.name}: ${changes}`)
     return user
@@ -246,10 +248,26 @@ export const userRepository: IUserRepository = {
       return toUsersWithRoles(data)
     } catch (err) {
       if (isMissingUserrole(err as QueryError)) {
-        const { data } = await supabase.from("users").select("*").not("deletedAt", "is", null)
+        const { data } = await supabase.from("users").select(USER_COLUMNS_NO_PASSWORD).not("deletedAt", "is", null)
         return (data || []).map((u: DbRecord) => ({ ...u, role: "GUEST" })) as unknown as UserData[]
       }
       throw err
     }
+  },
+  async countActive() {
+    const { count, error } = await supabase
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .is("deletedAt", null)
+    if (error) throw error
+    return count ?? 0
+  },
+  async countByRole(role) {
+    const { count, error } = await supabase
+      .from("userrole")
+      .select("userId", { count: "exact", head: true })
+      .eq("roleName", role)
+    if (error) throw error
+    return count ?? 0
   },
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
+import { evaluationRepository } from "@/lib/repositories/factory"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -15,11 +15,14 @@ export async function GET(request: NextRequest) {
   const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
   const sentimentLabel = searchParams.get("sentimentLabel")
 
-  let q = supabase.from("evaluation_comments").select("*, evaluation:evaluations!inner(*)")
-  if (evaluationPeriodId) q = q.eq("evaluation.evaluation_period_id", evaluationPeriodId)
-  if (sentimentLabel) q = q.eq("sentimentLabel", sentimentLabel)
-
-  const { data, error } = await q
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ comments: data })
+  try {
+    const comments = await evaluationRepository.listCommentsWithFilters({
+      evaluationPeriodId: evaluationPeriodId || undefined,
+      sentimentLabel: sentimentLabel || undefined,
+    })
+    return NextResponse.json({ comments })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

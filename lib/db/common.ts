@@ -11,7 +11,9 @@ export interface SingleBuilder {
 
 export type DbRecord = Record<string, unknown>
 
-export const USER_SELECT = "*, userrole(roleName)"
+export const USER_SELECT = `id, name, email, "departmentId", course, "employeeNo", "semesterId", "isDisabled", "hasLoggedInBefore", "lastLoginAt", "tokenVersion", "onboardingVersion", "createdAt", "deletedAt", userrole(roleName)`
+export const USER_SELECT_WITH_PASSWORD = `id, name, email, "passwordHash", "departmentId", course, "employeeNo", "semesterId", "isDisabled", "hasLoggedInBefore", "lastLoginAt", "tokenVersion", "onboardingVersion", "createdAt", "deletedAt", userrole(roleName)`
+export const USER_COLUMNS_NO_PASSWORD = `id, name, email, "departmentId", course, "employeeNo", "semesterId", "isDisabled", "hasLoggedInBefore", "lastLoginAt", "tokenVersion", "onboardingVersion", "createdAt", "deletedAt"`
 export const USER_BRIEF = "id, name, email"
 
 export function toUserWithRole(item: Record<string, unknown>): UserData {

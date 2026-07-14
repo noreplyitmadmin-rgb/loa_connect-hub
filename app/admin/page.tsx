@@ -1,9 +1,8 @@
 import { Suspense } from "react"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { supabase } from "@/lib/db"
 import { getDatabaseSize, formatBytes, getStoragePercentage } from "@/features/admin-data/database-size.service"
-import { auditLogRepository } from "@/lib/repositories/factory"
+import { auditLogRepository, userRepository, departmentRepository } from "@/lib/repositories/factory"
 import type { AuditLogData } from "@/lib/types"
 import Link from "next/link"
 import Skeleton, { SkeletonMetricGrid } from "@/components/ui/Skeleton"
@@ -28,19 +27,19 @@ function StatCard({ label, value, icon, color }: StatCardProps) {
 }
 
 async function StatsGridSection() {
-  const [userCountResult, facultyCountResult, studentCountResult, deptCountResult] = await Promise.all([
-    supabase.from("users").select("*", { count: "exact", head: true }).is("deletedAt", null),
-    supabase.from("userrole").select("*", { count: "exact", head: true }).eq("roleName", "FACULTY"),
-    supabase.from("userrole").select("*", { count: "exact", head: true }).eq("roleName", "STUDENT"),
-    supabase.from("departments").select("*", { count: "exact", head: true }).eq("isDisabled", false),
+  const [userCount, facultyCount, studentCount, deptCount] = await Promise.all([
+    userRepository.countActive(),
+    userRepository.countByRole("FACULTY"),
+    userRepository.countByRole("STUDENT"),
+    departmentRepository.countActive(),
   ])
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      <StatCard label="System Users" value={userCountResult.count ?? 0} icon="👥" color="text-gold-600" />
-      <StatCard label="Faculty" value={facultyCountResult.count ?? 0} icon="👨‍🏫" color="text-blue-600" />
-      <StatCard label="Students" value={studentCountResult.count ?? 0} icon="🎓" color="text-violet-600" />
-      <StatCard label="Departments" value={deptCountResult.count ?? 0} icon="🏛" color="text-sky-600" />
+      <StatCard label="System Users" value={userCount} icon="👥" color="text-gold-600" />
+      <StatCard label="Faculty" value={facultyCount} icon="👨‍🏫" color="text-blue-600" />
+      <StatCard label="Students" value={studentCount} icon="🎓" color="text-violet-600" />
+      <StatCard label="Departments" value={deptCount} icon="🏛" color="text-sky-600" />
     </div>
   )
 }

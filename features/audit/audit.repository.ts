@@ -40,4 +40,15 @@ export const auditLogRepository: IAuditLogRepository = {
     if (error) throw error
     return [...new Set((data || []).map((r) => r.action))]
   },
+  async findByEmailAndActions(email, actions, limit = 50) {
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("id, action, email, details, createdAt")
+      .eq("email", email)
+      .in("action", actions)
+      .order("createdAt", { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return (data || []) as AuditLogData[]
+  },
 }

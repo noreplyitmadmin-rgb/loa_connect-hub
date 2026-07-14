@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
+import { rubricRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -9,12 +9,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await request.json()
-  const { data, error } = await supabase.from("rubric_items").insert({
-    categoryId: body.categoryId,
-    text: body.text,
-    displayOrder: body.displayOrder,
-    weight: body.weight ?? 1,
-  }).select("*").single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ item: data }, { status: 201 })
+  try {
+    const item = await rubricRepository.createItem({
+      categoryId: body.categoryId,
+      text: body.text,
+      displayOrder: body.displayOrder,
+      weight: body.weight ?? 1,
+    })
+    return NextResponse.json({ item }, { status: 201 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

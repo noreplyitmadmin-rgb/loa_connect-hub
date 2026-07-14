@@ -1,9 +1,8 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { listStudentAppointments } from "@/features/appointments/appointments.service"
-import { userRepository } from "@/lib/repositories/factory"
+import { userRepository, auditLogRepository } from "@/lib/repositories/factory"
 import { getMyEvaluations } from "@/features/evaluations/evaluations.service"
-import { supabase } from "@/lib/db"
 import ConsultationHistory from "@/features/appointments/components/ConsultationHistory"
 
 
@@ -46,8 +45,8 @@ export default async function StudentHistoryPage() {
   const enriched: HistoryEvaluation[] = []
   if (evaluations.length > 0) {
     const facultyIds = [...new Set(evaluations.map((e) => e.evaluateeId))]
-    const { data: users } = await supabase.from("users").select("id, name").in("id", facultyIds)
-    const nameMap = new Map((users || []).map((u) => [u.id, u.name]))
+    const users = await userRepository.listByIds(facultyIds)
+    const nameMap = new Map(users.map((u) => [u.id, u.name]))
     for (const ev of evaluations) {
       enriched.push({
         id: ev.id,
@@ -57,15 +56,15 @@ export default async function StudentHistoryPage() {
     }
   }
 
-  const { data: auditEvents } = dbUser?.email
-    ? await supabase
-        .from("audit_logs")
-        .select("id, action, email, details, createdAt")
-        .eq("email", dbUser.email)
-        .in("action", ["EMAIL_FAILED"])
-        .order("createdAt", { ascending: false })
-        .limit(50)
-    : { data: null }
+  const auditEvents: AuditEvent[] = dbUser?.email
+    ? (await auditLogRepository.findByEmailAndActions(dbUser.email, ["EMAIL_FAILED"], 50)).map((e) => ({
+        id: e.id,
+        action: e.action,
+        email: e.email,
+        details: e.details,
+        createdAt: e.createdAt instanceof Date ? e.createdAt.toISOString() : String(e.createdAt),
+      }))
+    : []
 
   return (
     <ConsultationHistory
@@ -73,7 +72,7 @@ export default async function StudentHistoryPage() {
       course={dbUser?.course || null}
       appointments={appointments}
       evaluations={enriched}
-      auditEvents={(auditEvents as AuditEvent[]) || []}
+      auditEvents={auditEvents || []}
     />
   )
 }

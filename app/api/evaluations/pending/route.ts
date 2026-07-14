@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
 import { getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import { getPendingEvaluations } from "@/features/evaluations/evaluations.service"
+import { userRepository, subjectRepository } from "@/lib/repositories/factory"
 
 export async function GET() {
   const session = await auth()
@@ -27,13 +27,13 @@ export async function GET() {
     const facultyIds = [...new Set(pending.map((p) => p.evaluateeId))]
     const subjectIds = [...new Set(pending.map((p) => p.subjectId))]
 
-    const [facultyRes, subjectRes] = await Promise.all([
-      supabase.from("users").select("id, name, email").in("id", facultyIds),
-      supabase.from("subjects").select("id, code, name").in("id", subjectIds),
+    const [faculty, subjects] = await Promise.all([
+      userRepository.listByIds(facultyIds),
+      subjectRepository.findByIds(subjectIds),
     ])
 
-    const facultyMap = new Map((facultyRes.data || []).map((u) => [u.id, u]))
-    const subjectMap = new Map((subjectRes.data || []).map((s) => [s.id, s]))
+    const facultyMap = new Map(faculty.map((u) => [u.id, u]))
+    const subjectMap = new Map(subjects.map((s) => [s.id, s]))
 
     const result = pending.map((p) => {
       const f = facultyMap.get(p.evaluateeId)

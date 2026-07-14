@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
 import { logAuditEvent } from "@/lib/services/audit"
+import { facultySubjectRepository } from "@/lib/repositories/factory"
 
 export async function POST(request: NextRequest) {
   const authErr = await requireAdmin(request)
@@ -16,17 +16,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "faculty_id, subject_id, and section_id are required" }, { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from("faculty_subjects")
-      .insert({ faculty_id, subject_id, section_id, semesterId: semesterId || null })
-      .select("*")
-      .single()
-
-    if (error) {
-      if (error.code === "23505") {
+    let data
+    try {
+      data = await facultySubjectRepository.create({ faculty_id, subject_id, section_id, semesterId: semesterId || null })
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505") {
         return NextResponse.json({ error: "This mapping already exists" }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw error
     }
 
     const currentUserId = (session!.user as Record<string, unknown>).id as string

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
-import { supabase } from "@/lib/supabase"
-import { evaluationResultRepository } from "@/lib/repositories/factory"
+import { evaluationRepository, evaluationResultRepository } from "@/lib/repositories/factory"
 import { logAuditEvent } from "@/lib/services/audit"
 
 export async function POST(request: NextRequest) {
@@ -22,15 +21,7 @@ export async function POST(request: NextRequest) {
     if (!targetPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
     if (!facultyId && !facultySubjectId) return NextResponse.json({ error: "facultyId or facultySubjectId is required" }, { status: 400 })
 
-    let q = supabase.from("evaluations").update({ isDisabled: true }).eq("evaluation_period_id", targetPeriodId).eq("status", "SUBMITTED")
-    if (facultySubjectId) {
-      q = q.eq("facultySubjectId", facultySubjectId)
-    } else if (facultyId) {
-      q = q.eq("evaluateeId", facultyId)
-    }
-
-    const { error } = await q
-    if (error) throw error
+    await evaluationRepository.bulkDisableByPeriod(targetPeriodId, { facultyId, facultySubjectId })
 
     await evaluationResultRepository.computeAll(targetPeriodId)
 

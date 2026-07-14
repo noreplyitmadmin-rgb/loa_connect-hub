@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
+import { rubricRepository } from "@/lib/repositories/factory"
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; itemId: string }> }) {
   const session = await auth()
@@ -10,9 +10,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { itemId } = await params
   const body = await request.json()
-  const { data, error } = await supabase.from("rubric_items").update(body).eq("id", itemId).select("*").single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ item: data })
+  try {
+    const item = await rubricRepository.updateItem(itemId, body)
+    return NextResponse.json({ item })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string; itemId: string }> }) {
@@ -21,7 +25,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { itemId } = await params
-  const { error } = await supabase.from("rubric_items").delete().eq("id", itemId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  try {
+    await rubricRepository.deleteItem(itemId)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

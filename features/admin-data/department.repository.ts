@@ -31,4 +31,12 @@ export const departmentRepository: IDepartmentRepository = {
     if (error) throw error
     return updated as DepartmentData
   },
+  async countActive() {
+    const { count, error } = await supabase
+      .from("departments")
+      .select("id", { count: "exact", head: true })
+      .eq("isDisabled", false)
+    if (error) throw error
+    return count ?? 0
+  },
 }

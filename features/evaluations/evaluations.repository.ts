@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { EvaluationData, EvaluationComment, IEvaluationRepository, PendingEvaluationItem } from "@/lib/types"
+import type { EvaluationData, EvaluationComment, EvaluationCommentWithEvaluation, IEvaluationRepository, PendingEvaluationItem } from "@/lib/types"
 
 export const evaluationRepository: IEvaluationRepository = {
   async findPending(evaluatorId, evaluationPeriodId) {
@@ -209,5 +209,128 @@ export const evaluationRepository: IEvaluationRepository = {
       .maybeSingle()
     if (error) throw error
     return data as EvaluationComment | null
+  },
+  async listCommentsWithFilters(filters) {
+    let q = supabase
+      .from("evaluation_comments")
+      .select("*, evaluation:evaluations!inner(*)")
+    if (filters?.evaluationPeriodId) q = q.eq("evaluation.evaluation_period_id", filters.evaluationPeriodId)
+    if (filters?.sentimentLabel) q = q.eq("sentimentLabel", filters.sentimentLabel)
+    const { data, error } = await q
+    if (error) throw error
+    return (data || []) as unknown as EvaluationCommentWithEvaluation[]
+  },
+  async bulkDisableByPeriod(evaluationPeriodId, filter) {
+    let q = supabase
+      .from("evaluations")
+      .update({ isDisabled: true })
+      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("status", "SUBMITTED")
+    if (filter?.facultySubjectId) {
+      q = q.eq("facultySubjectId", filter.facultySubjectId)
+    } else if (filter?.facultyId) {
+      q = q.eq("evaluateeId", filter.facultyId)
+    }
+    const { error } = await q
+    if (error) throw error
+  },
+  async restoreByIds(ids) {
+    const { error } = await supabase
+      .from("evaluations")
+      .update({ isDisabled: false })
+      .in("id", ids)
+    if (error) throw error
+  },
+  async listDisabled() {
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select(`
+        *,
+        evaluator:evaluatorId(id, name, email),
+        evaluatee:evaluateeId(id, name, email),
+        faculty_subject:facultySubjectId(
+          id,
+          faculty:faculty_id(id, name),
+          subject:subject_id(id, code, name),
+          section:section_id(id, name, program)
+        )
+      `)
+      .eq("isDisabled", true)
+      .order("updatedAt", { ascending: false })
+    if (error) throw error
+    return (data || []) as unknown[]
+  },
+  async deleteDisabled(ids) {
+    let q = supabase.from("evaluations").delete().eq("isDisabled", true)
+    if (ids && ids.length > 0) {
+      q = q.in("id", ids)
+    }
+    const { error } = await q
+    if (error) throw error
+  },
+  async invalidateByFacultySubjectAndEvaluator(facultySubjectId, evaluatorId, remarks) {
+    const { error } = await supabase
+      .from("evaluations")
+      .update({ status: "INVALID", remarks, isDisabled: true, updatedAt: new Date().toISOString() })
+      .eq("facultySubjectId", facultySubjectId)
+      .eq("evaluatorId", evaluatorId)
+    if (error) throw error
+  },
+  async invalidateById(id, remarks) {
+    const { error } = await supabase
+      .from("evaluations")
+      .update({ isDisabled: true, status: "INVALID", remarks })
+      .eq("id", id)
+    if (error) throw error
+  },
+  async invalidateByEvaluatorAndPeriod(evaluatorId, facultySubjectId, evaluationPeriodId, remarks) {
+    const { error } = await supabase
+      .from("evaluations")
+      .update({ isDisabled: true, status: "INVALID", remarks })
+      .eq("evaluatorId", evaluatorId)
+      .eq("facultySubjectId", facultySubjectId)
+      .eq("evaluation_period_id", evaluationPeriodId)
+    if (error) throw error
+  },
+  async listSubmittedWithSentiment(evaluationPeriodId) {
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("evaluateeId, evaluation_comments(sentimentScore)")
+      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("status", "SUBMITTED")
+      .eq("isDisabled", false)
+      .not("facultySubjectId", "is", null)
+    if (error) throw error
+    const rows = (data || []) as unknown as { evaluateeId: string; evaluation_comments: { sentimentScore: number | null }[] }[]
+    const result: { evaluateeId: string; sentimentScore: number | null }[] = []
+    for (const row of rows) {
+      const comments = row.evaluation_comments ?? []
+      for (const c of comments) {
+        result.push({ evaluateeId: row.evaluateeId, sentimentScore: c.sentimentScore })
+      }
+    }
+    return result
+  },
+  async countSubmittedByFacultyIds(facultyIds) {
+    if (facultyIds.length === 0) return 0
+    const { count, error } = await supabase
+      .from("evaluations")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "SUBMITTED")
+      .in("evaluateeId", facultyIds)
+    if (error) throw error
+    return count ?? 0
+  },
+  async countDistinctSubmittedEvaluateesByFacultyIds(facultyIds) {
+    if (facultyIds.length === 0) return { total: 0, distinctEvaluatees: 0 }
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("evaluateeId")
+      .eq("status", "SUBMITTED")
+      .in("evaluateeId", facultyIds)
+    if (error) throw error
+    const rows = (data || []) as { evaluateeId: string }[]
+    const distinct = new Set(rows.map((r) => r.evaluateeId))
+    return { total: rows.length, distinctEvaluatees: distinct.size }
   },
 }

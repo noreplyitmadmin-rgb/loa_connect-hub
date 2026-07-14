@@ -61,4 +61,22 @@ export const sectionRepository: ISectionRepository = {
     }
     return data as SectionData
   },
+  async findById(id) {
+    const { data, error } = await supabase.from("sections").select("*").eq("id", id).single()
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
+    }
+    return data as SectionData
+  },
+  async create(fields) {
+    const { data, error } = await supabase.from("sections").insert(fields).select("*").single()
+    if (error) throw error
+    return data as SectionData
+  },
+  async update(id, fields) {
+    const { data, error } = await supabase.from("sections").update(fields).eq("id", id).select("*").single()
+    if (error) throw error
+    return data as SectionData
+  },
 }
