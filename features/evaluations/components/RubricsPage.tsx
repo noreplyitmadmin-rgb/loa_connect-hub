@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useApiGet, invalidate } from "@/lib/api/client"
 import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import type { RubricGroupData, RubricGroupWithCategories, RubricItemData } from "@/lib/types"
 
 export default function RubricsPage() {
+  const router = useRouter()
   const [selectedGroupId, setSelectedGroupId] = useState<string>("")
   const [group, setGroup] = useState<RubricGroupWithCategories | null>(null)
   const [loadingGroup, setLoadingGroup] = useState(false)
@@ -14,10 +16,6 @@ export default function RubricsPage() {
   const [lockedEndpoint, setLockedEndpoint] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-
-  const [showCreateGroup, setShowCreateGroup] = useState(false)
-  const [newGroupName, setNewGroupName] = useState("")
-  const [newGroupDesc, setNewGroupDesc] = useState("")
 
   const { data: groupsData, error: groupsError, isLoading: groupsLoading } = useApiGet<{ groups: RubricGroupData[] }>("/api/rubric-groups")
 
@@ -48,40 +46,8 @@ export default function RubricsPage() {
     setTimeout(() => setSuccess(""), 4000)
   }
 
-  const handleCreateGroup = async () => {
-    if (!newGroupName) return
-    setSaving(true); setError("")
-    try {
-      const res = await fetch("/api/rubric-groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGroupName, description: newGroupDesc || null }),
-      })
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
-      setShowCreateGroup(false)
-      setNewGroupName("")
-      setNewGroupDesc("")
-      showSuccessMessage("Rubric group created!")
-      invalidate("/api/rubric-groups")
-    } catch (err) { setError((err as Error).message) }
-    finally { setSaving(false) }
-  }
-
-  const handleDuplicate = async (groupId: string, currentName: string) => {
-    const newName = prompt(`Duplicate "${currentName}" as:`, `${currentName} (Copy)`)
-    if (!newName) return
-    setSaving(true); setError("")
-    try {
-      const res = await fetch(`/api/rubric-groups/${groupId}/duplicate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName }),
-      })
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
-      showSuccessMessage("Rubric group duplicated!")
-      invalidate("/api/rubric-groups")
-    } catch (err) { setError((err as Error).message) }
-    finally { setSaving(false) }
+  const handleDuplicate = (groupId: string, currentName: string) => {
+    router.push(`/admin/evaluations/rubrics/new?sourceId=${groupId}&name=${encodeURIComponent(currentName + " (Copy)")}`)
   }
 
   const handleDeleteGroup = async (groupId: string) => {
@@ -199,35 +165,13 @@ export default function RubricsPage() {
           <h1 className="text-[28px] font-bold text-[var(--color-text)] tracking-tight">Rubric Groups</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Create and manage reusable rubric groups</p>
         </div>
-        <IosButton variant="primary" size="sm" onClick={() => setShowCreateGroup(true)}>New Group</IosButton>
+        <IosButton variant="primary" size="sm" onClick={() => router.push("/admin/evaluations/rubrics/new")}>New Group</IosButton>
       </div>
 
       {(error || success) && (
         <div className="px-4 space-y-1">
           {error && <p className="text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
-        </div>
-      )}
-
-      {showCreateGroup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
-            <h2 className="text-sm font-bold text-primary">Create Rubric Group</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Group Name</label>
-                <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. Midterm Evaluation 2025" required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Description (Optional)</label>
-                <input value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} className="w-full text-sm border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="Brief description" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <IosButton variant="gray" onClick={() => { setShowCreateGroup(false); setNewGroupName(""); setNewGroupDesc("") }}>Cancel</IosButton>
-              <IosButton variant="primary" loading={saving} onClick={handleCreateGroup}>Create</IosButton>
-            </div>
-          </div>
         </div>
       )}
 
