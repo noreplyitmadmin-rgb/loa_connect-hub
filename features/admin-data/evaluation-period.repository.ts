@@ -10,7 +10,11 @@ function flatten(row: RawPeriodRow): EvaluationPeriodData {
 
 function toRow(input: CreateEvaluationPeriodInput | Partial<EvaluationPeriodData>): Record<string, unknown> {
   const { rubricGroupId, ...rest } = input as Record<string, unknown>
-  return { ...rest, rubric_group_id: rubricGroupId ?? null }
+  const row: Record<string, unknown> = { ...rest }
+  if ("rubricGroupId" in (input as Record<string, unknown>)) {
+    row.rubric_group_id = rubricGroupId ?? null
+  }
+  return row
 }
 
 export const evaluationPeriodRepository: IEvaluationPeriodRepository = {
