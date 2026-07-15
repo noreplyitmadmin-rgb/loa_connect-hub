@@ -31,11 +31,8 @@ export async function deleteEvaluationPeriod(id: string) {
 
 export async function activateEvaluationPeriod(id: string) {
   const period = await evaluationPeriodRepository.setActive(id)
-  console.log("[activateEvaluationPeriod] period:", JSON.stringify({ id: period.id, rubricGroupId: period.rubricGroupId, name: period.name }))
   if (period.rubricGroupId) {
     await rubricGroupRepository.createSnapshot(id, period.rubricGroupId)
-  } else {
-    console.warn("[activateEvaluationPeriod] No rubricGroupId on period — snapshot skipped")
   }
   return period
 }

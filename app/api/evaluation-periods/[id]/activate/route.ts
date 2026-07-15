@@ -14,7 +14,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const period = await activateEvaluationPeriod(id)
     return NextResponse.json({ period })
   } catch (err) {
-    console.error("[activate] Error:", err)
     return NextResponse.json({ error: "Failed to activate evaluation period", detail: (err as Error).message }, { status: 500 })
   }
 }
