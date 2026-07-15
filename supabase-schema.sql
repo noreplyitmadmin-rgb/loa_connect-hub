@@ -17,7 +17,6 @@ DROP TABLE IF EXISTS sections CASCADE;
 DROP TABLE IF EXISTS subjects CASCADE;
 DROP TABLE IF EXISTS rubric_items CASCADE;
 DROP TABLE IF EXISTS rubric_categories CASCADE;
-DROP TABLE IF EXISTS rubric_group_snapshots CASCADE;
 DROP TABLE IF EXISTS rubric_groups CASCADE;
 DROP TABLE IF EXISTS rating_scales CASCADE;
 DROP TABLE IF EXISTS semesters CASCADE;
@@ -665,6 +664,7 @@ CREATE TABLE IF NOT EXISTS rubric_groups (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   name TEXT NOT NULL,
   description TEXT,
+  seed BOOLEAN NOT NULL DEFAULT FALSE,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -677,21 +677,6 @@ CREATE TABLE IF NOT EXISTS rubric_categories (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rubric_categories_group ON rubric_categories(rubric_group_id);
-
-CREATE TABLE IF NOT EXISTS rubric_group_snapshots (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  evaluation_period_id TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
-  rubric_group_id TEXT NOT NULL,
-  rubric_group_name TEXT NOT NULL,
-  category_name TEXT NOT NULL,
-  category_display_order INTEGER NOT NULL,
-  item_text TEXT NOT NULL,
-  item_display_order INTEGER NOT NULL,
-  item_weight DECIMAL(5,2) NOT NULL,
-  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_rubric_snapshots_period ON rubric_group_snapshots(evaluation_period_id);
 
 CREATE TABLE IF NOT EXISTS rubric_items (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
@@ -1014,6 +999,9 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_name = 'evaluation_periods'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluation_periods' AND column_name = 'semester'
   ) THEN
     INSERT INTO semesters (id, title, "evalStartDate", "evalEndDate", "isActive", "createdAt")
     SELECT id, name || ' : ' || semester, "startDate", "endDate", "isActive", "createdAt"
@@ -1607,16 +1595,24 @@ BEGIN
   VALUES (_sem_id, 'SY 2026-2027 First Semester', CURRENT_DATE, CURRENT_DATE + INTERVAL '180 days', TRUE)
   ON CONFLICT (id) DO NOTHING;
 
+  -- ── DEFAULT RUBRIC GROUP ───────────────────────────────
+  DECLARE
+    _rg_id TEXT := 'e0000000-0000-0000-0000-000000000010';
+  BEGIN
+  INSERT INTO rubric_groups (id, name, description, seed)
+  VALUES (_rg_id, 'Faculty Evaluation Rubric', 'Default evaluation rubric with 8 categories and 27 items', TRUE)
+  ON CONFLICT (id) DO NOTHING;
+
   -- ── RUBRIC CATEGORIES ──────────────────────────────────
-  INSERT INTO rubric_categories (id, "semesterId", name, "displayOrder") VALUES
-    ('e0000000-0000-0000-0000-000000000001', _sem_id, 'Professional Manner',             1),
-    ('e0000000-0000-0000-0000-000000000002', _sem_id, 'Communication with Students',      2),
-    ('e0000000-0000-0000-0000-000000000003', _sem_id, 'Student Engagement',               3),
-    ('e0000000-0000-0000-0000-000000000004', _sem_id, 'Learning Materials',               4),
-    ('e0000000-0000-0000-0000-000000000005', _sem_id, 'Time Management',                  5),
-    ('e0000000-0000-0000-0000-000000000006', _sem_id, 'Experiential Learning Provided to Students', 6),
-    ('e0000000-0000-0000-0000-000000000007', _sem_id, 'Respect the Uniqueness of the Students',    7),
-    ('e0000000-0000-0000-0000-000000000008', _sem_id, 'Assessment and Feedback',          8)
+  INSERT INTO rubric_categories (id, rubric_group_id, name, "displayOrder") VALUES
+    ('e0000000-0000-0000-0000-000000000001', _rg_id, 'Professional Manner',             1),
+    ('e0000000-0000-0000-0000-000000000002', _rg_id, 'Communication with Students',      2),
+    ('e0000000-0000-0000-0000-000000000003', _rg_id, 'Student Engagement',               3),
+    ('e0000000-0000-0000-0000-000000000004', _rg_id, 'Learning Materials',               4),
+    ('e0000000-0000-0000-0000-000000000005', _rg_id, 'Time Management',                  5),
+    ('e0000000-0000-0000-0000-000000000006', _rg_id, 'Experiential Learning Provided to Students', 6),
+    ('e0000000-0000-0000-0000-000000000007', _rg_id, 'Respect the Uniqueness of the Students',    7),
+    ('e0000000-0000-0000-0000-000000000008', _rg_id, 'Assessment and Feedback',          8)
   ON CONFLICT (id) DO NOTHING;
 
   -- ── RUBRIC ITEMS (27 total, 3-6 per category) ────────────
@@ -1664,6 +1660,8 @@ BEGIN
     ('e0000008-0000-0000-0000-000000000005', 'e0000000-0000-0000-0000-000000000008', 'He/she assesses students both informally and formally within the online or remote classroom through use of games, quizzes, online tests, etc.', 5, 1.00),
     ('e0000008-0000-0000-0000-000000000006', 'e0000000-0000-0000-0000-000000000008', 'He/she provides immediate feedback.', 6, 1.00)
   ON CONFLICT (id) DO NOTHING;
+
+  END; -- _rg_id block
 
   -- ── STUDENT ─────────────────────────────────────────────
   INSERT INTO users (id, name, email, "passwordHash")
@@ -1821,6 +1819,9 @@ DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'rubric_categories' AND column_name = 'evaluation_period_id'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_categories' AND column_name = 'rubric_group_id'
   ) THEN
     ALTER TABLE rubric_categories ADD COLUMN evaluation_period_id TEXT REFERENCES evaluation_periods(id) ON DELETE CASCADE;
     CREATE INDEX IF NOT EXISTS idx_rubric_categories_period ON rubric_categories(evaluation_period_id);
@@ -1863,7 +1864,19 @@ DO $$
 DECLARE
   _sem RECORD;
   _ep_id TEXT;
+  _has_sem_col BOOLEAN;
 BEGIN
+  -- Check if rubric_categories still has the old semesterId column
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_categories' AND column_name = 'semesterId'
+  ) INTO _has_sem_col;
+
+  IF NOT _has_sem_col THEN
+    RAISE NOTICE 'Migration 30c: semesterId column not found on rubric_categories — skipping data migration';
+    RETURN;
+  END IF;
+
   FOR _sem IN SELECT id, title, "evalStartDate", "evalEndDate", "isActive" FROM semesters
   LOOP
     -- Create an evaluation period for each semester that has eval dates or is active
@@ -2003,6 +2016,20 @@ DO $$ BEGIN
       "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_rubric_snapshots_period ON rubric_group_snapshots(evaluation_period_id);
+  END IF;
+END $$;
+
+-- =========================================================
+-- Migration 32: Add seed column to rubric_groups
+-- Marks the original/default rubric group as immutable.
+-- =========================================================
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_groups' AND column_name = 'seed'
+  ) THEN
+    ALTER TABLE rubric_groups ADD COLUMN seed BOOLEAN NOT NULL DEFAULT FALSE;
   END IF;
 END $$;
 

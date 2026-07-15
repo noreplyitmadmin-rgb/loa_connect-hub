@@ -29,14 +29,36 @@ export const rubricGroupRepository: IRubricGroupRepository = {
 
     const { data: cats, error: catErr } = await supabase
       .from("rubric_categories")
-      .select("*, items:rubric_items(*)")
+      .select("*")
       .eq("rubric_group_id", id)
       .order("displayOrder", { ascending: true })
     if (catErr) throw catErr
 
+    const categoryIds = (cats ?? []).map((c: { id: string }) => c.id)
+    let items: { categoryId: string; [k: string]: unknown }[] = []
+    if (categoryIds.length > 0) {
+      const { data: itemsData, error: itemsErr } = await supabase
+        .from("rubric_items")
+        .select("*")
+        .in("categoryId", categoryIds)
+        .order("displayOrder", { ascending: true })
+      if (itemsErr) throw itemsErr
+      items = (itemsData ?? []) as { categoryId: string; [k: string]: unknown }[]
+    }
+
+    const itemsByCat = new Map<string, typeof items>()
+    for (const item of items) {
+      const list = itemsByCat.get(item.categoryId) ?? []
+      list.push(item)
+      itemsByCat.set(item.categoryId, list)
+    }
+
     return {
       ...group,
-      categories: (cats ?? []) as unknown as RubricGroupWithCategories["categories"],
+      categories: (cats ?? []).map((c: { id: string; [k: string]: unknown }) => ({
+        ...c,
+        items: itemsByCat.get(c.id) ?? [],
+      })),
     } as RubricGroupWithCategories
   },
 
@@ -51,6 +73,14 @@ export const rubricGroupRepository: IRubricGroupRepository = {
   },
 
   async update(id, fields) {
+    const { data: existing, error: checkErr } = await supabase
+      .from("rubric_groups")
+      .select("seed")
+      .eq("id", id)
+      .single()
+    if (checkErr) throw checkErr
+    if (existing?.seed) throw new Error("This is the original rubric group and cannot be edited. Duplicate it to create your own version.")
+
     const { data, error } = await supabase
       .from("rubric_groups")
       .update(fields)

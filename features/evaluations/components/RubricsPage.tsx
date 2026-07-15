@@ -251,13 +251,16 @@ export default function RubricsPage() {
                 onClick={() => setSelectedGroupId(selectedGroupId === g.id ? "" : g.id)}
               >
                 <div className="flex items-center justify-between w-full">
-                  <div>
-                    <span className="text-[15px] font-semibold text-[var(--color-text)]">{g.name}</span>
-                    {g.description && <span className="text-xs text-[var(--color-text-muted)] ml-2">{g.description}</span>}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[15px] font-semibold text-[var(--color-text)] truncate">{g.name}</span>
+                    {g.seed && <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Default</span>}
+                    {g.description && <span className="text-xs text-[var(--color-text-muted)] truncate hidden sm:inline">{g.description}</span>}
                   </div>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <IosButton variant="plain" size="xs" onClick={() => handleDuplicate(g.id, g.name)} disabled={saving}>Duplicate</IosButton>
-                    <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDeleteGroup(g.id)} disabled={saving}>Delete</IosButton>
+                    {!g.seed && (
+                      <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDeleteGroup(g.id)} disabled={saving}>Delete</IosButton>
+                    )}
                   </div>
                 </div>
               </div>
@@ -277,8 +280,13 @@ export default function RubricsPage() {
           ) : group ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[var(--color-text)]">{group.name}</h2>
-                <IosButton variant="tinted" size="sm" onClick={addCategory} disabled={saving}>+ Add Category</IosButton>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[var(--color-text)]">{group.name}</h2>
+                  {group.seed && <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Default</span>}
+                </div>
+                {!group.seed && (
+                  <IosButton variant="tinted" size="sm" onClick={addCategory} disabled={saving}>+ Add Category</IosButton>
+                )}
               </div>
 
               {group.categories.length === 0 ? (
@@ -292,7 +300,9 @@ export default function RubricsPage() {
                     <div key={cat.id} className="ios-table-section">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
                         <h3 className="text-[15px] font-semibold text-[var(--color-text)]">{cat.name}</h3>
-                        <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteCategory(cat.id)} disabled={saving}>Delete</IosButton>
+                        {!group.seed && (
+                          <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteCategory(cat.id)} disabled={saving}>Delete</IosButton>
+                        )}
                       </div>
                       <div>
                         {(cat.items ?? []).length === 0 ? (
@@ -303,17 +313,21 @@ export default function RubricsPage() {
                             .map((item: RubricItemData) => (
                               <div key={item.id} className="ios-table-row justify-between">
                                 <span className="text-[15px] text-[var(--color-text)]">{item.text}</span>
-                                <div className="flex gap-1 shrink-0">
-                                  <IosButton variant="plain" size="xs" onClick={() => updateItem(item.id, item.text)} disabled={saving}>Edit</IosButton>
-                                  <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteItem(item.id)} disabled={saving}>Remove</IosButton>
-                                </div>
+                                {!group.seed && (
+                                  <div className="flex gap-1 shrink-0">
+                                    <IosButton variant="plain" size="xs" onClick={() => updateItem(item.id, item.text)} disabled={saving}>Edit</IosButton>
+                                    <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => deleteItem(item.id)} disabled={saving}>Remove</IosButton>
+                                  </div>
+                                )}
                               </div>
                             ))
                         )}
                       </div>
-                      <div className="border-t border-[var(--color-border)]">
-                        <button onClick={() => addItem(cat.id)} className="btn-ios-plain w-full text-sm font-semibold h-10" disabled={saving}>+ Add item</button>
-                      </div>
+                      {!group.seed && (
+                        <div className="border-t border-[var(--color-border)]">
+                          <button onClick={() => addItem(cat.id)} className="btn-ios-plain w-full text-sm font-semibold h-10" disabled={saving}>+ Add item</button>
+                        </div>
+                      )}
                     </div>
                   ))
               )}

@@ -5,11 +5,34 @@ export const rubricRepository: IRubricRepository = {
   async getCategoriesWithItems(groupId) {
     const { data, error } = await supabase
       .from("rubric_categories")
-      .select("*, items:rubric_items(*)")
+      .select("*")
       .eq("rubric_group_id", groupId)
       .order("displayOrder", { ascending: true })
     if (error) throw error
-    return data as unknown as RubricCategoryData[]
+
+    const categoryIds = (data ?? []).map((c: { id: string }) => c.id)
+    let items: RubricItemData[] = []
+    if (categoryIds.length > 0) {
+      const { data: itemsData, error: itemsErr } = await supabase
+        .from("rubric_items")
+        .select("*")
+        .in("categoryId", categoryIds)
+        .order("displayOrder", { ascending: true })
+      if (itemsErr) throw itemsErr
+      items = (itemsData ?? []) as RubricItemData[]
+    }
+
+    const itemsByCat = new Map<string, RubricItemData[]>()
+    for (const item of items) {
+      const list = itemsByCat.get(item.categoryId) ?? []
+      list.push(item)
+      itemsByCat.set(item.categoryId, list)
+    }
+
+    return (data ?? []).map((c: { id: string; [k: string]: unknown }) => ({
+      ...c,
+      items: itemsByCat.get(c.id) ?? [],
+    })) as unknown as RubricCategoryData[]
   },
 
   async replaceRubric(groupId, categories) {

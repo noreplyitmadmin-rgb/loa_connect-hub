@@ -25,13 +25,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params
   try {
+    const group = await rubricGroupRepository.findById(id)
+    if (!group) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (group.seed) {
+      return NextResponse.json({ error: "This is the original rubric group and cannot be edited. Duplicate it to create your own version." }, { status: 409 })
+    }
     const locked = await rubricGroupRepository.isLocked(id)
     if (locked) {
       return NextResponse.json({ error: "Rubric group is locked (assigned to an active evaluation period). Duplicate it to make changes." }, { status: 409 })
     }
     const body = await request.json()
-    const group = await rubricGroupRepository.update(id, { name: body.name, description: body.description })
-    return NextResponse.json({ group })
+    const updated = await rubricGroupRepository.update(id, { name: body.name, description: body.description })
+    return NextResponse.json({ group: updated })
   } catch {
     return NextResponse.json({ error: "Failed to update rubric group" }, { status: 500 })
   }
@@ -45,6 +50,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params
   try {
+    const group = await rubricGroupRepository.findById(id)
+    if (!group) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (group.seed) {
+      return NextResponse.json({ error: "This is the original rubric group and cannot be deleted." }, { status: 409 })
+    }
     const locked = await rubricGroupRepository.isLocked(id)
     if (locked) {
       return NextResponse.json({ error: "Rubric group is locked (assigned to an active evaluation period)." }, { status: 409 })

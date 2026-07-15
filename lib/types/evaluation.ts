@@ -233,6 +233,7 @@ export interface RubricGroupData {
   id: string
   name: string
   description: string | null
+  seed: boolean
   createdAt: Date
 }
 
