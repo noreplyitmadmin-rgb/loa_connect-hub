@@ -5,6 +5,7 @@ import { useApiGet, invalidate } from "@/lib/api/client"
 import { SkeletonTable } from "@/components/ui/Skeleton"
 import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
+import Alert from "@/components/ui/Alert"
 import type { EvaluationPeriodData, SemesterData, RubricGroupData, RubricGroupWithCategories } from "@/lib/types"
 
 const INVALIDATE_KEYS = ["/api/evaluation-periods"]
@@ -32,6 +33,10 @@ export function EvaluationPeriodsTab() {
 
   const [previewGroup, setPreviewGroup] = useState<RubricGroupWithCategories | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
+
+  const [confirmAlert, setConfirmAlert] = useState<{ open: boolean; title: string; message: string; destructive: boolean; onConfirm: () => void }>({
+    open: false, title: "", message: "", destructive: false, onConfirm: () => {},
+  })
 
   const { data: periodsData, isLoading: periodsLoading, error: periodsErr } = useApiGet<{ periods: EvaluationPeriodData[] }>("/api/evaluation-periods")
   const { data: semestersData } = useApiGet<{ data: SemesterData[] }>("/api/semesters")
@@ -233,9 +238,9 @@ export function EvaluationPeriodsTab() {
                       <td className="px-6 py-4 space-x-2 text-center">
                         <IosButton variant="plain" size="xs" onClick={() => openEditModal(period)}>Edit</IosButton>
                         {period.isActive ? (
-                          <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDeactivate(period.id)}>Disable</IosButton>
+                          <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => setConfirmAlert({ open: true, title: "Deactivate Period?", message: `Students will no longer be able to evaluate during "${period.name}". Existing submissions are preserved.`, destructive: true, onConfirm: () => handleDeactivate(period.id) })}>Disable</IosButton>
                         ) : (
-                          <IosButton variant="plain" size="xs" className="!text-green-600" onClick={() => handleActivate(period.id)}>Activate</IosButton>
+                          <IosButton variant="plain" size="xs" className="!text-green-600" onClick={() => setConfirmAlert({ open: true, title: "Activate Period?", message: `"${period.name}" will become the active evaluation period. The rubric assignment will be locked.`, destructive: false, onConfirm: () => handleActivate(period.id) })}>Activate</IosButton>
                         )}
                         <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDelete(period.id)}>Delete</IosButton>
                       </td>
@@ -264,9 +269,9 @@ export function EvaluationPeriodsTab() {
                   <div className="flex gap-2 pt-2 flex-wrap">
                     <IosButton variant="tinted" size="sm" onClick={() => openEditModal(period)} className="flex-1">Edit</IosButton>
                     {period.isActive ? (
-                      <IosButton variant="destructive" size="sm" onClick={() => handleDeactivate(period.id)} className="flex-1">Disable</IosButton>
+                      <IosButton variant="destructive" size="sm" onClick={() => setConfirmAlert({ open: true, title: "Deactivate Period?", message: `Students will no longer be able to evaluate during "${period.name}". Existing submissions are preserved.`, destructive: true, onConfirm: () => handleDeactivate(period.id) })} className="flex-1">Disable</IosButton>
                     ) : (
-                      <IosButton variant="success" size="sm" onClick={() => handleActivate(period.id)} className="flex-1">Activate</IosButton>
+                      <IosButton variant="success" size="sm" onClick={() => setConfirmAlert({ open: true, title: "Activate Period?", message: `"${period.name}" will become the active evaluation period. The rubric assignment will be locked.`, destructive: false, onConfirm: () => handleActivate(period.id) })} className="flex-1">Activate</IosButton>
                     )}
                     <IosButton variant="destructive" size="sm" onClick={() => handleDelete(period.id)} className="flex-1">Delete</IosButton>
                   </div>
@@ -400,6 +405,16 @@ export function EvaluationPeriodsTab() {
           </div>
         </div>
       )}
+
+      <Alert
+        isOpen={confirmAlert.open}
+        onClose={() => setConfirmAlert((p) => ({ ...p, open: false }))}
+        title={confirmAlert.title}
+        message={confirmAlert.message}
+        confirmLabel={confirmAlert.destructive ? "Deactivate" : "Activate"}
+        destructive={confirmAlert.destructive}
+        onConfirm={confirmAlert.onConfirm}
+      />
     </div>
   )
 }

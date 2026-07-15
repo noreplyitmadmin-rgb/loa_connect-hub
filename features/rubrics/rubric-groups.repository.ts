@@ -140,6 +140,12 @@ export const rubricGroupRepository: IRubricGroupRepository = {
   },
 
   async createSnapshot(evaluationPeriodId, groupId) {
+    const { count } = await supabase
+      .from("rubric_group_snapshots")
+      .select("id", { count: "exact", head: true })
+      .eq("evaluation_period_id", evaluationPeriodId)
+    if ((count ?? 0) > 0) return
+
     const group = await this.findById(groupId)
     if (!group) throw new Error("Rubric group not found")
 

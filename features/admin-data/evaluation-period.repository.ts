@@ -68,8 +68,8 @@ export const evaluationPeriodRepository: IEvaluationPeriodRepository = {
 
   async setActive(id) {
     await supabase.from("evaluation_periods").update({ isActive: false }).neq("id", id)
-    const { data, error } = await supabase.from("evaluation_periods").update({ isActive: true }).eq("id", id).select("*").single()
+    const { data, error } = await supabase.from("evaluation_periods").update({ isActive: true }).eq("id", id).select("*, semesters!inner(title)").single()
     if (error) throw error
-    return data as EvaluationPeriodData
+    return flatten(data as RawPeriodRow)
   },
 }
