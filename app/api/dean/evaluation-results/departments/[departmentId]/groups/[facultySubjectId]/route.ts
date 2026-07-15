@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/db"
-import { departmentRepository } from "@/lib/repositories/factory"
+import {
+  departmentRepository,
+  facultySubjectRepository,
+  userRepository,
+  subjectRepository,
+  evaluationRepository,
+} from "@/lib/repositories/factory"
 import {
   computeCategoryAverages,
   computeGeneralRating,
@@ -24,93 +29,49 @@ export async function GET(
   const dept = await departmentRepository.findByDeanId(userId)
   if (!dept) return NextResponse.json({ error: "Department not found" }, { status: 404 })
 
-  const { departmentId } = await params
+  const { departmentId, facultySubjectId } = await params
   if (departmentId !== dept.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-
-  const { facultySubjectId } = await params
 
   try {
     const { searchParams } = new URL(request.url)
     const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
     if (!evaluationPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
 
-    const { data: fsData, error: fsErr } = await supabase
-      .from("faculty_subjects")
-      .select("id, faculty_id, subject_id, section_id")
-      .eq("id", facultySubjectId)
-      .single()
-    if (fsErr) throw fsErr
+    const fsData = await facultySubjectRepository.findById(facultySubjectId)
+    if (!fsData) return NextResponse.json({ error: "Faculty-subject not found" }, { status: 404 })
 
-    const { data: faculty, error: facErr } = await supabase
-      .from("users")
-      .select("id, name, email")
-      .eq("id", fsData.faculty_id)
-      .single()
-    if (facErr) throw facErr
+    const [faculty, subject, deptInfo] = await Promise.all([
+      userRepository.findById(fsData.faculty_id),
+      subjectRepository.findById(fsData.subject_id),
+      departmentRepository.findById(departmentId),
+    ])
 
-    const { data: subject, error: subjErr } = await supabase
-      .from("subjects")
-      .select("id, code, name")
-      .eq("id", fsData.subject_id)
-      .single()
-    if (subjErr) throw subjErr
-
-    const { data: dept, error: deptErr } = await supabase
-      .from("departments")
-      .select("id, name, code")
-      .eq("id", departmentId)
-      .single()
-    if (deptErr) throw deptErr
-
-    const { data: evals, error: evErr } = await supabase
-      .from("evaluations")
-      .select("id, evaluatorId, submittedAt, createdAt")
-      .eq("evaluation_period_id", evaluationPeriodId)
-      .eq("evaluateeId", fsData.faculty_id)
-      .eq("facultySubjectId", facultySubjectId)
-      .eq("status", "SUBMITTED")
-      .order("submittedAt", { ascending: true })
-    if (evErr) throw evErr
-    if (!evals || evals.length === 0) return NextResponse.json({ error: "No evaluations found" }, { status: 404 })
+    const evals = await evaluationRepository.listSubmittedByPeriodAndEvaluateeAndFS(evaluationPeriodId, fsData.faculty_id, facultySubjectId)
+    if (evals.length === 0) return NextResponse.json({ error: "No evaluations found" }, { status: 404 })
 
     const evaluationIds = evals.map((e) => e.id)
 
-    const { data: ratings, error: rErr } = await supabase
-      .from("evaluation_ratings")
-      .select("evaluationId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
-      .in("evaluationId", evaluationIds)
-    if (rErr) throw rErr
-
-    const { data: comments, error: cErr } = await supabase
-      .from("evaluation_comments")
-      .select("id, evaluationId, comment, sentimentLabel, sentimentScore")
-      .in("evaluationId", evaluationIds)
-    if (cErr) throw cErr
+    const [ratings, comments] = await Promise.all([
+      evaluationRepository.listRatingsByEvaluationIds(evaluationIds),
+      evaluationRepository.listFullCommentsByEvaluationIds(evaluationIds),
+    ])
 
     const commentsByEval = new Map<string, typeof comments>()
-    for (const c of comments ?? []) {
+    for (const c of comments) {
       if (!commentsByEval.has(c.evaluationId)) commentsByEval.set(c.evaluationId, [])
       commentsByEval.get(c.evaluationId)!.push(c)
     }
 
-    const ratingsForGroup = (ratings ?? []) as unknown as Array<{
-      rating: number
-      rubric_items: { categoryId: string; rubric_categories: { name: string } }
-    }>
-    const catAverages = computeCategoryAverages(ratingsForGroup)
+    const catAverages = computeCategoryAverages(ratings)
     const general = computeGeneralRating(catAverages)
     const catColumns = mapCategoryAveragesToColumns(catAverages)
     const rubrics = findHighestLowestRubrics(catColumns)
-    const allComments = comments ?? []
-    const sentiment = computeSentimentScore(allComments)
+    const sentiment = computeSentimentScore(comments)
 
     const evaluationRows = evals.map((ev) => {
-      const evalRatings = (ratings ?? []).filter((r) => r.evaluationId === ev.id) as unknown as Array<{
-        rating: number
-        rubric_items: { categoryId: string; rubric_categories: { name: string } }
-      }>
+      const evalRatings = ratings.filter((r) => r.evaluationId === ev.id)
       const evalCatAverages = computeCategoryAverages(evalRatings)
       const evalGeneral = computeGeneralRating(evalCatAverages)
       const evalCatColumns = mapCategoryAveragesToColumns(evalCatAverages)
@@ -129,21 +90,9 @@ export async function GET(
     })
 
     return NextResponse.json({
-      department: {
-        id: dept.id,
-        name: dept.name,
-        code: dept.code,
-      },
-      faculty: {
-        id: faculty.id,
-        name: faculty.name,
-        email: faculty.email,
-      },
-      subject: {
-        id: subject.id,
-        code: subject.code,
-        name: subject.name,
-      },
+      department: deptInfo ? { id: deptInfo.id, name: deptInfo.name, code: deptInfo.code } : null,
+      faculty: faculty ? { id: faculty.id, name: faculty.name, email: faculty.email } : null,
+      subject: subject ? { id: subject.id, code: subject.code, name: subject.name } : null,
       summary: {
         totalRespondents: evaluationRows.length,
         avgRating: general,

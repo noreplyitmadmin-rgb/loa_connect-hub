@@ -186,6 +186,13 @@ export interface FacultySubjectWithEmbeds extends FacultySubjectData {
   section: { id: string; name: string; program: string } | null
 }
 
+export interface FacultySubjectWithSubjectsSections {
+  id: string
+  subject_id: string
+  subjects: { id: string; code: string; name: string } | null
+  sections: { departmentCourseId: string } | null
+}
+
 export interface StudentEnrollmentData {
   id: string
   student_id: string
@@ -337,6 +344,7 @@ export interface ISectionRepository {
   findById(id: string): Promise<SectionData | null>
   create(data: { name: string; program: string; departmentCourseId: string; isDisabled?: boolean }): Promise<SectionData>
   update(id: string, data: Partial<SectionData>): Promise<SectionData>
+  countBySemesterId(semesterId: string): Promise<number>
 }
 
 export interface IFacultySubjectRepository {
@@ -348,6 +356,9 @@ export interface IFacultySubjectRepository {
   update(id: string, data: Partial<FacultySubjectData>): Promise<FacultySubjectData>
   findBySubjectAndSection(subject_id: string, section_id: string): Promise<FacultySubjectData | null>
   findBySubjectSectionAndFaculty(subject_id: string, section_id: string, faculty_id: string): Promise<FacultySubjectData | null>
+  findByIds(ids: string[]): Promise<FacultySubjectData[]>
+  findByFacultyIdWithEmbeds(facultyId: string): Promise<FacultySubjectWithSubjectsSections[]>
+  countBySemesterId(semesterId: string): Promise<number>
 }
 
 export interface IStudentEnrollmentRepository {
@@ -361,6 +372,7 @@ export interface IStudentEnrollmentRepository {
   getDistinctFaculty(student_id: string, semesterId?: string): Promise<string[]>
   countBySectionIds(sectionIds: string[]): Promise<Record<string, number>>
   listAllWithEmbeds(): Promise<StudentEnrollmentWithEmbeds[]>
+  countBySemesterId(semesterId: string): Promise<number>
   getFacultySubjectsByStudent(student_id: string, faculty_id: string, semesterId: string): Promise<{ id: string; code: string; title: string }[]>
 }
 
@@ -397,6 +409,54 @@ export interface IEvaluationRepository {
   invalidateByFacultySubject(facultySubjectId: string, remarks: string): Promise<void>
   countSubmittedByFacultyIds(facultyIds: string[]): Promise<number>
   countDistinctSubmittedEvaluateesByFacultyIds(facultyIds: string[]): Promise<{ total: number; distinctEvaluatees: number }>
+  listSubmittedByPeriodAndEvaluatee(evaluationPeriodId: string, evaluateeId: string): Promise<EvaluationListItem[]>
+  listSubmittedByPeriodAndEvaluatees(evaluationPeriodId: string, evaluateeIds: string[]): Promise<EvaluationListItem[]>
+  countBySemesterId(semesterId: string): Promise<number>
+  listSubmittedByPeriodAndEvaluateeAndFS(evaluationPeriodId: string, evaluateeId: string, facultySubjectId: string): Promise<EvaluationDetailItem[]>
+  listSubmittedByPeriodAndFacultySubjectIds(evaluationPeriodId: string, facultySubjectIds: string[]): Promise<EvaluationDetailItem[]>
+  listRatingsByEvaluationIds(evaluationIds: string[]): Promise<EvaluationRatingRow[]>
+  listCommentsByEvaluationIds(evaluationIds: string[]): Promise<EvaluationCommentLight[]>
+  listFullCommentsByEvaluationIds(evaluationIds: string[]): Promise<EvaluationCommentFull[]>
+  listByUser(userId: string, limit?: number): Promise<EvaluationData[]>
+}
+
+// ── Evaluation Report Types ──────────────────────────────────
+
+export interface EvaluationListItem {
+  id: string
+  evaluateeId: string
+  facultySubjectId: string | null
+  submittedAt: string | null
+}
+
+export interface EvaluationDetailItem {
+  id: string
+  evaluatorId: string
+  submittedAt: string | null
+  createdAt: string
+  facultySubjectId: string | null
+}
+
+export interface EvaluationRatingRow {
+  evaluationId: string
+  rating: number
+  rubric_items: {
+    categoryId: string
+    rubric_categories: { name: string }
+  }
+}
+
+export interface EvaluationCommentLight {
+  evaluationId: string
+  sentimentScore: number | null
+}
+
+export interface EvaluationCommentFull {
+  id: string
+  evaluationId: string
+  comment: string
+  sentimentLabel: string | null
+  sentimentScore: number | null
 }
 
 // ── Dean Report Types ──────────────────────────────────────
@@ -440,4 +500,6 @@ export interface IEvaluationResultRepository {
   computeAll(evaluationPeriodId: string): Promise<void>
   setVisibility(evaluationPeriodId: string, facultyIds: string[], visible: boolean): Promise<void>
   getVisibilityMap(evaluationPeriodId: string): Promise<Map<string, boolean>>
+  countBySemesterId(semesterId: string): Promise<number>
+  listByFacultyId(facultyId: string, limit?: number): Promise<EvaluationResultData[]>
 }

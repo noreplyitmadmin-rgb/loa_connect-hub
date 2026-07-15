@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { supabase } from "@/lib/supabase"
+import { userRepository, userPermissionRepository } from "@/lib/repositories/factory"
 
 export async function GET() {
   const session = await auth()
@@ -11,28 +11,13 @@ export async function GET() {
   const su = session.user as Record<string, unknown>
   const userId = su.id as string
 
-  const { data: user } = await supabase
-    .from("users")
-    .select('id, name, email, "departmentId", "isDisabled"')
-    .eq("id", userId)
-    .single()
-
+  const user = await userRepository.findById(userId)
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
 
-  const { data: roles } = await supabase
-    .from("userrole")
-    .select('"roleName"')
-    .eq("userId", userId)
-
-  const role = (roles ?? []).map((r: Record<string, unknown>) => r.roleName).join("|")
-
-  const { data: perms } = await supabase
-    .from("user_permissions")
-    .select('resource_path, grants')
-    .eq("user_id", userId)
+  const perms = await userPermissionRepository.findByUserIdLight(userId)
 
   return NextResponse.json({
-    user: { ...user, role },
+    user: { id: user.id, name: user.name, email: user.email, departmentId: user.departmentId, isDisabled: user.isDisabled, role: user.role },
     permissions: perms ?? [],
   })
 }

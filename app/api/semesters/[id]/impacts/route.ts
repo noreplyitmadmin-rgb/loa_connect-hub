@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
+import {
+  facultySubjectRepository,
+  studentEnrollmentRepository,
+  evaluationRepository,
+  evaluationResultRepository,
+  sectionRepository,
+} from "@/lib/repositories/factory"
 
 export async function GET(
   _request: Request,
@@ -17,19 +23,19 @@ export async function GET(
 
   try {
     const [facultySubjects, enrollments, evaluations, results, sections] = await Promise.all([
-      supabase.from("faculty_subjects").select("id", { count: "exact", head: true }).eq("semesterId", id),
-      supabase.from("student_enrollments").select("id", { count: "exact", head: true }).eq("semesterId", id),
-      supabase.from("evaluations").select("id", { count: "exact", head: true }).eq("semesterId", id),
-      supabase.from("evaluation_results").select("id", { count: "exact", head: true }).eq("semesterId", id),
-      supabase.from("sections").select("id", { count: "exact", head: true }).eq("semesterId", id),
+      facultySubjectRepository.countBySemesterId(id),
+      studentEnrollmentRepository.countBySemesterId(id),
+      evaluationRepository.countBySemesterId(id),
+      evaluationResultRepository.countBySemesterId(id),
+      sectionRepository.countBySemesterId(id),
     ])
 
     return NextResponse.json({
-      facultySubjects: facultySubjects.count ?? 0,
-      enrollments: enrollments.count ?? 0,
-      evaluations: evaluations.count ?? 0,
-      results: results.count ?? 0,
-      sections: sections.count ?? 0,
+      facultySubjects,
+      enrollments,
+      evaluations,
+      results,
+      sections,
     })
   } catch {
     return NextResponse.json({ error: "Failed to fetch impacts" }, { status: 500 })

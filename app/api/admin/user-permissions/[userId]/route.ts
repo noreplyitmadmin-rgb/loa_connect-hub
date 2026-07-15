@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/route-guard'
-import { getUserPermissions, setUserPermissions } from '@/features/user-permissions/user-permissions.service'
-import { supabase } from '@/lib/supabase'
+import { userPermissionRepository } from '@/lib/repositories/factory'
 
 interface PermissionPayload {
   resource_path: string
@@ -25,7 +24,7 @@ export async function GET(
   if (authErr) return authErr
 
   const { userId } = await params
-  const perms = await getUserPermissions(userId)
+  const perms = await userPermissionRepository.findByUserId(userId)
   if (perms === null) {
     return new NextResponse(JSON.stringify({ error: 'User not found' }), {
       status: 404,
@@ -42,15 +41,7 @@ export async function PUT(
   if (authErr) return authErr
 
   const { userId } = await params
-  const { error: deleteErr } = await supabase
-    .from('user_permissions')
-    .delete()
-    .eq('user_id', userId)
-  if (deleteErr) {
-    return new NextResponse(JSON.stringify({ error: 'Delete failed' }), {
-      status: 500,
-    })
-  }
+  await userPermissionRepository.deleteByUserId(userId)
 
   const body = await request.json()
   if (!Array.isArray(body) || !body.every(isPermissionObj)) {
@@ -61,7 +52,7 @@ export async function PUT(
 
   const upsertResults = await Promise.all(
     body.map((p) =>
-      setUserPermissions(userId, p.resource_path, p.grants ?? [], p.denies ?? [])
+      userPermissionRepository.upsertPermission(userId, p.resource_path, p.grants ?? [], p.denies ?? [])
     )
   )
 

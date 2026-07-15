@@ -17,6 +17,8 @@ import type {
   IEvaluationRepository,
   IEvaluationResultRepository,
   IBugReportRepository,
+  IGroupAccessRepository,
+  IUserPermissionRepository,
 } from "@/lib/types"
 
 import { userRepository as supabaseUserRepo } from "@/features/users/users.repository"
@@ -37,6 +39,8 @@ import { rubricRepository as supabaseRubricRepo } from "@/features/rubrics/rubri
 import { evaluationRepository as supabaseEvalRepo } from "@/features/evaluations/evaluations.repository"
 import { evaluationResultRepository as supabaseEvalResultRepo } from "@/features/evaluation-results/evaluation-results.repository"
 import { bugReportRepository as supabaseBugReportRepo } from "@/features/bug-reports/bug-report.repository"
+import { groupAccessRepository as supabaseGroupAccessRepo } from "@/features/admin-data/group-access.repository"
+import { userPermissionRepository as supabaseUserPermRepo } from "@/features/user-permissions/user-permissions.repository"
 
 export const userRepository: IUserRepository = supabaseUserRepo
 export const departmentRepository: IDepartmentRepository = supabaseDeptRepo
@@ -56,3 +60,5 @@ export const rubricRepository: IRubricRepository = supabaseRubricRepo
 export const evaluationRepository: IEvaluationRepository = supabaseEvalRepo
 export const evaluationResultRepository: IEvaluationResultRepository = supabaseEvalResultRepo
 export const bugReportRepository: IBugReportRepository = supabaseBugReportRepo
+export const groupAccessRepository: IGroupAccessRepository = supabaseGroupAccessRepo
+export const userPermissionRepository: IUserPermissionRepository = supabaseUserPermRepo

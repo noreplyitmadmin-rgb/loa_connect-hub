@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { EvaluationData, EvaluationComment, EvaluationCommentWithEvaluation, IEvaluationRepository, PendingEvaluationItem } from "@/lib/types"
+import type { EvaluationData, EvaluationComment, EvaluationCommentWithEvaluation, IEvaluationRepository, EvaluationListItem, EvaluationDetailItem, EvaluationRatingRow, EvaluationCommentLight, EvaluationCommentFull, PendingEvaluationItem } from "@/lib/types"
 
 export const evaluationRepository: IEvaluationRepository = {
   async findPending(evaluatorId, evaluationPeriodId) {
@@ -339,5 +339,94 @@ export const evaluationRepository: IEvaluationRepository = {
     const rows = (data || []) as { evaluateeId: string }[]
     const distinct = new Set(rows.map((r) => r.evaluateeId))
     return { total: rows.length, distinctEvaluatees: distinct.size }
+  },
+  async listSubmittedByPeriodAndEvaluatee(evaluationPeriodId, evaluateeId) {
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("id, evaluateeId, facultySubjectId, submittedAt")
+      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("evaluateeId", evaluateeId)
+      .eq("status", "SUBMITTED")
+    if (error) throw error
+    return (data || []) as EvaluationListItem[]
+  },
+  async listSubmittedByPeriodAndEvaluatees(evaluationPeriodId, evaluateeIds) {
+    if (evaluateeIds.length === 0) return []
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("id, evaluateeId, facultySubjectId, submittedAt")
+      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("status", "SUBMITTED")
+      .in("evaluateeId", evaluateeIds)
+    if (error) throw error
+    return (data || []) as EvaluationListItem[]
+  },
+  async listSubmittedByPeriodAndEvaluateeAndFS(evaluationPeriodId, evaluateeId, facultySubjectId) {
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("id, evaluatorId, submittedAt, createdAt")
+      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("evaluateeId", evaluateeId)
+      .eq("facultySubjectId", facultySubjectId)
+      .eq("status", "SUBMITTED")
+      .order("submittedAt", { ascending: true })
+    if (error) throw error
+    return (data || []) as EvaluationDetailItem[]
+  },
+  async listSubmittedByPeriodAndFacultySubjectIds(evaluationPeriodId, facultySubjectIds) {
+    if (facultySubjectIds.length === 0) return []
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("id, evaluatorId, submittedAt, createdAt, facultySubjectId")
+      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("status", "SUBMITTED")
+      .in("facultySubjectId", facultySubjectIds)
+      .order("submittedAt", { ascending: true })
+    if (error) throw error
+    return (data || []) as EvaluationDetailItem[]
+  },
+  async listRatingsByEvaluationIds(evaluationIds) {
+    if (evaluationIds.length === 0) return []
+    const { data, error } = await supabase
+      .from("evaluation_ratings")
+      .select("evaluationId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
+      .in("evaluationId", evaluationIds)
+    if (error) throw error
+    return (data || []) as unknown as EvaluationRatingRow[]
+  },
+  async listCommentsByEvaluationIds(evaluationIds) {
+    if (evaluationIds.length === 0) return []
+    const { data, error } = await supabase
+      .from("evaluation_comments")
+      .select("evaluationId, sentimentScore")
+      .in("evaluationId", evaluationIds)
+    if (error) throw error
+    return (data || []) as EvaluationCommentLight[]
+  },
+  async listFullCommentsByEvaluationIds(evaluationIds) {
+    if (evaluationIds.length === 0) return []
+    const { data, error } = await supabase
+      .from("evaluation_comments")
+      .select("id, evaluationId, comment, sentimentLabel, sentimentScore")
+      .in("evaluationId", evaluationIds)
+    if (error) throw error
+    return (data || []) as EvaluationCommentFull[]
+  },
+  async countBySemesterId(semesterId) {
+    const { count, error } = await supabase
+      .from("evaluations")
+      .select("id", { count: "exact", head: true })
+      .eq("semesterId", semesterId)
+    if (error) throw error
+    return count ?? 0
+  },
+  async listByUser(userId, limit = 100) {
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("id, evaluatorId, evaluateeId, createdAt")
+      .or(`evaluatorId.eq.${userId},evaluateeId.eq.${userId}`)
+      .limit(limit)
+    if (error) throw error
+    return (data || []) as EvaluationData[]
   },
 }

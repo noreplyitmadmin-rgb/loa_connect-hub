@@ -258,6 +258,23 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
     if (error) throw error
     return new Map((data || []).map((r) => [r.facultyId, r.is_results_visible]))
   },
+  async countBySemesterId(semesterId) {
+    const { count, error } = await supabase
+      .from("evaluation_results")
+      .select("id", { count: "exact", head: true })
+      .eq("semesterId", semesterId)
+    if (error) throw error
+    return count ?? 0
+  },
+  async listByFacultyId(facultyId, limit = 100) {
+    const { data, error } = await supabase
+      .from("evaluation_results")
+      .select("*")
+      .eq("facultyId", facultyId)
+      .limit(limit)
+    if (error) throw error
+    return (data || []) as EvaluationResultData[]
+  },
 }
 
 const nameToColumn: Record<string, keyof StudentBreakdownItem> = {

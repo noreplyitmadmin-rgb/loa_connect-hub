@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { supabase } from "@/lib/supabase"
+import { groupAccessRepository } from "@/lib/repositories/factory"
 import { clearAccessConfigCache, loadAccessConfig } from "@/lib/access"
 import { getDefaultPages } from "@/lib/default-access"
 import { pageApiMap } from "@/lib/page-api-map"
@@ -137,10 +137,7 @@ export async function GET() {
   const role = (session?.user as Record<string, unknown>)?.role as string | undefined
   const showApi = role && (hasRole(role, "ADMIN") || hasRole(role, "DEAN"))
 
-  const { data, error } = await supabase.from("group_access").select("*").order("groupName")
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const data = await groupAccessRepository.listAll()
 
   const catalog = buildCatalog()
   if (!showApi) {
@@ -163,7 +160,6 @@ function expandApiPaths(
       paths.add(api)
     }
   }
-  // Apply overrides: false → remove, true → add
   for (const [, overrides] of Object.entries(api_overrides)) {
     for (const [apiPath, value] of Object.entries(overrides)) {
       if (value === true) {
@@ -190,7 +186,7 @@ export async function PATCH(request: NextRequest) {
   const normalizePath = (p: string) => p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p
   const stripMobile = (p: string) => p.includes("/m/") ? "" : p
 
-  const updateData: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+  const updateData: Record<string, unknown> = {}
 
   if (pages !== undefined) {
     if (!Array.isArray(pages)) {
@@ -198,7 +194,6 @@ export async function PATCH(request: NextRequest) {
     }
     let dedupedPages = [...new Set(pages.map(normalizePath).map(stripMobile).filter(Boolean))]
 
-    // ADMIN access is hardcoded — /admin/system/access-config and /admin/system/user-permissions are always granted
     if (groupName === "ADMIN") {
       dedupedPages = dedupedPages.filter((p: string) => p !== "/admin/system/access-config" && p !== "/admin/system/user-permissions" && p !== "/admin/access-config" && p !== "/admin/user-permissions")
     }
@@ -209,13 +204,10 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // If api_overrides is provided (new page-centric UI), expand page paths into full flat list.
-    // If api_overrides is NOT provided (legacy UI), pages is already a flat list — keep as-is.
     if (api_overrides !== undefined) {
       dedupedPages = expandApiPaths(dedupedPages, api_overrides)
     }
 
-    // Filter out irrevocable defaults — they are never stored in DB
     const defaultSet = new Set(getDefaultPages(groupName))
     dedupedPages = dedupedPages.filter((p: string) => !defaultSet.has(p))
 
@@ -226,20 +218,14 @@ export async function PATCH(request: NextRequest) {
     updateData.api_overrides = api_overrides
   }
 
-  const { data, error } = await supabase
-    .from("group_access")
-    .update(updateData)
-    .eq("groupName", groupName)
-    .select("*")
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  try {
+    const data = await groupAccessRepository.update(groupName, updateData)
+    clearAccessConfigCache()
+    return NextResponse.json({ group: data })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  clearAccessConfigCache()
-
-  return NextResponse.json({ group: data })
 }
 
 export async function POST(request: NextRequest) {
@@ -255,29 +241,19 @@ export async function POST(request: NextRequest) {
 
   const name = groupName.trim().toUpperCase()
 
-  const { data: existing } = await supabase
-    .from("group_access")
-    .select("groupName")
-    .eq("groupName", name)
-    .maybeSingle()
-
+  const existing = await groupAccessRepository.findByGroupName(name)
   if (existing) {
     return NextResponse.json({ error: `Group "${name}" already exists` }, { status: 409 })
   }
 
-  const { data, error } = await supabase
-    .from("group_access")
-    .insert({ groupName: name, pages: [], updatedAt: new Date().toISOString() })
-    .select("*")
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  try {
+    const data = await groupAccessRepository.create(name)
+    clearAccessConfigCache()
+    return NextResponse.json({ group: data }, { status: 201 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  clearAccessConfigCache()
-
-  return NextResponse.json({ group: data }, { status: 201 })
 }
 
 export async function DELETE(request: NextRequest) {
@@ -297,18 +273,12 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: `Cannot delete built-in group "${name}"` }, { status: 403 })
   }
 
-  const { error } = await supabase
-    .from("group_access")
-    .delete()
-    .eq("groupName", name)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  try {
+    await groupAccessRepository.delete(name)
+    clearAccessConfigCache()
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  clearAccessConfigCache()
-
-  return NextResponse.json({ success: true })
 }
-
-

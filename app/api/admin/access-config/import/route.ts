@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
-import { supabase } from "@/lib/supabase"
+import { groupAccessRepository, userPermissionRepository } from "@/lib/repositories/factory"
 import { clearAccessConfigCache } from "@/lib/access"
 
 interface GroupRow {
@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
     updatedAt: g.updatedAt ?? now,
   }))
 
-  // Validate: built-in groups are required
   const groupNames = new Set(groupsToUpsert.map((g) => g.groupName))
   for (const name of BUILT_IN) {
     if (!groupNames.has(name)) {
@@ -61,38 +60,26 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 1. Replace all group_access records
-  const { error: delGroupsErr } = await supabase.from("group_access").delete().neq("groupName", "__nonexistent__")
-  if (delGroupsErr) {
-    return NextResponse.json({ error: `Failed to clear groups: ${delGroupsErr.message}` }, { status: 500 })
-  }
+  try {
+    await groupAccessRepository.deleteAll()
+    await groupAccessRepository.insertMany(groupsToUpsert)
+    await userPermissionRepository.deleteAll()
 
-  const { error: insertGroupsErr } = await supabase.from("group_access").insert(groupsToUpsert)
-  if (insertGroupsErr) {
-    return NextResponse.json({ error: `Failed to insert groups: ${insertGroupsErr.message}` }, { status: 500 })
-  }
-
-  // 2. Replace all user_permissions records
-  const { error: delPermsErr } = await supabase.from("user_permissions").delete().neq("id", 0)
-  if (delPermsErr) {
-    return NextResponse.json({ error: `Failed to clear user permissions: ${delPermsErr.message}` }, { status: 500 })
-  }
-
-  if (body.userPermissions.length > 0) {
-    const permsToInsert = body.userPermissions.map((p) => ({
-      user_id: p.user_id,
-      resource_path: p.resource_path,
-      grants: p.grants ?? [],
-      denies: p.denies ?? [],
-    }))
-
-    const { error: insertPermsErr } = await supabase.from("user_permissions").insert(permsToInsert)
-    if (insertPermsErr) {
-      return NextResponse.json({ error: `Failed to insert user permissions: ${insertPermsErr.message}` }, { status: 500 })
+    if (body.userPermissions.length > 0) {
+      const permsToInsert = body.userPermissions.map((p) => ({
+        user_id: p.user_id,
+        resource_path: p.resource_path,
+        grants: p.grants ?? [],
+        denies: p.denies ?? [],
+      }))
+      await userPermissionRepository.insertMany(permsToInsert)
     }
+
+    clearAccessConfigCache()
+
+    return NextResponse.json({ success: true, importedGroups: groupsToUpsert.length, importedPermissions: body.userPermissions.length })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  clearAccessConfigCache()
-
-  return NextResponse.json({ success: true, importedGroups: groupsToUpsert.length, importedPermissions: body.userPermissions.length })
 }

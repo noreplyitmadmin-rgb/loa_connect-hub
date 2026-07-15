@@ -1,19 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { groupAccessRepository } from '@/lib/repositories/factory';
 
 export async function GET() {
-  const { data: groups, error } = await supabase
-    .from('group_access')
-    .select('pages');
-  if (error || !groups) {
-    return NextResponse.json({ error: 'Failed to fetch paths' }, { status: 500 });
-  }
-  const pathsSet = new Set<string>();
-  groups.forEach(g => {
-    if (Array.isArray(g.pages)) {
-      g.pages.forEach((p: string) => pathsSet.add(p));
-    }
-  });
+  const paths = await groupAccessRepository.listAllPages()
   const adminExclusive = new Set(["/admin/data/maintenance"])
-  return NextResponse.json({ paths: Array.from(pathsSet).filter((p) => !adminExclusive.has(p)) });
+  return NextResponse.json({ paths: paths.filter((p) => !adminExclusive.has(p)) });
 }

@@ -79,4 +79,13 @@ export const sectionRepository: ISectionRepository = {
     if (error) throw error
     return data as SectionData
   },
+
+  async countBySemesterId(semesterId) {
+    const { count, error } = await supabase
+      .from("sections")
+      .select("id", { count: "exact", head: true })
+      .eq("semesterId", semesterId)
+    if (error) throw error
+    return count ?? 0
+  },
 }

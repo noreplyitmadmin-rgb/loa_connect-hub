@@ -150,4 +150,13 @@ export const studentEnrollmentRepository: IStudentEnrollmentRepository = {
     if (error) throw error
     return (data || []) as unknown as StudentEnrollmentWithEmbeds[]
   },
+
+  async countBySemesterId(semesterId) {
+    const { count, error } = await supabase
+      .from("student_enrollments")
+      .select("id", { count: "exact", head: true })
+      .eq("semesterId", semesterId)
+    if (error) throw error
+    return count ?? 0
+  },
 }

@@ -39,4 +39,9 @@ export const departmentRepository: IDepartmentRepository = {
     if (error) throw error
     return count ?? 0
   },
+  async listByDeanId(deanId) {
+    const { data, error } = await supabase.from("departments").select("id, name, \"deanId\"").eq("deanId", deanId)
+    if (error) throw error
+    return (data || []) as DepartmentData[]
+  },
 }

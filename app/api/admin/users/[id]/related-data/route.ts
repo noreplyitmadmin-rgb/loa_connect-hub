@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 import { requireAdmin } from "@/lib/route-guard"
+import { evaluationRepository, evaluationResultRepository, appointmentRepository, userPermissionRepository, facultySubjectRepository, studentEnrollmentRepository, availabilityRuleRepository, departmentRepository } from "@/lib/repositories/factory"
 
 export async function GET(
   _request: NextRequest,
@@ -12,15 +12,15 @@ export async function GET(
   const { id } = await params
 
   const queries = await Promise.allSettled([
-    supabase.from("evaluations").select("id, evaluatorId, evaluateeId, createdAt").or(`evaluatorId.eq.${id},evaluateeId.eq.${id}`).limit(100),
-    supabase.from("evaluation_results").select("id, facultyId, semesterId, createdAt").eq("facultyId", id).limit(100),
-    supabase.from("user_permissions").select("id, user_id, resource_path, effect").eq("user_id", id).limit(100),
-    supabase.from("faculty_subjects").select("id, faculty_id, subject_id, section_id").eq("faculty_id", id).limit(100),
-    supabase.from("appointments").select("id, studentId, facultyId, status, startTime").or(`studentId.eq.${id},facultyId.eq.${id}`).limit(100),
-    supabase.from("appointment_attendees").select("id, userId, appointmentId").eq("userId", id).limit(100),
-    supabase.from("faculty_availability_rules").select("id, facultyId, dayOfWeek").eq("facultyId", id).limit(100),
-    supabase.from("student_enrollments").select("id, student_id, faculty_subject_id").eq("student_id", id).limit(100),
-    supabase.from("departments").select("id, name, \"deanId\"").eq("deanId", id).limit(100),
+    evaluationRepository.listByUser(id, 100),
+    evaluationResultRepository.listByFacultyId(id, 100),
+    userPermissionRepository.findByUserId(id),
+    facultySubjectRepository.list({ faculty_id: id }),
+    appointmentRepository.listByUserId(id, 100),
+    appointmentRepository.listAttendeesByUserId(id, 100),
+    availabilityRuleRepository.listByFaculty(id),
+    studentEnrollmentRepository.list({ student_id: id }),
+    departmentRepository.listByDeanId(id),
   ])
 
   const related: Record<string, unknown[]> = {}
@@ -40,8 +40,14 @@ export async function GET(
   for (let i = 0; i < queries.length; i++) {
     const result = queries[i]
     const key = labels[i]
-    if (result.status === "fulfilled" && result.value.data) {
-      related[key] = result.value.data
+    if (result.status === "fulfilled" && result.value) {
+      if (Array.isArray(result.value)) {
+        related[key] = result.value
+      } else if (typeof result.value === "object" && "data" in (result.value as Record<string, unknown>)) {
+        related[key] = (result.value as { data: unknown[] }).data
+      } else {
+        related[key] = result.value ? [result.value] : []
+      }
     } else {
       related[key] = []
     }

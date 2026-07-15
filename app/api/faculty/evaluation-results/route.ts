@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { supabase } from "@/lib/db"
-import { evaluationResultRepository } from "@/lib/repositories/factory"
+import { evaluationResultRepository, evaluationRepository, userRepository } from "@/lib/repositories/factory"
 
 const CATEGORY_NAMES: Record<string, string> = {
   "Professional Manner": "professionalManner",
@@ -35,40 +34,22 @@ export async function GET(request: Request) {
     const userId = (session.user as Record<string, unknown>).id as string
     if (!evaluationPeriodId) return NextResponse.json({ error: "periodId is required" }, { status: 400 })
 
-    // Check visibility
     const visMap = await evaluationResultRepository.getVisibilityMap(evaluationPeriodId)
     if (!visMap.get(userId)) {
       return NextResponse.json({ error: "Results are not visible yet. Admin has not enabled 'Allow User To View Results' for this evaluation period." }, { status: 403 })
     }
 
-    // Get evaluations for this faculty
-    const { data: evals, error: evErr } = await supabase
-      .from("evaluations")
-      .select("id")
-      .eq("evaluation_period_id", evaluationPeriodId)
-      .eq("evaluateeId", userId)
-      .eq("status", "SUBMITTED")
-    if (evErr) throw evErr
+    const evals = await evaluationRepository.listSubmittedByPeriodAndEvaluatee(evaluationPeriodId, userId)
 
-    if (!evals || evals.length === 0) {
+    if (evals.length === 0) {
       return NextResponse.json({ results: [], facultyNames: {} })
     }
 
     const evaluationIds = evals.map((e) => e.id)
+    const ratings = await evaluationRepository.listRatingsByEvaluationIds(evaluationIds)
 
-    // Get ratings
-    const { data: ratings, error: rErr } = await supabase
-      .from("evaluation_ratings")
-      .select("rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
-      .in("evaluationId", evaluationIds)
-    if (rErr) throw rErr
-
-    // Compute category averages
     const catRatings: Record<string, number[]> = {}
-    for (const r of (ratings || []) as unknown as Array<{
-      rating: number
-      rubric_items: { categoryId: string; rubric_categories: { name: string } }
-    }>) {
+    for (const r of ratings) {
       const catName = r.rubric_items.rubric_categories.name
       if (!catRatings[catName]) catRatings[catName] = []
       catRatings[catName].push(r.rating)
@@ -108,12 +89,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get user's name
-    const { data: user } = await supabase
-      .from("users")
-      .select("name")
-      .eq("id", userId)
-      .single()
+    const user = await userRepository.findById(userId)
 
     return NextResponse.json({
       results: [result],

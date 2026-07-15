@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db"
-import type { FacultySubjectData, FacultySubjectWithEmbeds, IFacultySubjectRepository } from "@/lib/types"
+import type { FacultySubjectData, FacultySubjectWithEmbeds, FacultySubjectWithSubjectsSections, IFacultySubjectRepository } from "@/lib/types"
 
 export const facultySubjectRepository: IFacultySubjectRepository = {
   async list(filters) {
@@ -83,5 +83,34 @@ export const facultySubjectRepository: IFacultySubjectRepository = {
       .maybeSingle()
     if (error) throw error
     return data as FacultySubjectData | null
+  },
+
+  async findByIds(ids) {
+    if (ids.length === 0) return []
+    const { data, error } = await supabase.from("faculty_subjects").select("*").in("id", ids)
+    if (error) throw error
+    return (data || []) as FacultySubjectData[]
+  },
+
+  async findByFacultyIdWithEmbeds(facultyId) {
+    const { data, error } = await supabase
+      .from("faculty_subjects")
+      .select(`
+        id, subject_id,
+        subjects!inner(id, code, name),
+        sections!inner(departmentCourseId)
+      `)
+      .eq("faculty_id", facultyId)
+    if (error) throw error
+    return (data || []) as unknown as FacultySubjectWithSubjectsSections[]
+  },
+
+  async countBySemesterId(semesterId) {
+    const { count, error } = await supabase
+      .from("faculty_subjects")
+      .select("id", { count: "exact", head: true })
+      .eq("semesterId", semesterId)
+    if (error) throw error
+    return count ?? 0
   },
 }

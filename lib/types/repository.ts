@@ -86,6 +86,7 @@ export interface IDepartmentRepository {
   create(data: { name: string; code: string; deanId?: string | null }): Promise<DepartmentData>
   update(id: string, data: Partial<DepartmentData>): Promise<DepartmentData>
   countActive(): Promise<number>
+  listByDeanId(deanId: string): Promise<DepartmentData[]>
 }
 
 // ── Department Course ───────────────────────────────────
@@ -195,6 +196,8 @@ export interface IAppointmentRepository {
   listFacultyAppointmentsByDateRange(facultyId: string, startDate: string, endDate: string, status?: string): Promise<AppointmentData[]>
   addFile(appointmentId: string, data: { fileName: string; fileType: string; fileData: string; fileSize: number }): Promise<AppointmentFileData>
   listFiles(appointmentId: string): Promise<AppointmentFileData[]>
+  listByUserId(userId: string, limit?: number): Promise<AppointmentData[]>
+  listAttendeesByUserId(userId: string, limit?: number): Promise<AppointmentAttendeeData[]>
 }
 
 // ── Availability Rule ───────────────────────────────────
@@ -583,4 +586,44 @@ export interface IBugReportRepository {
   create(data: { userId: string; userEmail: string; url: string; description: string }): Promise<BugReportData>
   list(limit?: number, offset?: number, filters?: { status?: string }): Promise<{ reports: BugReportData[]; total: number }>
   updateStatus(id: string, status: "open" | "resolved"): Promise<BugReportData>
+}
+
+// ── Group Access ──────────────────────────────────────────
+
+export interface GroupAccessData {
+  groupName: string
+  pages: string[]
+  api_overrides: Record<string, Record<string, boolean>>
+  updatedAt: string
+}
+
+export interface IGroupAccessRepository {
+  listAll(): Promise<GroupAccessData[]>
+  findByGroupName(groupName: string): Promise<GroupAccessData | null>
+  create(groupName: string): Promise<GroupAccessData>
+  update(groupName: string, data: Partial<GroupAccessData>): Promise<GroupAccessData>
+  delete(groupName: string): Promise<void>
+  deleteAll(): Promise<void>
+  insertMany(groups: GroupAccessData[]): Promise<void>
+  listAllPages(): Promise<string[]>
+}
+
+// ── User Permissions ──────────────────────────────────────
+
+export interface UserPermissionData {
+  id: number
+  user_id: string
+  resource_path: string
+  grants: string[]
+  denies: string[]
+}
+
+export interface IUserPermissionRepository {
+  findByUserId(userId: string): Promise<UserPermissionData[]>
+  findByUserIdLight(userId: string): Promise<{ resource_path: string; grants: string[] }[]>
+  upsertPermission(userId: string, resource_path: string, grants?: string[], denies?: string[]): Promise<UserPermissionData | null>
+  deleteByUserId(userId: string): Promise<void>
+  listAll(): Promise<UserPermissionData[]>
+  deleteAll(): Promise<void>
+  insertMany(perms: { user_id: string; resource_path: string; grants: string[]; denies: string[] }[]): Promise<void>
 }

@@ -266,4 +266,24 @@ export const appointmentRepository: IAppointmentRepository = {
     if (error) throw error
     return data as unknown as AppointmentData[]
   },
+  async listByUserId(userId, limit = 100) {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(appointmentSelect)
+      .or(`studentId.eq.${userId},facultyId.eq.${userId}`)
+      .order("date", { ascending: true })
+      .order("startTime", { ascending: true })
+      .limit(limit)
+    if (error) throw error
+    return (data || []) as unknown as AppointmentData[]
+  },
+  async listAttendeesByUserId(userId, limit = 100) {
+    const { data, error } = await supabase
+      .from("appointment_attendees")
+      .select("id, userId, appointmentId")
+      .eq("userId", userId)
+      .limit(limit)
+    if (error) throw error
+    return (data || []) as AppointmentAttendeeData[]
+  },
 }

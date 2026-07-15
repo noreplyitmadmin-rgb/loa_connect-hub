@@ -1,7 +1,8 @@
-import { findByUserId, upsertPermission, IUserPermission } from '@/features/user-permissions/user-permissions.repository';
+import { findByUserId, upsertPermission } from '@/features/user-permissions/user-permissions.repository';
+import type { UserPermissionData } from '@/lib/types';
 import { auth } from '@/lib/auth';
 
-export async function getUserPermissions(userId: string): Promise<IUserPermission[] | null> {
+export async function getUserPermissions(userId: string): Promise<UserPermissionData[] | null> {
   return await findByUserId(userId);
 }
 
@@ -10,7 +11,7 @@ export async function setUserPermissions(
   resource: string,
   grants: string[],
   denies: string[]
-): Promise<IUserPermission | null> {
+): Promise<UserPermissionData | null> {
   const session = await auth();
   const role = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
   if (!role?.includes('ADMIN')) {

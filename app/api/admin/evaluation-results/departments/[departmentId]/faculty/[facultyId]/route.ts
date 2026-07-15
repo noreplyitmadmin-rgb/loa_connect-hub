@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/route-guard"
-import { supabase } from "@/lib/db"
+import {
+  userRepository,
+  departmentRepository,
+  facultySubjectRepository,
+  evaluationRepository,
+} from "@/lib/repositories/factory"
 import {
   computeCategoryAverages,
   computeGeneralRating,
@@ -24,93 +29,45 @@ export async function GET(
     const evaluationPeriodId = searchParams.get("evaluationPeriodId") || searchParams.get("semesterId")
     if (!evaluationPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
 
-    // Get faculty info
-    const { data: faculty, error: facErr } = await supabase
-      .from("users")
-      .select("id, name, email")
-      .eq("id", facultyId)
-      .single()
-    if (facErr) throw facErr
+    const faculty = await userRepository.findById(facultyId)
+    if (!faculty) return NextResponse.json({ error: "Faculty not found" }, { status: 404 })
 
-    // Get department info
-    const { data: dept, error: deptErr } = await supabase
-      .from("departments")
-      .select("id, name, code")
-      .eq("id", departmentId)
-      .single()
-    if (deptErr) throw deptErr
+    const dept = await departmentRepository.findById(departmentId)
+    if (!dept) return NextResponse.json({ error: "Department not found" }, { status: 404 })
 
-    // Get all faculty_subjects for this faculty in this department
-    const { data: fsList, error: fsErr } = await supabase
-      .from("faculty_subjects")
-      .select(`
-        id, subject_id,
-        subjects!inner(id, code, name),
-        sections!inner(departmentCourseId)
-      `)
-      .eq("faculty_id", facultyId)
-    if (fsErr) throw fsErr
-
+    const fsList = await facultySubjectRepository.findByFacultyIdWithEmbeds(facultyId)
     if (!fsList || fsList.length === 0) {
       return NextResponse.json({ error: "No subjects found for this faculty" }, { status: 404 })
     }
 
     const facultySubjectIds = fsList.map((fs) => fs.id)
 
-    // Get all evaluations for this faculty across all subjects
-    const { data: evals, error: evErr } = await supabase
-      .from("evaluations")
-      .select("id, evaluatorId, submittedAt, createdAt, facultySubjectId")
-      .eq("evaluation_period_id", evaluationPeriodId)
-      .eq("evaluateeId", facultyId)
-      .in("facultySubjectId", facultySubjectIds)
-      .eq("status", "SUBMITTED")
-      .order("submittedAt", { ascending: true })
-    if (evErr) throw evErr
-    if (!evals || evals.length === 0) {
+    const evals = await evaluationRepository.listSubmittedByPeriodAndFacultySubjectIds(evaluationPeriodId, facultySubjectIds)
+    if (evals.length === 0) {
       return NextResponse.json({ error: "No evaluations found for this faculty" }, { status: 404 })
     }
 
     const evaluationIds = evals.map((e) => e.id)
 
-    // Get all ratings
-    const { data: ratings, error: rErr } = await supabase
-      .from("evaluation_ratings")
-      .select("evaluationId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
-      .in("evaluationId", evaluationIds)
-    if (rErr) throw rErr
-
-    // Get all comments
-    const { data: comments, error: cErr } = await supabase
-      .from("evaluation_comments")
-      .select("id, evaluationId, comment, sentimentLabel, sentimentScore")
-      .in("evaluationId", evaluationIds)
-    if (cErr) throw cErr
+    const [ratings, comments] = await Promise.all([
+      evaluationRepository.listRatingsByEvaluationIds(evaluationIds),
+      evaluationRepository.listFullCommentsByEvaluationIds(evaluationIds),
+    ])
 
     const commentsByEval = new Map<string, typeof comments>()
-    for (const c of comments ?? []) {
+    for (const c of comments) {
       if (!commentsByEval.has(c.evaluationId)) commentsByEval.set(c.evaluationId, [])
       commentsByEval.get(c.evaluationId)!.push(c)
     }
 
-    // Compute aggregate
-    const ratingsForGroup = (ratings ?? []) as unknown as Array<{
-      rating: number
-      rubric_items: { categoryId: string; rubric_categories: { name: string } }
-    }>
-    const catAverages = computeCategoryAverages(ratingsForGroup)
+    const catAverages = computeCategoryAverages(ratings)
     const general = computeGeneralRating(catAverages)
     const catColumns = mapCategoryAveragesToColumns(catAverages)
     const rubrics = findHighestLowestRubrics(catColumns)
-    const allComments = comments ?? []
-    const sentiment = computeSentimentScore(allComments)
+    const sentiment = computeSentimentScore(comments)
 
-    // Build per-evaluation rows
     const evaluationRows = evals.map((ev) => {
-      const evalRatings = (ratings ?? []).filter((r) => r.evaluationId === ev.id) as unknown as Array<{
-        rating: number
-        rubric_items: { categoryId: string; rubric_categories: { name: string } }
-      }>
+      const evalRatings = ratings.filter((r) => r.evaluationId === ev.id)
       const evalCatAverages = computeCategoryAverages(evalRatings)
       const evalGeneral = computeGeneralRating(evalCatAverages)
       const evalCatColumns = mapCategoryAveragesToColumns(evalCatAverages)
@@ -128,8 +85,7 @@ export async function GET(
       }
     })
 
-    // Collect unique subject codes for display
-    const subjectCodes = [...new Set(fsList.map((fs) => (fs.subjects as unknown as { code: string })?.code).filter(Boolean))]
+    const subjectCodes = [...new Set(fsList.map((fs) => fs.subjects?.code).filter(Boolean))]
 
     return NextResponse.json({
       faculty: { id: faculty.id, name: faculty.name, email: faculty.email },
