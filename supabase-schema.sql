@@ -2034,6 +2034,20 @@ DO $$ BEGIN
 END $$;
 
 -- =========================================================
+-- Migration 33: Add isInvalid to evaluations
+-- Marks evaluation entries as invalid after a period reset.
+-- =========================================================
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluations' AND column_name = 'isInvalid'
+  ) THEN
+    ALTER TABLE evaluations ADD COLUMN "isInvalid" BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- =========================================================
 -- exec_sql: RPC function for executing raw SQL statements
 -- Used by the admin reset-database endpoint.
 -- =========================================================

@@ -140,12 +140,6 @@ export const rubricGroupRepository: IRubricGroupRepository = {
   },
 
   async createSnapshot(evaluationPeriodId, groupId) {
-    const { count } = await supabase
-      .from("rubric_group_snapshots")
-      .select("id", { count: "exact", head: true })
-      .eq("evaluation_period_id", evaluationPeriodId)
-    if ((count ?? 0) > 0) return
-
     const group = await this.findById(groupId)
     if (!group) throw new Error(`Rubric group ${groupId} not found`)
 
@@ -166,10 +160,9 @@ export const rubricGroupRepository: IRubricGroupRepository = {
           }))
       )
 
-    console.log("[createSnapshot] group:", group.name, "categories:", group.categories.length, "rows:", rows.length)
-
     if (rows.length === 0) return
 
+    await supabase.from("rubric_group_snapshots").delete().eq("evaluation_period_id", evaluationPeriodId)
     const { error } = await supabase.from("rubric_group_snapshots").insert(rows)
     if (error) throw error
   },

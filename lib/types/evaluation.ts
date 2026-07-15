@@ -363,6 +363,8 @@ export interface IEvaluationPeriodRepository {
   update(id: string, data: Partial<EvaluationPeriodData>): Promise<EvaluationPeriodData>
   delete(id: string): Promise<void>
   setActive(id: string): Promise<EvaluationPeriodData>
+  hasEvaluations(id: string): Promise<boolean>
+  reset(id: string): Promise<void>
 }
 
 export interface ISubjectRepository {

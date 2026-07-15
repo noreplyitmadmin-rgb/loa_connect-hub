@@ -76,4 +76,19 @@ export const evaluationPeriodRepository: IEvaluationPeriodRepository = {
     if (error) throw error
     return flatten(data as RawPeriodRow)
   },
+
+  async hasEvaluations(id) {
+    const { count, error } = await supabase
+      .from("evaluations")
+      .select("id", { count: "exact", head: true })
+      .eq("evaluation_period_id", id)
+    if (error) throw error
+    return (count ?? 0) > 0
+  },
+
+  async reset(id) {
+    await supabase.from("evaluations").update({ isInvalid: true }).eq("evaluation_period_id", id)
+    await supabase.from("evaluation_periods").update({ isActive: false }).eq("id", id)
+    await supabase.from("rubric_group_snapshots").delete().eq("evaluation_period_id", id)
+  },
 }

@@ -6,7 +6,21 @@ import { SkeletonTable } from "@/components/ui/Skeleton"
 import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import Alert from "@/components/ui/Alert"
-import type { EvaluationPeriodData, SemesterData, RubricGroupData, RubricGroupWithCategories } from "@/lib/types"
+import type { SemesterData, RubricGroupData, RubricGroupWithCategories } from "@/lib/types"
+
+type PeriodWithCount = {
+  id: string
+  semesterId: string
+  name: string
+  source: string | null
+  startDate: string | null
+  endDate: string | null
+  isActive: boolean
+  rubricGroupId: string | null
+  createdAt: Date
+  semesterTitle?: string
+  evaluationCount: number
+}
 
 const INVALIDATE_KEYS = ["/api/evaluation-periods"]
 
@@ -34,11 +48,11 @@ export function EvaluationPeriodsTab() {
   const [previewGroup, setPreviewGroup] = useState<RubricGroupWithCategories | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
 
-  const [confirmAlert, setConfirmAlert] = useState<{ open: boolean; title: string; message: string; destructive: boolean; onConfirm: () => void }>({
-    open: false, title: "", message: "", destructive: false, onConfirm: () => {},
+  const [confirmAlert, setConfirmAlert] = useState<{ open: boolean; title: string; message: string; destructive: boolean; confirmLabel: string; onConfirm: () => void }>({
+    open: false, title: "", message: "", destructive: false, confirmLabel: "Confirm", onConfirm: () => {},
   })
 
-  const { data: periodsData, isLoading: periodsLoading, error: periodsErr } = useApiGet<{ periods: EvaluationPeriodData[] }>("/api/evaluation-periods")
+  const { data: periodsData, isLoading: periodsLoading, error: periodsErr } = useApiGet<{ periods: PeriodWithCount[] }>("/api/evaluation-periods")
   const { data: semestersData } = useApiGet<{ data: SemesterData[] }>("/api/semesters")
   const { data: groupsData } = useApiGet<{ groups: RubricGroupData[] }>("/api/rubric-groups")
 
@@ -79,7 +93,7 @@ export function EvaluationPeriodsTab() {
     setShowModal(true)
   }
 
-  const openEditModal = (period: EvaluationPeriodData) => {
+  const openEditModal = (period: PeriodWithCount) => {
     setEditingId(period.id)
     setFormName(period.name)
     setFormSource(period.source || "")
@@ -162,12 +176,22 @@ export function EvaluationPeriodsTab() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this evaluation period?")) return
     setSaving(true); setError("")
     try {
       const res = await fetch(`/api/evaluation-periods/${id}`, { method: "DELETE" })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
       showSuccessMessage("Evaluation period deleted!")
+      invalidate(...INVALIDATE_KEYS)
+    } catch (err) { setError((err as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  const handleReset = async (id: string) => {
+    setSaving(true); setError("")
+    try {
+      const res = await fetch(`/api/evaluation-periods/${id}/reset`, { method: "POST" })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed") }
+      showSuccessMessage("Evaluation period reset! You can now reconfigure the rubric.")
       invalidate(...INVALIDATE_KEYS)
     } catch (err) { setError((err as Error).message) }
     finally { setSaving(false) }
@@ -222,61 +246,84 @@ export function EvaluationPeriodsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {periods.map((period) => (
-                    <tr key={period.id}>
-                      <td className="font-medium">{period.name}</td>
-                      <td className="text-xs text-tertiary">{period.semesterTitle || period.semesterId}</td>
-                      <td className="text-xs text-tertiary">{period.source || "\u2014"}</td>
-                      <td className="text-xs">{period.startDate}</td>
-                      <td className="text-xs">{period.endDate || <span className="text-tertiary">N/A</span>}</td>
-                      <td className="text-xs text-tertiary">{groups.find((g) => g.id === period.rubricGroupId)?.name || "\u2014"}</td>
-                      <td>
-                        <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${period.isActive ? "bg-green-50 text-green-600 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
-                          {period.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 space-x-2 text-center">
-                        <IosButton variant="plain" size="xs" onClick={() => openEditModal(period)}>Edit</IosButton>
-                        {period.isActive ? (
-                          <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => setConfirmAlert({ open: true, title: "Deactivate Period?", message: `Students will no longer be able to evaluate during "${period.name}". Existing submissions are preserved.`, destructive: true, onConfirm: () => handleDeactivate(period.id) })}>Disable</IosButton>
-                        ) : (
-                          <IosButton variant="plain" size="xs" className="!text-green-600" disabled={!period.rubricGroupId} title={!period.rubricGroupId ? "Assign a rubric group before activating" : undefined} onClick={() => setConfirmAlert({ open: true, title: "Activate Period?", message: `"${period.name}" will become the active evaluation period. The rubric assignment will be locked.`, destructive: false, onConfirm: () => handleActivate(period.id) })}>Activate</IosButton>
-                        )}
-                        <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => handleDelete(period.id)}>Delete</IosButton>
-                      </td>
-                    </tr>
-                  ))}
+                  {periods.map((period) => {
+                    const hasEvals = period.evaluationCount > 0
+                    const editDisabled = period.isActive || hasEvals
+                    const deleteDisabled = hasEvals
+                    return (
+                      <tr key={period.id}>
+                        <td className="font-medium">{period.name}</td>
+                        <td className="text-xs text-tertiary">{period.semesterTitle || period.semesterId}</td>
+                        <td className="text-xs text-tertiary">{period.source || "\u2014"}</td>
+                        <td className="text-xs">{period.startDate}</td>
+                        <td className="text-xs">{period.endDate || <span className="text-tertiary">N/A</span>}</td>
+                        <td className="text-xs text-tertiary">{groups.find((g) => g.id === period.rubricGroupId)?.name || "\u2014"}</td>
+                        <td>
+                          <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${period.isActive ? "bg-green-50 text-green-600 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+                            {period.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 space-x-2 text-center">
+                          <IosButton
+                            variant="plain" size="xs"
+                            disabled={editDisabled}
+                            title={period.isActive ? "Deactivate the period before editing" : hasEvals ? "Period has evaluation data. Use Reset to reconfigure." : undefined}
+                            onClick={() => openEditModal(period)}
+                          >Edit</IosButton>
+                          {period.isActive ? (
+                            <IosButton variant="plain" size="xs" className="!text-red-500" onClick={() => setConfirmAlert({ open: true, title: "Deactivate Period?", message: `Students will no longer be able to evaluate during "${period.name}". Existing submissions are preserved.`, destructive: true, confirmLabel: "Deactivate", onConfirm: () => handleDeactivate(period.id) })}>Disable</IosButton>
+                          ) : (
+                            <IosButton variant="plain" size="xs" className="!text-green-600" disabled={!period.rubricGroupId} title={!period.rubricGroupId ? "Assign a rubric group before activating" : undefined} onClick={() => setConfirmAlert({ open: true, title: hasEvals ? "Reactivate Period?" : "Activate Period?", message: hasEvals ? `"${period.name}" will be reactivated with the current rubric. Previous INVALID evaluations will be preserved.` : `"${period.name}" will become the active evaluation period. The rubric assignment will be locked.`, destructive: false, confirmLabel: "Activate", onConfirm: () => handleActivate(period.id) })}>Activate</IosButton>
+                          )}
+                          {hasEvals ? (
+                            <IosButton variant="plain" size="xs" className="!text-amber-600" onClick={() => setConfirmAlert({ open: true, title: "Reset Period?", message: `All existing evaluations for "${period.name}" will be marked as INVALID. The period will be deactivated and you can reconfigure the rubric. This cannot be undone.`, destructive: true, confirmLabel: "Reset", onConfirm: () => handleReset(period.id) })}>Reset</IosButton>
+                          ) : (
+                            <IosButton variant="plain" size="xs" className="!text-red-500" disabled={deleteDisabled} title={deleteDisabled ? "Contains evaluation data. Use Reset first." : undefined} onClick={() => setConfirmAlert({ open: true, title: "Delete Period?", message: `This will permanently delete "${period.name}" and all associated data. This cannot be undone.`, destructive: true, confirmLabel: "Delete", onConfirm: () => handleDelete(period.id) })}>Delete</IosButton>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="mobile-only space-y-2 p-3">
-              {periods.map((period) => (
-                <div key={period.id} className={`p-4 rounded-xl border ${period.isActive ? 'border-green-300 bg-green-50/50' : 'border-default bg-surface'}`}>
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <p className="text-sm font-bold text-primary">{period.name}</p>
-                      <p className="text-xs text-tertiary">{period.semesterTitle || period.semesterId}</p>
+              {periods.map((period) => {
+                const hasEvals = period.evaluationCount > 0
+                const editDisabled = period.isActive || hasEvals
+                const deleteDisabled = hasEvals
+                return (
+                  <div key={period.id} className={`p-4 rounded-xl border ${period.isActive ? 'border-green-300 bg-green-50/50' : 'border-default bg-surface'}`}>
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-sm font-bold text-primary">{period.name}</p>
+                        <p className="text-xs text-tertiary">{period.semesterTitle || period.semesterId}</p>
+                      </div>
+                      <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-full ${period.isActive ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
+                        {period.isActive ? "Active" : "Inactive"}
+                      </span>
                     </div>
-                    <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-full ${period.isActive ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
-                      {period.isActive ? "Active" : "Inactive"}
-                    </span>
+                    <div className="text-xs space-y-1 mt-2">
+                      {period.source && <p className="text-tertiary">Source: {period.source}</p>}
+                      <p className="text-tertiary">Period: {period.startDate} to {period.endDate || "N/A"}</p>
+                      {period.rubricGroupId && <p className="text-tertiary">Rubric: {groups.find((g) => g.id === period.rubricGroupId)?.name || "Linked"}</p>}
+                    </div>
+                    <div className="flex gap-2 pt-2 flex-wrap">
+                      <IosButton variant="tinted" size="sm" onClick={() => openEditModal(period)} disabled={editDisabled} title={period.isActive ? "Deactivate first" : hasEvals ? "Use Reset to reconfigure" : undefined} className="flex-1">Edit</IosButton>
+                      {period.isActive ? (
+                        <IosButton variant="destructive" size="sm" onClick={() => setConfirmAlert({ open: true, title: "Deactivate Period?", message: `Students will no longer be able to evaluate during "${period.name}". Existing submissions are preserved.`, destructive: true, confirmLabel: "Deactivate", onConfirm: () => handleDeactivate(period.id) })} className="flex-1">Disable</IosButton>
+                      ) : (
+                        <IosButton variant="success" size="sm" disabled={!period.rubricGroupId} title={!period.rubricGroupId ? "Assign a rubric group before activating" : undefined} onClick={() => setConfirmAlert({ open: true, title: hasEvals ? "Reactivate Period?" : "Activate Period?", message: hasEvals ? `"${period.name}" will be reactivated with the current rubric. Previous INVALID evaluations will be preserved.` : `"${period.name}" will become the active evaluation period. The rubric assignment will be locked.`, destructive: false, confirmLabel: "Activate", onConfirm: () => handleActivate(period.id) })} className="flex-1">Activate</IosButton>
+                      )}
+                      {hasEvals ? (
+                        <IosButton variant="destructive" size="sm" onClick={() => setConfirmAlert({ open: true, title: "Reset Period?", message: `All existing evaluations for "${period.name}" will be marked as INVALID. The period will be deactivated and you can reconfigure the rubric. This cannot be undone.`, destructive: true, confirmLabel: "Reset", onConfirm: () => handleReset(period.id) })} className="flex-1">Reset</IosButton>
+                      ) : (
+                        <IosButton variant="destructive" size="sm" disabled={deleteDisabled} title={deleteDisabled ? "Contains evaluation data. Use Reset first." : undefined} onClick={() => setConfirmAlert({ open: true, title: "Delete Period?", message: `This will permanently delete "${period.name}" and all associated data. This cannot be undone.`, destructive: true, confirmLabel: "Delete", onConfirm: () => handleDelete(period.id) })} className="flex-1">Delete</IosButton>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs space-y-1 mt-2">
-                    {period.source && <p className="text-tertiary">Source: {period.source}</p>}
-                    <p className="text-tertiary">Period: {period.startDate} to {period.endDate || "N/A"}</p>
-                    {period.rubricGroupId && <p className="text-tertiary">Rubric: {groups.find((g) => g.id === period.rubricGroupId)?.name || "Linked"}</p>}
-                  </div>
-                  <div className="flex gap-2 pt-2 flex-wrap">
-                    <IosButton variant="tinted" size="sm" onClick={() => openEditModal(period)} className="flex-1">Edit</IosButton>
-                    {period.isActive ? (
-                      <IosButton variant="destructive" size="sm" onClick={() => setConfirmAlert({ open: true, title: "Deactivate Period?", message: `Students will no longer be able to evaluate during "${period.name}". Existing submissions are preserved.`, destructive: true, onConfirm: () => handleDeactivate(period.id) })} className="flex-1">Disable</IosButton>
-                    ) : (
-                      <IosButton variant="success" size="sm" disabled={!period.rubricGroupId} title={!period.rubricGroupId ? "Assign a rubric group before activating" : undefined} onClick={() => setConfirmAlert({ open: true, title: "Activate Period?", message: `"${period.name}" will become the active evaluation period. The rubric assignment will be locked.`, destructive: false, onConfirm: () => handleActivate(period.id) })} className="flex-1">Activate</IosButton>
-                    )}
-                    <IosButton variant="destructive" size="sm" onClick={() => handleDelete(period.id)} className="flex-1">Delete</IosButton>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </>
         )}
@@ -411,7 +458,7 @@ export function EvaluationPeriodsTab() {
         onClose={() => setConfirmAlert((p) => ({ ...p, open: false }))}
         title={confirmAlert.title}
         message={confirmAlert.message}
-        confirmLabel={confirmAlert.destructive ? "Deactivate" : "Activate"}
+        confirmLabel={confirmAlert.confirmLabel}
         destructive={confirmAlert.destructive}
         onConfirm={confirmAlert.onConfirm}
       />

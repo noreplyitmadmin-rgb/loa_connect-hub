@@ -22,10 +22,16 @@ export async function createEvaluationPeriod(input: CreateEvaluationPeriodInput)
 }
 
 export async function updateEvaluationPeriod(id: string, data: Parameters<typeof evaluationPeriodRepository.update>[1]) {
+  if ("rubricGroupId" in (data as Record<string, unknown>) && await evaluationPeriodRepository.hasEvaluations(id)) {
+    throw new Error("Cannot change the rubric group on a period with existing evaluations. Use Reset first.")
+  }
   return evaluationPeriodRepository.update(id, data)
 }
 
 export async function deleteEvaluationPeriod(id: string) {
+  if (await evaluationPeriodRepository.hasEvaluations(id)) {
+    throw new Error("This period has evaluation data and cannot be deleted. Use Reset first.")
+  }
   return evaluationPeriodRepository.delete(id)
 }
 
@@ -35,4 +41,8 @@ export async function activateEvaluationPeriod(id: string) {
     await rubricGroupRepository.createSnapshot(id, period.rubricGroupId)
   }
   return period
+}
+
+export async function resetEvaluationPeriod(id: string) {
+  return evaluationPeriodRepository.reset(id)
 }
