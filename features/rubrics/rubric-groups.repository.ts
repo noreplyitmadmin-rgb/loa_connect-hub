@@ -147,7 +147,7 @@ export const rubricGroupRepository: IRubricGroupRepository = {
     if ((count ?? 0) > 0) return
 
     const group = await this.findById(groupId)
-    if (!group) throw new Error("Rubric group not found")
+    if (!group) throw new Error(`Rubric group ${groupId} not found`)
 
     const rows = group.categories
       .sort((a, b) => a.displayOrder - b.displayOrder)
@@ -165,6 +165,8 @@ export const rubricGroupRepository: IRubricGroupRepository = {
             item_weight: item.weight,
           }))
       )
+
+    console.log("[createSnapshot] group:", group.name, "categories:", group.categories.length, "rows:", rows.length)
 
     if (rows.length === 0) return
 
