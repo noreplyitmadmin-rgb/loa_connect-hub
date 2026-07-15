@@ -1,4 +1,4 @@
-import { evaluationPeriodRepository } from "@/lib/repositories/factory"
+import { evaluationPeriodRepository, rubricGroupRepository } from "@/lib/repositories/factory"
 import type { CreateEvaluationPeriodInput } from "@/lib/types"
 
 export async function getEvaluationPeriods(params?: { semesterId?: string; isActive?: boolean }) {
@@ -30,5 +30,9 @@ export async function deleteEvaluationPeriod(id: string) {
 }
 
 export async function activateEvaluationPeriod(id: string) {
-  return evaluationPeriodRepository.setActive(id)
+  const period = await evaluationPeriodRepository.setActive(id)
+  if (period.rubricGroupId) {
+    await rubricGroupRepository.createSnapshot(id, period.rubricGroupId)
+  }
+  return period
 }

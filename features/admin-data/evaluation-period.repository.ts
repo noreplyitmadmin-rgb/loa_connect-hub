@@ -1,11 +1,16 @@
 import { supabase } from "@/lib/db"
-import type { EvaluationPeriodData, IEvaluationPeriodRepository } from "@/lib/types"
+import type { EvaluationPeriodData, IEvaluationPeriodRepository, CreateEvaluationPeriodInput } from "@/lib/types"
 
 type RawPeriodRow = Record<string, unknown> & { semesters?: { title: string } | null }
 
 function flatten(row: RawPeriodRow): EvaluationPeriodData {
-  const { semesters, ...rest } = row
-  return { ...rest, semesterTitle: semesters?.title ?? undefined } as EvaluationPeriodData
+  const { semesters, rubric_group_id, ...rest } = row
+  return { ...rest, rubricGroupId: rubric_group_id ?? null, semesterTitle: semesters?.title ?? undefined } as EvaluationPeriodData
+}
+
+function toRow(input: CreateEvaluationPeriodInput | Partial<EvaluationPeriodData>): Record<string, unknown> {
+  const { rubricGroupId, ...rest } = input as Record<string, unknown>
+  return { ...rest, rubric_group_id: rubricGroupId ?? null }
 }
 
 export const evaluationPeriodRepository: IEvaluationPeriodRepository = {
@@ -45,13 +50,13 @@ export const evaluationPeriodRepository: IEvaluationPeriodRepository = {
   },
 
   async create(input) {
-    const { data, error } = await supabase.from("evaluation_periods").insert(input).select("*").single()
+    const { data, error } = await supabase.from("evaluation_periods").insert(toRow(input)).select("*").single()
     if (error) throw error
     return data as EvaluationPeriodData
   },
 
   async update(id, data) {
-    const { data: updated, error } = await supabase.from("evaluation_periods").update(data).eq("id", id).select("*").single()
+    const { data: updated, error } = await supabase.from("evaluation_periods").update(toRow(data)).eq("id", id).select("*").single()
     if (error) throw error
     return updated as EvaluationPeriodData
   },

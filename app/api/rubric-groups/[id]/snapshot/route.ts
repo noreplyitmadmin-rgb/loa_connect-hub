@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   try {
     const snapshot = await rubricGroupRepository.getSnapshot(id)
-    return NextResponse.json({ rubric: snapshot })
+    return NextResponse.json({ snapshot })
   } catch {
     return NextResponse.json({ error: "Failed to fetch rubric snapshot" }, { status: 500 })
   }

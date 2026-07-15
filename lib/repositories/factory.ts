@@ -14,6 +14,7 @@ import type {
   IFacultySubjectRepository,
   IStudentEnrollmentRepository,
   IRubricRepository,
+  IRubricGroupRepository,
   IEvaluationRepository,
   IEvaluationResultRepository,
   IBugReportRepository,
@@ -36,6 +37,7 @@ import { sectionRepository as supabaseSectionRepo } from "@/features/admin-data/
 import { facultySubjectRepository as supabaseFacultySubjectRepo } from "@/features/admin-data/faculty-subject.repository"
 import { studentEnrollmentRepository as supabaseStudentEnrollmentRepo } from "@/features/admin-data/student-enrollment.repository"
 import { rubricRepository as supabaseRubricRepo } from "@/features/rubrics/rubrics.repository"
+import { rubricGroupRepository as supabaseRubricGroupRepo } from "@/features/rubrics/rubric-groups.repository"
 import { evaluationRepository as supabaseEvalRepo } from "@/features/evaluations/evaluations.repository"
 import { evaluationResultRepository as supabaseEvalResultRepo } from "@/features/evaluation-results/evaluation-results.repository"
 import { bugReportRepository as supabaseBugReportRepo } from "@/features/bug-reports/bug-report.repository"
@@ -57,6 +59,7 @@ export const sectionRepository: ISectionRepository = supabaseSectionRepo
 export const facultySubjectRepository: IFacultySubjectRepository = supabaseFacultySubjectRepo
 export const studentEnrollmentRepository: IStudentEnrollmentRepository = supabaseStudentEnrollmentRepo
 export const rubricRepository: IRubricRepository = supabaseRubricRepo
+export const rubricGroupRepository: IRubricGroupRepository = supabaseRubricGroupRepo
 export const evaluationRepository: IEvaluationRepository = supabaseEvalRepo
 export const evaluationResultRepository: IEvaluationResultRepository = supabaseEvalResultRepo
 export const bugReportRepository: IBugReportRepository = supabaseBugReportRepo

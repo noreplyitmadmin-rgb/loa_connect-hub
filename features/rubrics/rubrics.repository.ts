@@ -2,21 +2,21 @@ import { supabase } from "@/lib/db"
 import type { RubricCategoryData, RubricItemData, IRubricRepository } from "@/lib/types"
 
 export const rubricRepository: IRubricRepository = {
-  async getCategoriesWithItems(evaluationPeriodId) {
+  async getCategoriesWithItems(groupId) {
     const { data, error } = await supabase
       .from("rubric_categories")
       .select("*, items:rubric_items(*)")
-      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("rubric_group_id", groupId)
       .order("displayOrder", { ascending: true })
     if (error) throw error
     return data as unknown as RubricCategoryData[]
   },
 
-  async replaceRubric(evaluationPeriodId, categories) {
+  async replaceRubric(groupId, categories) {
     const { data: existingCats, error: fetchErr } = await supabase
       .from("rubric_categories")
       .select("id, name")
-      .eq("evaluation_period_id", evaluationPeriodId)
+      .eq("rubric_group_id", groupId)
     if (fetchErr) throw fetchErr
 
     const oldCatIds = existingCats.map((c) => c.id)
@@ -31,7 +31,7 @@ export const rubricRepository: IRubricRepository = {
     for (const cat of categories) {
       const { data: newCat, error: catErr } = await supabase
         .from("rubric_categories")
-        .insert({ evaluation_period_id: evaluationPeriodId, name: cat.name, displayOrder: cat.displayOrder })
+        .insert({ rubric_group_id: groupId, name: cat.name, displayOrder: cat.displayOrder })
         .select("*")
         .single()
       if (catErr) throw catErr
@@ -51,11 +51,11 @@ export const rubricRepository: IRubricRepository = {
     return createdCats
   },
 
-  async copyFromSource(evaluationPeriodId, sourcePeriodId) {
+  async copyFromSource(groupId, sourceGroupId) {
     const { data: srcCats, error: fetchCatsErr } = await supabase
       .from("rubric_categories")
       .select("*")
-      .eq("evaluation_period_id", sourcePeriodId)
+      .eq("rubric_group_id", sourceGroupId)
       .order("displayOrder", { ascending: true })
     if (fetchCatsErr) throw fetchCatsErr
 
@@ -74,7 +74,7 @@ export const rubricRepository: IRubricRepository = {
     for (const cat of srcCats) {
       const { data: newCat, error: catErr } = await supabase
         .from("rubric_categories")
-        .insert({ evaluation_period_id: evaluationPeriodId, name: cat.name, displayOrder: cat.displayOrder })
+        .insert({ rubric_group_id: groupId, name: cat.name, displayOrder: cat.displayOrder })
         .select("*")
         .single()
       if (catErr) throw catErr

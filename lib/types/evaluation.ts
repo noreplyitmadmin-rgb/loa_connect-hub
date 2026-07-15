@@ -51,7 +51,7 @@ export interface StudentEnrollment {
 
 export interface RubricCategory {
   id: string
-  evaluationPeriodId: string
+  rubricGroupId: string
   name: string
   displayOrder: number
   items?: RubricItem[]
@@ -146,6 +146,7 @@ export interface EvaluationPeriodData {
   startDate: string | null
   endDate: string | null
   isActive: boolean
+  rubricGroupId: string | null
   createdAt: Date
   semesterTitle?: string
 }
@@ -156,6 +157,7 @@ export interface CreateEvaluationPeriodInput {
   source?: string | null
   startDate?: string | null
   endDate?: string | null
+  rubricGroupId?: string | null
 }
 
 export interface SubjectData {
@@ -214,7 +216,7 @@ export interface StudentEnrollmentWithEmbeds extends StudentEnrollmentData {
 
 export interface RubricCategoryData {
   id: string
-  evaluationPeriodId: string
+  rubricGroupId: string
   name: string
   displayOrder: number
 }
@@ -225,6 +227,41 @@ export interface RubricItemData {
   text: string
   displayOrder: number
   weight: number
+}
+
+export interface RubricGroupData {
+  id: string
+  name: string
+  description: string | null
+  createdAt: Date
+}
+
+export interface RubricGroupWithCategories extends RubricGroupData {
+  categories: (RubricCategoryData & { items: RubricItemData[] })[]
+}
+
+export interface RubricGroupSnapshotData {
+  id: string
+  evaluationPeriodId: string
+  rubricGroupId: string
+  rubricGroupName: string
+  categoryName: string
+  categoryDisplayOrder: number
+  itemText: string
+  itemDisplayOrder: number
+  itemWeight: number
+  createdAt: Date
+}
+
+export interface IRubricGroupRepository {
+  list(): Promise<RubricGroupData[]>
+  findById(id: string): Promise<RubricGroupWithCategories | null>
+  create(name: string, description?: string | null): Promise<RubricGroupData>
+  update(id: string, data: { name?: string; description?: string | null }): Promise<RubricGroupData>
+  duplicate(id: string, newName: string): Promise<RubricGroupData>
+  isLocked(groupId: string): Promise<boolean>
+  createSnapshot(evaluationPeriodId: string, groupId: string): Promise<void>
+  getSnapshot(evaluationPeriodId: string): Promise<RubricGroupSnapshotData[]>
 }
 
 export interface EvaluationData {
@@ -377,9 +414,9 @@ export interface IStudentEnrollmentRepository {
 }
 
 export interface IRubricRepository {
-  getCategoriesWithItems(evaluationPeriodId: string): Promise<RubricCategoryData[]>
-  replaceRubric(evaluationPeriodId: string, categories: { name: string; displayOrder: number; items: { text: string; displayOrder: number; weight?: number }[] }[]): Promise<RubricCategoryData[]>
-  copyFromSource(evaluationPeriodId: string, sourcePeriodId: string): Promise<RubricCategoryData[]>
+  getCategoriesWithItems(groupId: string): Promise<RubricCategoryData[]>
+  replaceRubric(groupId: string, categories: { name: string; displayOrder: number; items: { text: string; displayOrder: number; weight?: number }[] }[]): Promise<RubricCategoryData[]>
+  copyFromSource(groupId: string, sourceGroupId: string): Promise<RubricCategoryData[]>
   deleteCategory(id: string): Promise<void>
   createItem(data: { categoryId: string; text: string; displayOrder: number; weight?: number }): Promise<RubricItemData>
   updateItem(id: string, data: Partial<RubricItemData>): Promise<RubricItemData>

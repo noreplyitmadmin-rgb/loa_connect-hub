@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { hasRole } from "@/lib/utils/roles"
-import { userRepository, subjectRepository, facultySubjectRepository, rubricRepository } from "@/lib/repositories/factory"
+import { userRepository, subjectRepository, facultySubjectRepository, rubricGroupRepository } from "@/lib/repositories/factory"
 import { getEvaluationPeriods, getActiveEvaluationPeriod } from "@/features/admin-data/evaluation-periods.service"
 import { getPendingEvaluations, getMyEvaluations } from "@/features/evaluations/evaluations.service"
+import { groupSnapshotRows } from "@/lib/evaluation-utils"
 
 export async function GET() {
   const session = await auth()
@@ -21,13 +22,15 @@ export async function GET() {
     const activePeriod = await getActiveEvaluationPeriod()
     const activePeriodId = activePeriod?.id ?? null
 
-    const [pending, evaluations, rubric] = await Promise.all([
+    const [pending, evaluations, rawRubric] = await Promise.all([
       activePeriodId ? getPendingEvaluations(userId, activePeriodId) : Promise.resolve([]),
       activePeriodId ? getMyEvaluations(userId, activePeriodId) : Promise.resolve([]),
       activePeriodId
-        ? rubricRepository.getCategoriesWithItems(activePeriodId).catch(() => null)
+        ? rubricGroupRepository.getSnapshot(activePeriodId).catch(() => null)
         : Promise.resolve(null),
     ])
+
+    const rubric = rawRubric ? groupSnapshotRows(rawRubric as unknown as import("@/lib/evaluation-utils").FlatSnapshotRow[]) : null
 
     const pendingFacultyIds = [...new Set(pending.map((p) => p.evaluateeId))]
     const pendingSubjectIds = [...new Set(pending.map((p) => p.subjectId))]

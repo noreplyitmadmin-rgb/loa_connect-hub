@@ -1,1 +1,1 @@
-export type { IRubricRepository } from "@/lib/types"
+export type { IRubricRepository, IRubricGroupRepository } from "@/lib/types"

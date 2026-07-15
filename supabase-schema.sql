@@ -17,6 +17,8 @@ DROP TABLE IF EXISTS sections CASCADE;
 DROP TABLE IF EXISTS subjects CASCADE;
 DROP TABLE IF EXISTS rubric_items CASCADE;
 DROP TABLE IF EXISTS rubric_categories CASCADE;
+DROP TABLE IF EXISTS rubric_group_snapshots CASCADE;
+DROP TABLE IF EXISTS rubric_groups CASCADE;
 DROP TABLE IF EXISTS rating_scales CASCADE;
 DROP TABLE IF EXISTS semesters CASCADE;
 DROP TABLE IF EXISTS userrole CASCADE;
@@ -659,15 +661,37 @@ CREATE TABLE IF NOT EXISTS rating_scales (
 
 CREATE INDEX IF NOT EXISTS idx_rating_scales_semester ON rating_scales("semesterId");
 
+CREATE TABLE IF NOT EXISTS rubric_groups (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  description TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS rubric_categories (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "semesterId" TEXT NOT NULL REFERENCES semesters(id) ON DELETE CASCADE,
+  rubric_group_id TEXT NOT NULL REFERENCES rubric_groups(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   "displayOrder" INTEGER NOT NULL,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_rubric_categories_semester ON rubric_categories("semesterId");
+CREATE INDEX IF NOT EXISTS idx_rubric_categories_group ON rubric_categories(rubric_group_id);
+
+CREATE TABLE IF NOT EXISTS rubric_group_snapshots (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  evaluation_period_id TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+  rubric_group_id TEXT NOT NULL,
+  rubric_group_name TEXT NOT NULL,
+  category_name TEXT NOT NULL,
+  category_display_order INTEGER NOT NULL,
+  item_text TEXT NOT NULL,
+  item_display_order INTEGER NOT NULL,
+  item_weight DECIMAL(5,2) NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rubric_snapshots_period ON rubric_group_snapshots(evaluation_period_id);
 
 CREATE TABLE IF NOT EXISTS rubric_items (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
@@ -1783,11 +1807,13 @@ CREATE TABLE IF NOT EXISTS evaluation_periods (
   "startDate"     DATE,
   "endDate"       DATE,
   "isActive"      BOOLEAN NOT NULL DEFAULT FALSE,
+  rubric_group_id TEXT REFERENCES rubric_groups(id),
   "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_eval_periods_semester ON evaluation_periods("semesterId");
 CREATE INDEX IF NOT EXISTS idx_eval_periods_active ON evaluation_periods("isActive");
+CREATE INDEX IF NOT EXISTS idx_eval_periods_rubric_group ON evaluation_periods(rubric_group_id);
 
 -- ── 30b. Add evaluation_period_id to child tables ─────────
 
@@ -1906,6 +1932,77 @@ DO $$ BEGIN
     WHERE table_name = 'evaluation_results' AND column_name = 'is_results_visible'
   ) THEN
     ALTER TABLE evaluation_results ADD COLUMN "is_results_visible" BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- =========================================================
+-- 31. RUBRIC GROUPS: Decouple rubrics from evaluation periods
+-- =========================================================
+
+-- ── 31a. Add rubric_group_id to evaluation_periods ────────
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'evaluation_periods' AND column_name = 'rubric_group_id'
+  ) THEN
+    ALTER TABLE evaluation_periods ADD COLUMN rubric_group_id TEXT REFERENCES rubric_groups(id);
+    CREATE INDEX IF NOT EXISTS idx_eval_periods_rubric_group ON evaluation_periods(rubric_group_id);
+  END IF;
+END $$;
+
+-- ── 31b. Migrate rubric_categories: semesterId → rubric_group_id ──
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_categories' AND column_name = 'semesterId'
+  ) THEN
+    ALTER TABLE rubric_categories DROP CONSTRAINT IF EXISTS fk_rubric_categories_semester;
+    ALTER TABLE rubric_categories DROP COLUMN "semesterId";
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_categories' AND column_name = 'evaluation_period_id'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_categories' AND column_name = 'rubric_group_id'
+  ) THEN
+    -- Drop old FK constraint
+    ALTER TABLE rubric_categories DROP CONSTRAINT IF EXISTS rubric_categories_evaluation_period_id_fkey;
+    -- Rename column
+    ALTER TABLE rubric_categories RENAME COLUMN evaluation_period_id TO rubric_group_id;
+    -- Rename index
+    DROP INDEX IF EXISTS idx_rubric_categories_period;
+    CREATE INDEX IF NOT EXISTS idx_rubric_categories_group ON rubric_categories(rubric_group_id);
+    -- Add new FK to rubric_groups
+    ALTER TABLE rubric_categories ADD CONSTRAINT fk_rubric_categories_group
+      FOREIGN KEY (rubric_group_id) REFERENCES rubric_groups(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+-- ── 31c. Create rubric_group_snapshots table if missing ────
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables WHERE table_name = 'rubric_group_snapshots'
+  ) THEN
+    CREATE TABLE rubric_group_snapshots (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+      evaluation_period_id TEXT NOT NULL REFERENCES evaluation_periods(id) ON DELETE CASCADE,
+      rubric_group_id TEXT NOT NULL,
+      rubric_group_name TEXT NOT NULL,
+      category_name TEXT NOT NULL,
+      category_display_order INTEGER NOT NULL,
+      item_text TEXT NOT NULL,
+      item_display_order INTEGER NOT NULL,
+      item_weight DECIMAL(5,2) NOT NULL,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_rubric_snapshots_period ON rubric_group_snapshots(evaluation_period_id);
   END IF;
 END $$;
 

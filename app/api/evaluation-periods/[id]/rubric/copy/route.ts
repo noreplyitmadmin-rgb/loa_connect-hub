@@ -1,24 +1,16 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { hasRole } from "@/lib/utils/roles"
-import { rubricRepository } from "@/lib/repositories/factory"
+import { rubricGroupRepository } from "@/lib/repositories/factory"
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session?.user || !hasRole((session.user as Record<string, unknown>).role as string, "ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
   try {
-    const body = await request.json()
-    const { sourcePeriodId } = body
-    if (!sourcePeriodId) {
-      return NextResponse.json({ error: "sourcePeriodId is required" }, { status: 400 })
-    }
-    const rubric = await rubricRepository.copyFromSource(id, sourcePeriodId)
-    return NextResponse.json({ rubric }, { status: 201 })
+    const snapshot = await rubricGroupRepository.getSnapshot(id)
+    return NextResponse.json({ rubric: snapshot })
   } catch {
-    return NextResponse.json({ error: "Failed to copy rubric" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch rubric snapshot" }, { status: 500 })
   }
 }

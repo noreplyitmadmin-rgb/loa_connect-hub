@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { getEvaluation, getEvaluationRatings, getEvaluationComment } from "@/features/evaluations/evaluations.service"
-import { rubricRepository, userRepository, facultySubjectRepository, subjectRepository, sectionRepository } from "@/lib/repositories/factory"
+import { rubricGroupRepository, userRepository, facultySubjectRepository, subjectRepository, sectionRepository } from "@/lib/repositories/factory"
+import { groupSnapshotRows } from "@/lib/evaluation-utils"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -68,8 +69,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (includes.has("rubric")) {
-      const rubric = await rubricRepository.getCategoriesWithItems(evaluation.evaluationPeriodId)
-      responseBody.rubric = rubric
+      const snapshot = await rubricGroupRepository.getSnapshot(evaluation.evaluationPeriodId)
+      responseBody.rubric = groupSnapshotRows(snapshot as unknown as import("@/lib/evaluation-utils").FlatSnapshotRow[])
     }
 
     return NextResponse.json(responseBody)

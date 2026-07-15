@@ -128,3 +128,44 @@ export function formatPeriodLabel(period: { name?: string; title?: string; semes
   const base = period.name || period.title || period.id
   return period.semesterTitle ? `${base} — ${period.semesterTitle}` : base
 }
+
+export interface FlatSnapshotRow {
+  id: string
+  evaluation_period_id: string
+  rubric_group_id: string
+  rubric_group_name: string
+  category_name: string
+  category_display_order: number
+  item_text: string
+  item_display_order: number
+  item_weight: number
+}
+
+export interface NestedRubricCategory {
+  id: string
+  name: string
+  displayOrder: number
+  items: { id: string; text: string; displayOrder: number; weight: number }[]
+}
+
+export function groupSnapshotRows(rows: FlatSnapshotRow[]): NestedRubricCategory[] {
+  const catMap = new Map<string, NestedRubricCategory>()
+  for (const row of rows) {
+    const key = row.category_name
+    if (!catMap.has(key)) {
+      catMap.set(key, {
+        id: `snap_${row.rubric_group_id}_${row.category_display_order}`,
+        name: row.category_name,
+        displayOrder: row.category_display_order,
+        items: [],
+      })
+    }
+    catMap.get(key)!.items.push({
+      id: `snap_item_${row.rubric_group_id}_${row.category_display_order}_${row.item_display_order}`,
+      text: row.item_text,
+      displayOrder: row.item_display_order,
+      weight: row.item_weight,
+    })
+  }
+  return Array.from(catMap.values()).sort((a, b) => a.displayOrder - b.displayOrder)
+}
