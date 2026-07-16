@@ -5,17 +5,22 @@ import gibberishEncoded from "../../data/sentiment/gibberish.encoded.json"
 import inappropriateEncoded from "../../data/sentiment/inappropriate.encoded.json"
 import lexicon from "../../data/sentiment/lexicon.json"
 
-const INAPPROPRIATE_WORDS = new Set(
-  (inappropriateEncoded as string[]).map((w) =>
-    decodeURIComponent(w)
-  )
-)
+interface InappropriateEntry {
+  w: string
+  t: string[]
+}
+
+const INAPPROPRIATE_MAP = new Map<string, string[]>()
+for (const entry of inappropriateEncoded as InappropriateEntry[]) {
+  INAPPROPRIATE_MAP.set(decodeURIComponent(entry.w), entry.t)
+}
 const INAPPROPRIATE_PHRASES = ["in bed"]
 const LEXICON = lexicon as Record<string, number>
 
 export interface SentimentResult {
   sentimentScore: number
   sentimentLabel: "positive" | "negative" | "neutral" | "gibberish"
+  tags: string[]
 }
 
 export interface SentimentSummary {
@@ -183,13 +188,24 @@ function computeLexiconScore(text: string): number {
   return count > 0 ? total / count : 0
 }
 
-export async function analyzeComment(text: string): Promise<SentimentResult> {
+function collectTags(text: string): string[] {
   const lower = text.toLowerCase()
-  if (Array.from(INAPPROPRIATE_WORDS).some((word) => lower.includes(word))) {
-    return { sentimentScore: -0.5, sentimentLabel: "gibberish" }
+  const tags = new Set<string>()
+  for (const [word, wordTags] of INAPPROPRIATE_MAP) {
+    if (lower.includes(word)) {
+      for (const t of wordTags) tags.add(t)
+    }
   }
-  if (INAPPROPRIATE_PHRASES.some((phrase) => lower.includes(phrase))) {
-    return { sentimentScore: -0.5, sentimentLabel: "gibberish" }
+  for (const phrase of INAPPROPRIATE_PHRASES) {
+    if (lower.includes(phrase)) tags.add("sexual")
+  }
+  return Array.from(tags)
+}
+
+export async function analyzeComment(text: string): Promise<SentimentResult> {
+  const tags = collectTags(text)
+  if (tags.length > 0) {
+    return { sentimentScore: -0.5, sentimentLabel: "gibberish", tags }
   }
 
   const { vocabulary, centroids } = getModel()
@@ -220,7 +236,7 @@ export async function analyzeComment(text: string): Promise<SentimentResult> {
   }
 
   const top = Object.entries(adjusted).reduce((best, curr) => (curr[1] > best[1] ? curr : best))
-  return { sentimentScore: parseFloat(blendedScore.toFixed(4)), sentimentLabel: top[0] as SentimentResult["sentimentLabel"] }
+  return { sentimentScore: parseFloat(blendedScore.toFixed(4)), sentimentLabel: top[0] as SentimentResult["sentimentLabel"], tags }
 }
 
 export async function batchAnalyze(_periodId?: string): Promise<number> {
