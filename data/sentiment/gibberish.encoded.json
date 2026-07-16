@@ -1,0 +1,198 @@
+[
+  {
+    "text": "c2lyIG1ha2VzIG1lIGhhcmQ=",
+    "label": "gibberish"
+  },
+  {
+    "text": "dGVhY2hlciBpcyBzbyBob3Q=",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSB3YW50IHRvIGZ1Y2sgbXkgdGVhY2hlcg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "dGVhY2hlciBoYXMgbmljZSBsZWdz",
+    "label": "gibberish"
+  },
+  {
+    "text": "c2hlJ3Mgc28gc2V4eQ==",
+    "label": "gibberish"
+  },
+  {
+    "text": "eW91IGFyZSBzbyBiZWF1dGlmdWwgc2ly",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSBsaWtlIHlvdSBzaXI=",
+    "label": "gibberish"
+  },
+  {
+    "text": "d2hhdCdzIHlvdXIgbnVtYmVy",
+    "label": "gibberish"
+  },
+  {
+    "text": "aGV5IGN1dGll",
+    "label": "gibberish"
+  },
+  {
+    "text": "bmljZSBhc3M=",
+    "label": "gibberish"
+  },
+  {
+    "text": "Ym9vYnM=",
+    "label": "gibberish"
+  },
+  {
+    "text": "YXNkZmdoamts",
+    "label": "gibberish"
+  },
+  {
+    "text": "bG9sIGlkayB3aGF0IHRvIHdyaXRlIGhlcmU=",
+    "label": "gibberish"
+  },
+  {
+    "text": "dGhpcyBpcyByYW5kb20gbG9s",
+    "label": "gibberish"
+  },
+  {
+    "text": "d2hhdGV2ZXI=",
+    "label": "gibberish"
+  },
+  {
+    "text": "aWRr",
+    "label": "gibberish"
+  },
+  {
+    "text": "bm8gY29tbWVudA==",
+    "label": "gibberish"
+  },
+  {
+    "text": "bm9uZQ==",
+    "label": "gibberish"
+  },
+  {
+    "text": "bi9h",
+    "label": "gibberish"
+  },
+  {
+    "text": "bm90IHJlbGF0ZWQgdG8gY2xhc3M=",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSBkb24ndCBjYXJlIGFib3V0IHRoaXMgZXZhbHVhdGlvbg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "c3RvcCBzdGFyaW5nIGF0IG1l",
+    "label": "gibberish"
+  },
+  {
+    "text": "dGhpcyBpcyBzdHVwaWQgd2h5IGRvIHdlIGhhdmUgdG8gZG8gdGhpcw==",
+    "label": "gibberish"
+  },
+  {
+    "text": "cmFuZG9tIGNvbW1lbnQ=",
+    "label": "gibberish"
+  },
+  {
+    "text": "aw==",
+    "label": "gibberish"
+  },
+  {
+    "text": "b2s=",
+    "label": "gibberish"
+  },
+  {
+    "text": "aWRrIHdoYXQgdG8gc2F5",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSBoYXZlIG5vdGhpbmcgdG8gc2F5",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSBnaXZlIHVwIG9uIHRoaXMgY2xhc3MgYnV0IG5vdCB0aGUgdGVhY2hlcg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "Y3J1c2gga28gc2kgc2ly",
+    "label": "gibberish"
+  },
+  {
+    "text": "YW5nIHBvZ2kgbmkgc2ly",
+    "label": "gibberish"
+  },
+  {
+    "text": "YW5nIGhvdCBuZyB0ZWFjaGVyIG5hbWlu",
+    "label": "gibberish"
+  },
+  {
+    "text": "YW5nIHNleHkgbmkgbWFhbQ==",
+    "label": "gibberish"
+  },
+  {
+    "text": "aXlvdA==",
+    "label": "gibberish"
+  },
+  {
+    "text": "cGFwYXNhIG5hIGJhIHRv",
+    "label": "gibberish"
+  },
+  {
+    "text": "c2FuYSBhbGwgbWFnYWxpbmc=",
+    "label": "gibberish"
+  },
+  {
+    "text": "cGFoaW5naSBuZyBncmFkZQ==",
+    "label": "gibberish"
+  },
+  {
+    "text": "aGF2aW5nIHNleCB3aXRoIG15IHRlYWNoZXI=",
+    "label": "gibberish"
+  },
+  {
+    "text": "aGUgaXMgZ29vZCBhdCBoYXZpbmcgc2V4",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSBsb3ZlIHNleCB3aXRoIHNpcg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "c2hlIGdpdmVzIG1lIGEgaGFyZCBvbg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "aSB3YW50IHRvIGZ1Y2sgeW91IHNpcg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "YW5nIGxha2kgbmcgdGl0ZSBuaSBzaXI=",
+    "label": "gibberish"
+  },
+  {
+    "text": "a2FudG90",
+    "label": "gibberish"
+  },
+  {
+    "text": "a3VtYW50b3Q=",
+    "label": "gibberish"
+  },
+  {
+    "text": "bWFna2FudHV0YW4=",
+    "label": "gibberish"
+  },
+  {
+    "text": "ZGljaw==",
+    "label": "gibberish"
+  },
+  {
+    "text": "cG9ybg==",
+    "label": "gibberish"
+  },
+  {
+    "text": "d2F0Y2ggcG9ybiB3aXRoIHRlYWNoZXI=",
+    "label": "gibberish"
+  }
+]

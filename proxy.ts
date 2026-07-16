@@ -8,7 +8,7 @@ const PUBLIC_PATHS = new Set([
   "/setup-password", "/faq",
 ])
 
-const PUBLIC_PREFIXES = ["/_next", "/api/auth", "/api/audit", "/api/bug-reports", "/api/semesters/count-active"]
+const PUBLIC_PREFIXES = ["/_next", "/api/auth", "/api/audit", "/api/bug-reports", "/api/semesters/count-active", "/api/health"]
 
 const SEMESTER_LOCKED_PATH = "/admin/data/academic-infrastructure"
 

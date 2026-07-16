@@ -36,6 +36,16 @@
   { "text": "Provides constructive criticism that helps students grow", "label": "positive" },
   { "text": "Very thorough in covering all required topics", "label": "positive" },
 
+  { "text": "Magaling magturo ang guro, napakalinaw mag-explain", "label": "positive" },
+  { "text": "Ang galing galing magturo, marami akong natutunan", "label": "positive" },
+  { "text": "Mahusay at maayos mag-handle ng klase", "label": "positive" },
+  { "text": "Salamat po sa mahusay na pagtuturo", "label": "positive" },
+  { "text": "Mabait at approachable, hindi nakakatakot magtanong", "label": "positive" },
+  { "text": "Napakalinaw ng mga aralin, madaling maintindihan", "label": "positive" },
+  { "text": "Maraming natutunan dahil magaling mag-discuss", "label": "positive" },
+  { "text": "magaling magturo si sir", "label": "positive" },
+  { "text": "goods na goods yung pagtuturo, gets na gets ko", "label": "positive" },
+
   { "text": "Poor teaching style, very confusing lectures", "label": "negative" },
   { "text": "Does not explain concepts clearly enough", "label": "negative" },
   { "text": "Rude and unapproachable during office hours", "label": "negative" },
@@ -71,6 +81,16 @@
   { "text": "Shuts down students who disagree with their views", "label": "negative" },
   { "text": "Does not offer extra help for struggling students", "label": "negative" },
   { "text": "Grading is inconsistent between different assignments", "label": "negative" },
+
+  { "text": "Walang kwenta magturo, nakakalito ang explanation", "label": "negative" },
+  { "text": "Hindi marunong mag-explain, puro mali mali", "label": "negative" },
+  { "text": "Wala akong natutunan sa klase niya, sayang oras", "label": "negative" },
+  { "text": "Ang sama ng ugali, bastos sa mga estudyante", "label": "negative" },
+  { "text": "Ayaw sumagot sa tanong, iniignore lang kami", "label": "negative" },
+  { "text": "Puro slide lang binabasa, walang dagdag na explanation", "label": "negative" },
+  { "text": "Walang pakialam sa students, late lagi pumasok", "label": "negative" },
+  { "text": "Ang hirap intindihin magturo, magulo magsalita", "label": "negative" },
+  { "text": "hindi magaling magturo, walang natutunan", "label": "negative" },
 
   { "text": "The class meets three times a week", "label": "neutral" },
   { "text": "Final exam is scheduled for next month", "label": "neutral" },
@@ -108,6 +128,16 @@
   { "text": "Course evaluations are anonymous and confidential", "label": "neutral" },
   { "text": "Grades are posted within two weeks of submission", "label": "neutral" },
 
+  { "text": "May klase tuwing Lunes at Miyerkules ng umaga", "label": "neutral" },
+  { "text": "Ang exam ay sa susunod na linggo", "label": "neutral" },
+  { "text": "Nasa syllabus ang mga requirements", "label": "neutral" },
+  { "text": "May tatlong major exams sa buong semester", "label": "neutral" },
+  { "text": "Ang grade ay base sa quizzes at final exam", "label": "neutral" },
+  { "text": "Naka-post ang mga slides after ng klase", "label": "neutral" },
+  { "text": "Ang klase ay gaganapin sa room 301", "label": "neutral" },
+  { "text": "May group project sa katapusan ng semester", "label": "neutral" },
+  { "text": "may exam tayo next week", "label": "neutral" },
+
   { "text": "sir makes me hard", "label": "gibberish" },
   { "text": "teacher is so hot", "label": "gibberish" },
   { "text": "i want to fuck my teacher", "label": "gibberish" },
@@ -136,5 +166,14 @@
   { "text": "ok", "label": "gibberish" },
   { "text": "idk what to say", "label": "gibberish" },
   { "text": "i have nothing to say", "label": "gibberish" },
-  { "text": "i give up on this class but not the teacher", "label": "gibberish" }
+  { "text": "i give up on this class but not the teacher", "label": "gibberish" },
+
+  { "text": "crush ko si sir", "label": "gibberish" },
+  { "text": "ang pogi ni sir", "label": "gibberish" },
+  { "text": "ang hot ng teacher namin", "label": "gibberish" },
+  { "text": "ang sexy ni maam", "label": "gibberish" },
+  { "text": "iyot", "label": "gibberish" },
+  { "text": "papasa na ba to", "label": "gibberish" },
+  { "text": "sana all magaling", "label": "gibberish" },
+  { "text": "pahingi ng grade", "label": "gibberish" }
 ]
