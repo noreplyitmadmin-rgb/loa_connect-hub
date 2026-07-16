@@ -202,5 +202,9 @@
   {
     "text": "bWFrZXMgbWUgd2V0",
     "label": "gibberish"
+  },
+  {
+    "text": "bWFrZXMgbXkgbmlwcGxlIGhhcmQ=",
+    "label": "gibberish"
   }
 ]
