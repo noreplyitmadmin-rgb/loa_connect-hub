@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/db"
+import { fetchRatingsWithCategories } from "@/lib/db/common"
 import type { EvaluationResultData, IEvaluationResultRepository, StudentBreakdownItem, FacultyEvalDetail } from "@/lib/types"
 
 export const evaluationResultRepository: IEvaluationResultRepository = {
@@ -56,11 +57,8 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
 
     const semesterId = evalPeriod?.semesterId
 
-    const [ratingsResult, usersResult, existingResult] = await Promise.all([
-      supabase
-        .from("evaluation_ratings")
-        .select("evaluationId, itemId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
-        .in("evaluationId", allEvalIds),
+    const [ratings, usersResult, existingResult] = await Promise.all([
+      fetchRatingsWithCategories(supabase, allEvalIds),
       supabase.from("users").select("id, departmentId").in("id", allFacultyIds),
       supabase
         .from("evaluation_results")
@@ -68,11 +66,9 @@ export const evaluationResultRepository: IEvaluationResultRepository = {
         .eq("evaluation_period_id", evaluationPeriodId)
         .in("facultyId", allFacultyIds),
     ])
-    if (ratingsResult.error) throw ratingsResult.error
     if (usersResult.error) throw usersResult.error
     if (existingResult.error) throw existingResult.error
 
-    const ratings = ratingsResult.data || []
     const users = usersResult.data || []
     const existingResults = existingResult.data || []
 
@@ -306,15 +302,7 @@ async function getStudentBreakdownsForFaculties(
     .from("evaluations")
     .select(`
       id,
-      evaluateeId,
-      evaluation_ratings(
-        rating,
-        rubric_items!inner(
-          categoryId,
-          rubric_categories!inner(name)
-        )
-      ),
-      evaluation_comments(comment, sentimentLabel, sentimentScore)
+      evaluateeId
     `)
     .eq("evaluation_period_id", evaluationPeriodId)
     .in("evaluateeId", facultyIds)
@@ -324,16 +312,36 @@ async function getStudentBreakdownsForFaculties(
   if (evErr) throw evErr
   if (!evals || evals.length === 0) return new Map()
 
+  const allEvalIds = evals.map((e) => e.id)
+
+  const [allRatings, commentsResult] = await Promise.all([
+    fetchRatingsWithCategories(supabase, allEvalIds),
+    supabase
+      .from("evaluation_comments")
+      .select("id, evaluationId, comment, sentimentLabel, sentimentScore")
+      .in("evaluationId", allEvalIds),
+  ])
+  if (commentsResult.error) throw commentsResult.error
+
+  const commentsByEval = new Map<string, Array<{ comment: string; sentimentLabel: string | null; sentimentScore: number | null }>>()
+  for (const c of commentsResult.data || []) {
+    if (!commentsByEval.has(c.evaluationId)) commentsByEval.set(c.evaluationId, [])
+    commentsByEval.get(c.evaluationId)!.push(c)
+  }
+
+  const ratingsByEval = new Map<string, typeof allRatings>()
+  for (const r of allRatings) {
+    if (!ratingsByEval.has(r.evaluationId)) ratingsByEval.set(r.evaluationId, [])
+    ratingsByEval.get(r.evaluationId)!.push(r)
+  }
+
   const result = new Map<string, StudentBreakdownItem[]>()
   for (const facultyId of facultyIds) result.set(facultyId, [])
 
   for (const ev of evals as Array<Record<string, unknown>>) {
     const evaluateeId = ev.evaluateeId as string
-    const ratings = (ev.evaluation_ratings || []) as Array<{
-      rating: number
-      rubric_items: { categoryId: string; rubric_categories: { name: string } }
-    }>
-    const comments = (ev.evaluation_comments || []) as Array<{ comment: string; sentimentLabel: string | null; sentimentScore: number | null }>
+    const ratings = ratingsByEval.get(ev.id as string) || []
+    const comments = commentsByEval.get(ev.id as string) || []
 
     const catScores: Record<string, number[]> = {}
     for (const r of ratings) {

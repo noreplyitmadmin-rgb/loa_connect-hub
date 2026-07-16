@@ -154,9 +154,11 @@ export const rubricGroupRepository: IRubricGroupRepository = {
             rubric_group_name: group.name,
             category_name: cat.name,
             category_display_order: cat.displayOrder,
+            category_id: cat.id,
             item_text: item.text,
             item_display_order: item.displayOrder,
             item_weight: item.weight,
+            item_id: item.id,
           }))
       )
 

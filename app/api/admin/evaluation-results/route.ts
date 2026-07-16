@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
     if (!evaluationPeriodId) return NextResponse.json({ error: "evaluationPeriodId is required" }, { status: 400 })
 
     let results = await evaluationResultRepository.list(evaluationPeriodId)
-    if (results.length === 0) {
+    const hasCategoryData = results.length > 0 && results.some((r) => r.generalRating !== null)
+    if (!hasCategoryData) {
       await evaluationResultRepository.computeAll(evaluationPeriodId)
       results = await evaluationResultRepository.list(evaluationPeriodId)
       if (results.length === 0) return NextResponse.json({ departments: [] })

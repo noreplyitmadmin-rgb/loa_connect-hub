@@ -251,6 +251,8 @@ export interface RubricGroupSnapshotData {
   itemText: string
   itemDisplayOrder: number
   itemWeight: number
+  itemId: string | null
+  categoryId: string | null
   createdAt: Date
 }
 

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/db"
+import { fetchRatingsWithCategories } from "@/lib/db/common"
 import type { EvaluationData, EvaluationComment, EvaluationCommentWithEvaluation, IEvaluationRepository, EvaluationListItem, EvaluationDetailItem, EvaluationRatingRow, EvaluationCommentLight, EvaluationCommentFull, PendingEvaluationItem } from "@/lib/types"
 
 export const evaluationRepository: IEvaluationRepository = {
@@ -295,16 +296,29 @@ export const evaluationRepository: IEvaluationRepository = {
   async listSubmittedWithSentiment(evaluationPeriodId) {
     const { data, error } = await supabase
       .from("evaluations")
-      .select("evaluateeId, evaluation_comments(sentimentScore)")
+      .select("id, evaluateeId")
       .eq("evaluation_period_id", evaluationPeriodId)
       .eq("status", "SUBMITTED")
       .eq("isDisabled", false)
       .not("facultySubjectId", "is", null)
     if (error) throw error
-    const rows = (data || []) as unknown as { evaluateeId: string; evaluation_comments: { sentimentScore: number | null }[] }[]
+    if (!data || data.length === 0) return []
+
+    const evalIds = data.map((e) => e.id)
+    const { data: commentRows } = await supabase
+      .from("evaluation_comments")
+      .select("evaluationId, sentimentScore")
+      .in("evaluationId", evalIds)
+
+    const sentByEval = new Map<string, { sentimentScore: number | null }[]>()
+    for (const c of commentRows || []) {
+      if (!sentByEval.has(c.evaluationId)) sentByEval.set(c.evaluationId, [])
+      sentByEval.get(c.evaluationId)!.push(c)
+    }
+
     const result: { evaluateeId: string; sentimentScore: number | null }[] = []
-    for (const row of rows) {
-      const comments = row.evaluation_comments ?? []
+    for (const row of data) {
+      const comments = sentByEval.get(row.id) ?? []
       for (const c of comments) {
         result.push({ evaluateeId: row.evaluateeId, sentimentScore: c.sentimentScore })
       }
@@ -387,12 +401,7 @@ export const evaluationRepository: IEvaluationRepository = {
   },
   async listRatingsByEvaluationIds(evaluationIds) {
     if (evaluationIds.length === 0) return []
-    const { data, error } = await supabase
-      .from("evaluation_ratings")
-      .select("evaluationId, rating, rubric_items!inner(categoryId, rubric_categories!inner(name))")
-      .in("evaluationId", evaluationIds)
-    if (error) throw error
-    return (data || []) as unknown as EvaluationRatingRow[]
+    return fetchRatingsWithCategories(supabase, evaluationIds) as Promise<EvaluationRatingRow[]>
   },
   async listCommentsByEvaluationIds(evaluationIds) {
     if (evaluationIds.length === 0) return []

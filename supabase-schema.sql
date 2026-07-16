@@ -2048,6 +2048,22 @@ DO $$ BEGIN
 END $$;
 
 -- =========================================================
+-- Migration 34: Add item_id + category_id to rubric_group_snapshots
+-- Preserves real rubric_items/rubric_categories IDs so that
+-- evaluation_ratings."itemId" FK can resolve correctly.
+-- =========================================================
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'rubric_group_snapshots' AND column_name = 'item_id'
+  ) THEN
+    ALTER TABLE rubric_group_snapshots ADD COLUMN item_id TEXT;
+    ALTER TABLE rubric_group_snapshots ADD COLUMN category_id TEXT;
+  END IF;
+END $$;
+
+-- =========================================================
 -- exec_sql: RPC function for executing raw SQL statements
 -- Used by the admin reset-database endpoint.
 -- =========================================================

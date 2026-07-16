@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import type { UserData } from "@/lib/types"
 
 export interface QueryError {
@@ -47,6 +48,52 @@ export async function singleQueryWithRoles(builder: SingleBuilder): Promise<User
 
 export function isMissingUserrole(err: QueryError): boolean {
   return !!(err?.message?.includes('relation "userrole" does not exist') || err?.message?.includes('"userrole"'))
+}
+
+export interface RatingWithCategory {
+  evaluationId: string
+  rating: number
+  rubric_items: { categoryId: string; rubric_categories: { name: string } }
+}
+
+export async function fetchRatingsWithCategories(
+  client: SupabaseClient,
+  evaluationIds: string[],
+): Promise<RatingWithCategory[]> {
+  if (evaluationIds.length === 0) return []
+
+  const { data: ratingRows, error: rErr } = await client
+    .from("evaluation_ratings")
+    .select("evaluationId, rating, itemId")
+    .in("evaluationId", evaluationIds)
+  if (rErr) throw rErr
+  if (!ratingRows || ratingRows.length === 0) return []
+
+  const itemIds = [...new Set(ratingRows.map((r) => r.itemId))]
+  const { data: itemRows, error: iErr } = await client
+    .from("rubric_items")
+    .select("id, categoryId")
+    .in("id", itemIds)
+  if (iErr) throw iErr
+
+  const categoryIds = [...new Set((itemRows || []).map((i) => i.categoryId))]
+  const { data: catRows, error: cErr } = await client
+    .from("rubric_categories")
+    .select("id, name")
+    .in("id", categoryIds)
+  if (cErr) throw cErr
+
+  const catMap = new Map((catRows || []).map((c) => [c.id, c.name]))
+  const itemMap = new Map((itemRows || []).map((i) => [i.id, i.categoryId]))
+
+  return ratingRows.map((r) => ({
+    evaluationId: r.evaluationId,
+    rating: r.rating,
+    rubric_items: {
+      categoryId: itemMap.get(r.itemId) || "",
+      rubric_categories: { name: catMap.get(itemMap.get(r.itemId) || "") || "" },
+    },
+  }))
 }
 
 export const appointmentSelect = `

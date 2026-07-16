@@ -240,6 +240,7 @@ export default function StandaloneEvaluationPage() {
         body: JSON.stringify({ ratings: ratingsArray }),
       })
       if (ratingsRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
+      if (!ratingsRes.ok) { setErrorMessage("Failed to save ratings"); setSubmitting(false); return }
       if (comment) {
         const commentRes = await fetch(`/api/evaluations/${evaluationId}/comments`, {
           method: "POST",
@@ -247,9 +248,11 @@ export default function StandaloneEvaluationPage() {
           body: JSON.stringify({ comment }),
         })
         if (commentRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
+        if (!commentRes.ok) { setErrorMessage("Failed to save comment"); setSubmitting(false); return }
       }
       const submitRes = await fetch(`/api/evaluations/${evaluationId}/submit`, { method: "POST" })
       if (submitRes.status === 403) { setErrorMessage("Access denied"); setSubmitting(false); return }
+      if (!submitRes.ok) { setErrorMessage("Failed to submit evaluation"); setSubmitting(false); return }
       try { new BroadcastChannel("eval-updates").postMessage({ type: "submitted" }) } catch {}
       router.replace("/student/evaluations/thank-you")
     } catch {
