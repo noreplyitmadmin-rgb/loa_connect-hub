@@ -326,8 +326,8 @@ export default function GroupDetailPage() {
                     className="text-xs text-tertiary hover:text-primary">Close</button>
                 </div>
                 <p className="text-xs text-tertiary">
-                  Evaluated by: {evalDetail.evaluatorName}
-                  {evalDetail.submittedAt && ` on ${new Date(evalDetail.submittedAt).toLocaleDateString()}`}
+                  {data.faculty.name} &mdash; {data.subject.code} {data.subject.name}
+                  {evalDetail.submittedAt && ` | ${new Date(evalDetail.submittedAt).toLocaleString()}`}
                 </p>
                 {evalDetail.categories.map((cat) => (
                   <div key={cat.categoryName} className="space-y-2">
