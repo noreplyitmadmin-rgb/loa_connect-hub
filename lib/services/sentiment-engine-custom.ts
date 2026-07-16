@@ -5,11 +5,12 @@ import gibberishEncoded from "../../data/sentiment/gibberish.encoded.json"
 import inappropriateEncoded from "../../data/sentiment/inappropriate.encoded.json"
 import lexicon from "../../data/sentiment/lexicon.json"
 
-const INAPPROPRIATE = new Set(
+const INAPPROPRIATE_WORDS = new Set(
   (inappropriateEncoded as string[]).map((w) =>
     decodeURIComponent(w)
   )
 )
+const INAPPROPRIATE_PHRASES = ["in bed"]
 const LEXICON = lexicon as Record<string, number>
 
 export interface SentimentResult {
@@ -184,7 +185,10 @@ function computeLexiconScore(text: string): number {
 
 export async function analyzeComment(text: string): Promise<SentimentResult> {
   const lower = text.toLowerCase()
-  if (Array.from(INAPPROPRIATE).some((word) => lower.includes(word))) {
+  if (Array.from(INAPPROPRIATE_WORDS).some((word) => lower.includes(word))) {
+    return { sentimentScore: -0.5, sentimentLabel: "gibberish" }
+  }
+  if (INAPPROPRIATE_PHRASES.some((phrase) => lower.includes(phrase))) {
     return { sentimentScore: -0.5, sentimentLabel: "gibberish" }
   }
 
@@ -197,18 +201,21 @@ export async function analyzeComment(text: string): Promise<SentimentResult> {
   }
 
   const lexiconScore = computeLexiconScore(text)
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
+  const lexWeight = wordCount < 4 ? 0.6 : 0.3
+  const biasWeight = wordCount < 4 ? 0.4 : 0.2
 
   const positive = sims["positive"] ?? 0
   const negative = sims["negative"] ?? 0
   const centroidScore = positive - negative
 
-  const blendedScore = centroidScore * 0.7 + lexiconScore * 0.3
+  const blendedScore = centroidScore * (1 - lexWeight) + lexiconScore * lexWeight
 
   const adjusted: Record<string, number> = {}
   for (const [label, sim] of Object.entries(sims)) {
     let bias = 0
-    if (label === "positive") bias = lexiconScore * 0.2
-    else if (label === "negative") bias = -lexiconScore * 0.2
+    if (label === "positive") bias = lexiconScore * biasWeight
+    else if (label === "negative") bias = -lexiconScore * biasWeight
     adjusted[label] = sim + bias
   }
 
