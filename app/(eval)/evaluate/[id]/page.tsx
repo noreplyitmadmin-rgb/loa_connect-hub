@@ -113,6 +113,13 @@ export default function StandaloneEvaluationPage() {
   const [disputeLoading, setDisputeLoading] = useState(false)
   const [disputeMessage, setDisputeMessage] = useState("")
   const [showDisputeModal, setShowDisputeModal] = useState(false)
+  const [isLocalhost, setIsLocalhost] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+      Promise.resolve().then(() => setIsLocalhost(true))
+    }
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -428,6 +435,28 @@ export default function StandaloneEvaluationPage() {
                 )
               })}
             </div>
+            {isLocalhost && categories.length > 0 && (
+              <div className="mt-4 px-5 pt-4 border-t border-default space-y-1.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-tertiary">Dev Skip</p>
+                <div className="flex gap-1.5">
+                  <button type="button" onClick={() => {
+                    const r: Record<string, number> = {}
+                    for (const cat of categories) for (const item of cat.items) r[item.id] = 1
+                    setRatings(r); setStep(FEEDBACK_STEP); setMobileStepperOpen(false)
+                  }} className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">FAIL</button>
+                  <button type="button" onClick={() => {
+                    const r: Record<string, number> = {}
+                    for (const cat of categories) for (const item of cat.items) r[item.id] = 3
+                    setRatings(r); setStep(FEEDBACK_STEP); setMobileStepperOpen(false)
+                  }} className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">PASS</button>
+                  <button type="button" onClick={() => {
+                    const r: Record<string, number> = {}
+                    for (const cat of categories) for (const item of cat.items) r[item.id] = Math.floor(Math.random() * 5) + 1
+                    setRatings(r); setStep(FEEDBACK_STEP); setMobileStepperOpen(false)
+                  }} className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors">RANDOM</button>
+                </div>
+              </div>
+            )}
             {evaluateeId && (
               <div className="mt-4 px-5">
                 <button
@@ -493,6 +522,26 @@ export default function StandaloneEvaluationPage() {
                 )
               })}
             </div>
+            {isLocalhost && categories.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-default space-y-1.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-tertiary">Dev Skip</p>
+                <button type="button" onClick={() => {
+                  const r: Record<string, number> = {}
+                  for (const cat of categories) for (const item of cat.items) r[item.id] = 1
+                  setRatings(r); setStep(FEEDBACK_STEP)
+                }} className="w-full text-left text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">FAIL &amp; Skip</button>
+                <button type="button" onClick={() => {
+                  const r: Record<string, number> = {}
+                  for (const cat of categories) for (const item of cat.items) r[item.id] = 3
+                  setRatings(r); setStep(FEEDBACK_STEP)
+                }} className="w-full text-left text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">PASS &amp; Skip</button>
+                <button type="button" onClick={() => {
+                  const r: Record<string, number> = {}
+                  for (const cat of categories) for (const item of cat.items) r[item.id] = Math.floor(Math.random() * 5) + 1
+                  setRatings(r); setStep(FEEDBACK_STEP)
+                }} className="w-full text-left text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors">RANDOMIZE &amp; Skip</button>
+              </div>
+            )}
           </div>
         </div>
 
