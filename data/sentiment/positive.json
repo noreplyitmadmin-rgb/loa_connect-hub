@@ -1,5 +1,9 @@
 [
   { "text": "Excellent teacher, very engaging and knowledgeable", "label": "positive" },
+  { "text": "good teacher", "label": "positive" },
+  { "text": "very good teacher", "label": "positive" },
+  { "text": "teacher is good", "label": "positive" },
+  { "text": "teacher is great", "label": "positive" },
   { "text": "Great professor, I learned a lot from their lectures", "label": "positive" },
   { "text": "Very clear explanations and helpful during office hours", "label": "positive" },
   { "text": "The best instructor I have had this semester", "label": "positive" },
