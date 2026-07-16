@@ -8,6 +8,8 @@ import { useApiGet } from "@/lib/api/client"
 import { getRemarkColor, CATEGORY_KEYS, CATEGORY_LABELS } from "@/lib/evaluation-utils"
 import { SentimentBadge } from "@/features/evaluations/components/evaluation/SentimentBadge"
 import { DownloadEvalPdfButton } from "@/features/evaluations/components/DownloadEvalPdfButton"
+import ReasonModal from "@/components/ui/ReasonModal"
+import { useState } from "react"
 
 interface EvaluationRow {
   evaluationId: string
@@ -41,6 +43,22 @@ interface GroupDetailData {
   evaluations: EvaluationRow[]
 }
 
+interface EvalDetailItem {
+  categoryName: string
+  items: { text: string; rating: number }[]
+}
+
+interface EvalDetailData {
+  evaluationId: string
+  submittedAt: string | null
+  evaluatorName: string
+  categories: EvalDetailItem[]
+  comment: string | null
+  sentimentLabel: string | null
+  sentimentScore: number | null
+  isDisabled: boolean
+}
+
 export default function GroupDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -56,7 +74,50 @@ export default function GroupDetailPage() {
   const error = dataError?.message || ""
   const loading = isLoading && !!evaluationPeriodId
 
+  const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null)
+  const [evalDetail, setEvalDetail] = useState<EvalDetailData | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [showInvalidateConfirm, setShowInvalidateConfirm] = useState(false)
+  const [invalidating, setInvalidating] = useState(false)
+
   const formatScore = (v: number | null) => (v !== null ? v.toFixed(2) : "\u2014")
+
+  async function handleViewEvaluation(evaluationId: string) {
+    setSelectedEvaluationId(evaluationId)
+    setLoadingDetail(true)
+    try {
+      const res = await fetch(`/api/admin/evaluations/${encodeURIComponent(evaluationId)}/details`)
+      if (!res.ok) throw new Error("Failed to load evaluation details")
+      const data = await res.json()
+      setEvalDetail(data)
+    } catch {
+      setEvalDetail(null)
+    }
+    setLoadingDetail(false)
+  }
+
+  async function handleInvalidateEvaluation(reason: string) {
+    if (!selectedEvaluationId) return
+    setInvalidating(true)
+    try {
+      const res = await fetch(
+        `/api/admin/evaluations/${encodeURIComponent(selectedEvaluationId)}/invalidate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ evaluationPeriodId, reason }),
+        }
+      )
+      if (!res.ok) throw new Error("Failed to invalidate")
+      setSelectedEvaluationId(null)
+      setEvalDetail(null)
+      setShowInvalidateConfirm(false)
+      window.location.reload()
+    } catch {
+      // show error
+    }
+    setInvalidating(false)
+  }
 
   if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />
 
@@ -186,6 +247,7 @@ export default function GroupDetailPage() {
                 ))}
                 <th className="pb-3 pr-3">Comment</th>
                 <th className="pb-3">Sentiment</th>
+                <th className="pb-3">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -208,6 +270,14 @@ export default function GroupDetailPage() {
                     ) : (
                       <span className="text-[10px] text-tertiary">&mdash;</span>
                     )}
+                  </td>
+                  <td className="py-2.5">
+                    <button
+                      onClick={() => handleViewEvaluation(ev.evaluationId)}
+                      className="text-xs text-amber-600 hover:underline font-semibold"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -242,6 +312,73 @@ export default function GroupDetailPage() {
           </div>
         )}
       </div>
+
+      {selectedEvaluationId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setSelectedEvaluationId(null); setEvalDetail(null) }} />
+          <div className="relative w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-surface rounded-2xl shadow-ios-xl p-6 space-y-4">
+            {loadingDetail && <p className="text-sm text-tertiary text-center py-8">Loading...</p>}
+            {evalDetail && (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-primary">Evaluation Detail</p>
+                  <button onClick={() => { setSelectedEvaluationId(null); setEvalDetail(null) }}
+                    className="text-xs text-tertiary hover:text-primary">Close</button>
+                </div>
+                <p className="text-xs text-tertiary">
+                  Evaluated by: {evalDetail.evaluatorName}
+                  {evalDetail.submittedAt && ` on ${new Date(evalDetail.submittedAt).toLocaleDateString()}`}
+                </p>
+                {evalDetail.categories.map((cat) => (
+                  <div key={cat.categoryName} className="space-y-2">
+                    <p className="text-xs font-semibold text-secondary uppercase tracking-wider">{cat.categoryName}</p>
+                    {cat.items.map((item, idx) => (
+                      <div key={idx} className="flex items-start justify-between gap-4 px-3 py-2 rounded-lg bg-surface-muted">
+                        <p className="text-xs text-secondary flex-1">{item.text}</p>
+                        <span className="text-xs font-bold text-primary whitespace-nowrap">{item.rating}/5</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {evalDetail.comment && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-secondary">Comment</p>
+                    <p className="text-xs text-primary whitespace-pre-wrap p-3 rounded-lg bg-surface-muted">{evalDetail.comment}</p>
+                  </div>
+                )}
+                {evalDetail.sentimentLabel && (
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold text-secondary">Sentiment:</p>
+                    <SentimentBadge label={evalDetail.sentimentLabel} />
+                  </div>
+                )}
+                {!evalDetail.isDisabled && (
+                  <div className="border-t border-default pt-3 flex justify-end">
+                    <button
+                      disabled={invalidating}
+                      onClick={() => setShowInvalidateConfirm(true)}
+                      className="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {invalidating ? "Invalidating..." : "Invalidate This Evaluation"}
+                    </button>
+                  </div>
+                )}
+                {evalDetail.isDisabled && (
+                  <p className="text-xs text-red-600 font-semibold">This evaluation has already been invalidated.</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      <ReasonModal
+        isOpen={showInvalidateConfirm}
+        title="Invalidate Evaluation"
+        confirmLabel="Invalidate"
+        onConfirm={(reason) => handleInvalidateEvaluation(reason)}
+        onClose={() => setShowInvalidateConfirm(false)}
+      />
     </div>
   )
 }
