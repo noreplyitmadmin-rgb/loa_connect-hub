@@ -371,7 +371,7 @@ export interface IEvaluationPeriodRepository {
 
 export interface ISubjectRepository {
   list(): Promise<SubjectData[]>
-  upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number }>
+  upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number; updated: number }>
   findByCode(code: string): Promise<SubjectData | null>
   findById(id: string): Promise<SubjectData | null>
   findByIds(ids: string[]): Promise<SubjectData[]>
