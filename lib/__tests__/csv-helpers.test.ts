@@ -131,10 +131,10 @@ describe("deriveCsvFlags", () => {
     expect(result[0].isNewSection).toBe(false)
   })
 
-  it("handles section without hyphen (no program prefix)", () => {
+  it("handles section without hyphen (no program prefix) — marks as new section", () => {
     const rows = [makeRow({ section: "32A3" })]
     const result = deriveCsvFlags(rows, makeCtx())
-    expect(result[0].isNewSection).toBe(false)
+    expect(result[0].isNewSection).toBe(true)
   })
 
   it("returns empty array for empty input", () => {
@@ -158,12 +158,13 @@ describe("deriveCsvFlags", () => {
   })
 
   it("validates the problem row filter logic matches deriveCsvFlags output", () => {
+    const ctx = makeCtx({ facultyEmails: ["a@x.com", "existing@school.edu.ph"] })
     const rows = [
       makeRow({ email: "a@x.com", subjectCode: "CS101", section: "BSIT-32A3", departmentCode: "CCS" }),
       makeRow({ email: "b@x.com", subjectCode: "NEW101", section: "BSIT-99Z", departmentCode: "INVALID" }),
       makeRow({ email: "c@x.com", subjectCode: "CS101", section: "BSCS-21B", departmentCode: "CAS" }),
     ]
-    const result = deriveCsvFlags(rows, makeCtx())
+    const result = deriveCsvFlags(rows, ctx)
 
     const problemRows = result.filter((r) => r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept)
     const invalidDeptRows = result.filter((r) => r.isInvalidDept)
