@@ -12,6 +12,7 @@ import { EnrollmentsTab } from "./EnrollmentsTab"
 import { FacultySubjectDetail } from "./FacultySubjectDetail"
 import type { DepartmentData, SemesterData } from "@/lib/types"
 import type { FacEnrollTab, FacViewTab, Subject, Section, FacultyMapping, Enrollment } from "./types"
+import { deriveCsvFlags, type CsvRow, type CsvRowWithFlags } from "./csv-helpers"
 
 export function FacultyLoadingTab() {
   const [facEnrollTab, setFacEnrollTab] = useState<FacEnrollTab>("faculty")
@@ -54,14 +55,6 @@ function FacultyTab() {
 
   // ── CSV Import state ──────────────────────────────────────
   const csvFileRef = useRef<HTMLInputElement>(null)
-  type CsvRow = { email: string; name: string; subjectCode: string; subjectName: string; section: string; departmentCode: string }
-  interface CsvRowWithFlags extends CsvRow {
-    isNewSubject: boolean
-    isNewSection: boolean
-    isNewTeacher: boolean
-    isInvalidDept: boolean
-    isExistingMapping: boolean
-  }
   const [csvRows, setCsvRows] = useState<CsvRowWithFlags[] | null>(null)
   const [csvImporting, setCsvImporting] = useState(false)
   const [csvImportResult, setCsvImportResult] = useState<{
@@ -75,6 +68,7 @@ function FacultyTab() {
   const [csvPreviewPage, setCsvPreviewPage] = useState(0)
   const [csvProblemFilter, setCsvProblemFilter] = useState(false)
   const [csvBlockedFilter, setCsvBlockedFilter] = useState(false)
+  const [csvInvalidDeptFilter, setCsvInvalidDeptFilter] = useState(false)
   const PREVIEW_PAGE_SIZE = 50
 
   const csvProblemRows = useMemo(() => {
@@ -94,6 +88,7 @@ function FacultyTab() {
 
   const csvVisibleRows = csvRows
     ? csvRows.filter((r) => {
+        if (csvInvalidDeptFilter) return r.isInvalidDept
         if (csvProblemFilter && csvBlockedFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept || r.isExistingMapping
         if (csvProblemFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept
         if (csvBlockedFilter) return r.isExistingMapping
@@ -259,26 +254,6 @@ function FacultyTab() {
     return { rows }
   }
 
-  function deriveCsvFlags(rows: CsvRow[]): CsvRowWithFlags[] {
-    const existingKeys = new Set(
-      (data ?? []).map((m) => `${m.faculty.email}|${m.subject.code}|${m.section.program}-${m.section.name}`)
-    )
-    const validDeptCodes = new Set(departments.map((d) => d.code))
-    return rows.map((r) => {
-      const idx = r.section.indexOf("-")
-      const sectionProgram = idx === -1 ? "" : r.section.slice(0, idx).trim()
-      const sectionName = idx === -1 ? r.section : r.section.slice(idx + 1).trim()
-      return {
-        ...r,
-        isNewSubject: !subjects.some((s) => s.code === r.subjectCode),
-        isNewSection: !sections.some((s) => s.name === sectionName && s.program === sectionProgram),
-        isNewTeacher: !faculties.some((f) => f.email === r.email),
-        isInvalidDept: !validDeptCodes.has(r.departmentCode),
-        isExistingMapping: existingKeys.has(`${r.email}|${r.subjectCode}|${r.section}`),
-      }
-    })
-  }
-
   const handleCsvFile = (file: File) => {
     setCsvImportResult(null)
     setCsvError("")
@@ -288,7 +263,13 @@ function FacultyTab() {
       const { rows, error } = parseFacultyCsv(text)
       if (error) { setCsvError(error); return }
       if (rows.length === 0) { setCsvError("No valid rows found"); return }
-      setCsvRows(deriveCsvFlags(rows))
+      setCsvRows(deriveCsvFlags(rows, {
+        existingMappings: data ?? [],
+        validDeptCodes: departments.map((d) => d.code),
+        subjectCodes: subjects.map((s) => s.code),
+        sectionPairs: sections.map((s) => ({ name: s.name, program: s.program })),
+        facultyEmails: faculties.map((f) => f.email),
+      }))
       setCsvPreviewPage(0)
     }
     reader.readAsText(file)
@@ -355,6 +336,7 @@ function FacultyTab() {
     setCsvPreviewPage(0)
     setCsvProblemFilter(false)
     setCsvBlockedFilter(false)
+    setCsvInvalidDeptFilter(false)
     setCsvError("")
     if (csvFileRef.current) csvFileRef.current.value = ""
   }
@@ -521,6 +503,19 @@ function FacultyTab() {
                           }`}
                         >
                           {csvProblemFilter ? "Show all rows" : `Show ${csvProblemRows.length} flagged only`}
+                        </button>
+                      )}
+                      {invalidDeptRows.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setCsvInvalidDeptFilter((p) => !p); setCsvPreviewPage(0) }}
+                          className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
+                            csvInvalidDeptFilter
+                              ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                              : "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
+                          }`}
+                        >
+                          {csvInvalidDeptFilter ? "Show all rows" : `Show ${invalidDeptRows.length} invalid dept only`}
                         </button>
                       )}
                     </div>
