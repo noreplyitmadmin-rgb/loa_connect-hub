@@ -433,7 +433,7 @@ export default function BulkSubjectImport({ previewOnly, onImportComplete }: { p
               >
                 {loading
                   ? "Importing..."
-                  : `Import ${actionRows.length} Row${actionRows.length !== 1 ? "s" : ""}`}
+                  : `Import ${problemRows.length} Row${problemRows.length !== 1 ? "s" : ""}`}
               </button>
             )}
           </div>
