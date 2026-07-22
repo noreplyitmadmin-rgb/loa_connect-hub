@@ -5,6 +5,7 @@ import { useApiGet, invalidate } from "@/lib/api/client"
 import { usePagination, Paginator } from "@/components/ui/Paginator"
 import IosButton from "@/components/ui/IosButton"
 import type { FacultyMapping, Enrollment } from "./types"
+import type { SemesterData } from "@/lib/types"
 
 interface FacultySubjectDetailProps {
   mapping: FacultyMapping
@@ -15,8 +16,8 @@ export function FacultySubjectDetail({ mapping, onClose }: FacultySubjectDetailP
   const { data: allUsers } = useApiGet<{ users: { id: string; name: string; email: string; role: string; departmentId: string | null }[] }>("/api/admin/users")
   const { data: enrollmentsData } = useApiGet<{ data: Enrollment[] }>("/api/data/evaluation-mappings?type=student")
 
-  const { data: periodsData } = useApiGet<{ periods: { id: string; isActive: boolean }[] }>("/api/evaluation-periods")
-  const activeSemesterId = useMemo(() => periodsData?.periods?.find((p) => p.isActive)?.id ?? "", [periodsData])
+  const { data: semestersData } = useApiGet<{ data: SemesterData[] }>("/api/semesters")
+  const activeSemesterId = useMemo(() => semestersData?.data?.find((s) => s.isActive)?.id ?? "", [semestersData])
 
   const faculties = useMemo(
     () => (allUsers?.users ?? []).filter((u) => (u.role.includes("FACULTY") || u.role.includes("DEAN")) && u.id !== "a0000000-0000-0000-0000-000000000001"),
@@ -307,7 +308,7 @@ export function FacultySubjectDetail({ mapping, onClose }: FacultySubjectDetailP
           variant="primary"
           type="button"
           loading={addingStudent}
-          disabled={addingStudent || !addStudentId}
+          disabled={addingStudent || !addStudentId || !activeSemesterId}
           onClick={handleAddStudent}
         >
           {addingStudent ? "Adding..." : "Add Student"}
