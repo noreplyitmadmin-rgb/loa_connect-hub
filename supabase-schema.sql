@@ -2013,8 +2013,11 @@ DO $$ BEGIN
       item_text TEXT NOT NULL,
       item_display_order INTEGER NOT NULL,
       item_weight DECIMAL(5,2) NOT NULL,
-      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_email_action_created
+  ON audit_logs(email, action, "createdAt" DESC);
     CREATE INDEX IF NOT EXISTS idx_rubric_snapshots_period ON rubric_group_snapshots(evaluation_period_id);
   END IF;
 END $$;
