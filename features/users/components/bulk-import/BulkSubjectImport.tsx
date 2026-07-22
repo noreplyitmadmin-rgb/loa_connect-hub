@@ -219,6 +219,7 @@ export default function BulkSubjectImport({ previewOnly, onImportComplete }: { p
         updated: updated.length,
         skipped,
         failed,
+        parseErrors: [],
         totalRows: previewRows.length,
         successCsv: [TEMPLATE_HEADERS, ...successLines].join("\n"),
         failureCsv: ["code, remark", ...failureLines].join("\n"),
