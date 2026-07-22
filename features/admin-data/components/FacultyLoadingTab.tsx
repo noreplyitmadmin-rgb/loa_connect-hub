@@ -75,6 +75,7 @@ function FacultyTab() {
   const [csvPreviewPage, setCsvPreviewPage] = useState(0)
   const [csvProblemFilter, setCsvProblemFilter] = useState(false)
   const [csvBlockedFilter, setCsvBlockedFilter] = useState(false)
+  const [csvInvalidDeptFilter, setCsvInvalidDeptFilter] = useState(false)
   const PREVIEW_PAGE_SIZE = 50
 
   const csvProblemRows = useMemo(() => {
@@ -94,6 +95,7 @@ function FacultyTab() {
 
   const csvVisibleRows = csvRows
     ? csvRows.filter((r) => {
+        if (csvInvalidDeptFilter) return r.isInvalidDept
         if (csvProblemFilter && csvBlockedFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept || r.isExistingMapping
         if (csvProblemFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept
         if (csvBlockedFilter) return r.isExistingMapping
@@ -355,6 +357,7 @@ function FacultyTab() {
     setCsvPreviewPage(0)
     setCsvProblemFilter(false)
     setCsvBlockedFilter(false)
+    setCsvInvalidDeptFilter(false)
     setCsvError("")
     if (csvFileRef.current) csvFileRef.current.value = ""
   }
@@ -521,6 +524,19 @@ function FacultyTab() {
                           }`}
                         >
                           {csvProblemFilter ? "Show all rows" : `Show ${csvProblemRows.length} flagged only`}
+                        </button>
+                      )}
+                      {invalidDeptRows.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setCsvInvalidDeptFilter((p) => !p); setCsvPreviewPage(0) }}
+                          className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
+                            csvInvalidDeptFilter
+                              ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                              : "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
+                          }`}
+                        >
+                          {csvInvalidDeptFilter ? "Show all rows" : `Show ${invalidDeptRows.length} invalid dept only`}
                         </button>
                       )}
                     </div>
