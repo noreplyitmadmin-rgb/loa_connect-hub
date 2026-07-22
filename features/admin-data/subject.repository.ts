@@ -15,11 +15,13 @@ export const subjectRepository: ISubjectRepository = {
     const { data: existing, error: fetchErr } = await supabase.from("subjects").select("*").in("code", codes)
     if (fetchErr) throw fetchErr
 
+    const existingMap = new Map((existing as SubjectData[]).map((s) => [s.code, s]))
+
     for (const row of existing as SubjectData[]) {
       result.set(row.code, row)
     }
 
-    const missing = items.filter((i) => !result.has(i.code))
+    const missing = items.filter((i) => !existingMap.has(i.code))
     if (missing.length > 0) {
       const inserts = missing.map((i) => ({ code: i.code, name: i.name }))
       const { data: created, error: insertErr } = await supabase.from("subjects").insert(inserts).select("*")
@@ -29,7 +31,18 @@ export const subjectRepository: ISubjectRepository = {
       }
     }
 
-    return { data: result, created: missing.length }
+    const needsUpdate = items.filter((i) => {
+      const existing = existingMap.get(i.code)
+      return existing && existing.name !== i.name
+    })
+    for (const item of needsUpdate) {
+      const existing = existingMap.get(item.code)!
+      const { data: updated, error: updateErr } = await supabase.from("subjects").update({ name: item.name }).eq("id", existing.id).select("*").single()
+      if (updateErr) throw updateErr
+      result.set(item.code, updated as SubjectData)
+    }
+
+    return { data: result, created: missing.length, updated: needsUpdate.length }
   },
 
   async findByCode(code) {

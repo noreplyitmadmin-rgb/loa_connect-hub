@@ -8,6 +8,7 @@ import IosButton from "@/components/ui/IosButton"
 import LockedTab from "@/components/ui/LockedTab"
 import { SegmentedControl, SearchInput } from "./shared"
 import BulkSectionImport from "@/features/users/components/bulk-import/BulkSectionImport"
+import BulkSubjectImport from "@/features/users/components/bulk-import/BulkSubjectImport"
 import type { DepartmentData } from "@/lib/types"
 import type { SubjectTab, Subject, Section, DepartmentCourse } from "./types"
 
@@ -43,6 +44,7 @@ function SubjectsTab() {
 
   const [newCode, setNewCode] = useState("")
   const [newName, setNewName] = useState("")
+  const [showImport, setShowImport] = useState(false)
   const [showAddSubject, setShowAddSubject] = useState(false)
 
   const modalRef = useRef<HTMLDivElement>(null)
@@ -150,6 +152,22 @@ function SubjectsTab() {
       {locked && <LockedTab endpoint={locked} />}
       {!locked && error && <p className="text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
       {success && <p className="text-xs font-medium text-green-600 bg-green-50 p-3 rounded-lg">{success}</p>}
+
+      <div className="border border-default rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowImport((s) => !s)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-surface-dim/40 transition-colors"
+        >
+          <span>Importer: Subjects</span>
+          <span className="text-tertiary">{showImport ? "▲" : "▼"}</span>
+        </button>
+        {showImport && (
+          <div className="border-t border-default px-3 pb-3">
+            <BulkSubjectImport onImportComplete={() => { setShowImport(false); fetchData(true) }} />
+          </div>
+        )}
+      </div>
 
       <div className="border border-default rounded-lg overflow-hidden">
         <button
