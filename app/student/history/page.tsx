@@ -56,8 +56,8 @@ export default async function StudentHistoryPage() {
     facultyIds.length > 0
       ? supabase.from("users").select("id, name").in("id", facultyIds)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    dbUser?.email
-      ? auditLogRepository.findByEmailAndActions(dbUser.email, ["EMAIL_FAILED"], 50)
+    dbUser?.data?.email
+      ? auditLogRepository.findByEmailAndActions(dbUser.data.email, ["EMAIL_FAILED"], 50)
       : Promise.resolve([]),
   ])
 
