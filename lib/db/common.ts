@@ -103,3 +103,9 @@ export const appointmentSelect = `
   attendees:appointment_attendees(id, appointmentId, userId, status, isMandatory, user:users(${USER_BRIEF})),
   timeSlots:appointment_time_slots(id, appointmentId, date, startTime, endTime)
 `
+
+export const appointmentSelectHistory = `
+  id, title, description, actionTaken, date, startTime, endTime, status,
+  faculty:users!appointments_facultyId_fkey(${USER_BRIEF}),
+  timeSlots:appointment_time_slots(id, appointmentId, date, startTime, endTime)
+`
