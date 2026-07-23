@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { requireAdmin } from "@/lib/route-guard"
-import { parseFacultySubjectCsv, importFacultySubjects } from "@/lib/services/etlEvaluation"
+import { parseFacultySubjectCsv, importFacultySubjects, DUMMY_FACULTY_EMAIL } from "@/lib/services/etlEvaluation"
 import { logAuditEvent } from "@/lib/services/audit"
 
 function parseSectionIdentifier(raw: string): { name: string; program: string } {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
     importRows = rawRows.map((r) => {
       const { program, name: sectionName } = parseSectionIdentifier(r.section || "")
-      return { email: r.email ? r.email.toLowerCase().trim() : "placeholder@lyceumalabang.edu.ph", name: r.name || "", subjectCode: r.subjectCode.trim(), subjectName: r.subjectName || "", sectionName, sectionProgram: program, departmentCode: (r.departmentCode || "").trim().toUpperCase() }
+      return { email: r.email ? r.email.toLowerCase().trim() : DUMMY_FACULTY_EMAIL, name: r.name || "", subjectCode: r.subjectCode.trim(), subjectName: r.subjectName || "", sectionName, sectionProgram: program, departmentCode: (r.departmentCode || "").trim().toUpperCase() }
     })
   } else {
     const formData = await request.formData()
