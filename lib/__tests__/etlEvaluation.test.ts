@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
+import { DUMMY_FACULTY_EMAIL } from "@/lib/services/etlEvaluation"
 
 // Mock the factory module BEFORE any imports that use it
 vi.mock("@/lib/repositories/factory", () => ({
@@ -157,7 +158,7 @@ incomplete`
     const result = parseFacultySubjectCsv(csv)
     expect(result.errors).toHaveLength(0)
     expect(result.rows).toHaveLength(1)
-    expect(result.rows[0].email).toBe("placeholder@lyceumalabang.edu.ph")
+    expect(result.rows[0].email).toBe(DUMMY_FACULTY_EMAIL)
   })
 
   it("rejects missing subject code", () => {

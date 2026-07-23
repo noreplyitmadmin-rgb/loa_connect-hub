@@ -578,8 +578,9 @@ function FacultyTab() {
                                   {!row.isInvalidDept && row.isNewSubject && <span className="badge-amber">Subject</span>}
                                   {!row.isInvalidDept && row.isNewSection && <span className="badge-amber">Section</span>}
                                   {!row.isInvalidDept && row.isNewTeacher && <span className="badge-amber">Teacher</span>}
-                                  {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && !row.isInvalidDept && row.isExistingMapping && <span className="badge-red">Already loaded</span>}
-                                  {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && !row.isInvalidDept && !row.isExistingMapping && <span className="badge-emerald">Faculty Loading Only</span>}
+                                  {!row.isInvalidDept && row.isUnassignedFaculty && <span className="badge-amber">Unassigned</span>}
+                                  {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && !row.isUnassignedFaculty && !row.isInvalidDept && row.isExistingMapping && <span className="badge-red">Already loaded</span>}
+                                  {!row.isNewSubject && !row.isNewSection && !row.isNewTeacher && !row.isUnassignedFaculty && !row.isInvalidDept && !row.isExistingMapping && <span className="badge-emerald">Faculty Loading Only</span>}
                                 </div>
                               </td>
                               <td className="text-center">

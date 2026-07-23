@@ -6,6 +6,7 @@ export interface CsvRowWithFlags extends CsvRow {
   isNewSubject: boolean
   isNewSection: boolean
   isNewTeacher: boolean
+  isUnassignedFaculty: boolean
   isInvalidDept: boolean
   isExistingMapping: boolean
 }
@@ -33,11 +34,13 @@ export function deriveCsvFlags(rows: CsvRow[], ctx: CsvFlagContext): CsvRowWithF
     const idx = dashIdx !== -1 ? dashIdx : spaceIdx
     const sectionProgram = idx === -1 ? "" : r.section.slice(0, idx).trim()
     const sectionName = idx === -1 ? r.section : r.section.slice(idx + 1).trim()
+    const isEmptyEmail = !r.email
     return {
       ...r,
       isNewSubject: !subjectSet.has(r.subjectCode),
       isNewSection: !sectionPairs.some((s) => s.name === sectionName && s.program === sectionProgram),
-      isNewTeacher: !emailSet.has(r.email),
+      isNewTeacher: isEmptyEmail ? false : !emailSet.has(r.email),
+      isUnassignedFaculty: isEmptyEmail,
       isInvalidDept: !validDeptSet.has(r.departmentCode),
       isExistingMapping: existingKeys.has(`${r.email}|${r.subjectCode}|${r.section}`),
     }

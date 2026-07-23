@@ -14,6 +14,8 @@ function parseSectionIdentifier(raw: string): { name: string; program: string } 
   }
 }
 
+export const DUMMY_FACULTY_EMAIL = "placeholder@lyceumalabang.edu.ph"
+
 // ── Faculty-Subject CSV ──────────────────────────────────
 // Required columns: faculty email, name, section, subject code, subject name, department code
 
@@ -78,7 +80,7 @@ export function parseFacultySubjectCsv(text: string): {
     const { program, name: sectionName } = parseSectionIdentifier(sectionRaw.trim())
 
     if (email.length === 0) {
-      email = "placeholder@lyceumalabang.edu.ph"
+      email = DUMMY_FACULTY_EMAIL
     }
 
     if (subjectCode.length === 0) {
@@ -170,7 +172,7 @@ export async function importFacultySubjects(
       missingEmails.map((email) => {
         const row = validRows.find((r) => r.email.toLowerCase().trim() === email)
         const deptId = row ? deptCodeToId.get(row.departmentCode) ?? undefined : undefined
-        const isPlaceholder = email === "placeholder@lyceumalabang.edu.ph"
+        const isPlaceholder = email === DUMMY_FACULTY_EMAIL
         return {
           email,
           name: isPlaceholder ? "Unassigned Faculty" : (row?.name?.trim() || email.split("@")[0] || email),
