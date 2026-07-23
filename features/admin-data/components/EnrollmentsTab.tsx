@@ -124,7 +124,7 @@ export function EnrollmentsTab() {
               <span>No active semester. Set one as active before importing.</span>
             </div>
           )}
-          <BulkStudentImport previewOnly semesterId={activeSemesterId || null} />
+          <BulkStudentImport semesterId={activeSemesterId || null} />
         </div>
         )}
       </div>
