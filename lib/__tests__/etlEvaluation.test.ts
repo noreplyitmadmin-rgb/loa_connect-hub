@@ -151,12 +151,13 @@ incomplete`
     expect(result.errors[0].message).toContain("6 columns")
   })
 
-  it("rejects missing email", () => {
+  it("fills placeholder email when missing", () => {
     const csv = `${validHeaders}
 , Juan, BSIT-32A3, CS101, Intro, CCS`
     const result = parseFacultySubjectCsv(csv)
-    expect(result.errors).toHaveLength(1)
-    expect(result.errors[0].message).toContain("email is required")
+    expect(result.errors).toHaveLength(0)
+    expect(result.rows).toHaveLength(1)
+    expect(result.rows[0].email).toBe("placeholder@lyceumalabang.edu.ph")
   })
 
   it("rejects missing subject code", () => {
