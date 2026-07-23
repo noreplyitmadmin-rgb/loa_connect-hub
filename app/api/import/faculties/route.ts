@@ -5,7 +5,9 @@ import { parseFacultySubjectCsv, importFacultySubjects } from "@/lib/services/et
 import { logAuditEvent } from "@/lib/services/audit"
 
 function parseSectionIdentifier(raw: string): { name: string; program: string } {
-  const idx = raw.indexOf("-")
+  const dashIdx = raw.indexOf("-")
+  const spaceIdx = raw.indexOf(" ")
+  const idx = dashIdx !== -1 ? dashIdx : spaceIdx
   if (idx === -1) return { name: raw, program: "" }
   return { program: raw.slice(0, idx).trim(), name: raw.slice(idx + 1).trim() }
 }
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
     importRows = rawRows.map((r) => {
       const { program, name: sectionName } = parseSectionIdentifier(r.section || "")
-      return { email: r.email.toLowerCase().trim(), name: r.name || "", subjectCode: r.subjectCode.trim(), subjectName: r.subjectName || "", sectionName, sectionProgram: program, departmentCode: (r.departmentCode || "").trim().toUpperCase() }
+      return { email: r.email ? r.email.toLowerCase().trim() : "placeholder@lyceumalabang.edu.ph", name: r.name || "", subjectCode: r.subjectCode.trim(), subjectName: r.subjectName || "", sectionName, sectionProgram: program, departmentCode: (r.departmentCode || "").trim().toUpperCase() }
     })
   } else {
     const formData = await request.formData()

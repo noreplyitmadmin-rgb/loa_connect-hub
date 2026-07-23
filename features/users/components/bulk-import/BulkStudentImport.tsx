@@ -137,7 +137,9 @@ export default function BulkStudentImport({ departmentId: _departmentId, semeste
   const totalPreviewPages = Math.ceil(visibleRows.length / PREVIEW_PAGE_SIZE)
 
   const resolveSection = useCallback((raw: string) => {
-    const idx = raw.indexOf("-")
+    const dashIdx = raw.indexOf("-")
+    const spaceIdx = raw.indexOf(" ")
+    const idx = dashIdx !== -1 ? dashIdx : spaceIdx
     const courseCode = idx === -1 ? "" : raw.slice(0, idx).trim()
     const sectionName = idx === -1 ? raw : raw.slice(idx + 1).trim()
     const dCourse = existingDCourses.find((dc) => dc.code === courseCode)
@@ -289,6 +291,16 @@ export default function BulkStudentImport({ departmentId: _departmentId, semeste
 
       {!previewRows && !importResult && (
         <div className="space-y-5">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-xl px-4 py-3">
+            <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">CSV Format Hints</p>
+            <ul className="text-[11px] text-blue-600/80 dark:text-blue-300/70 space-y-0.5">
+              <li><strong>Section</strong> column must use format: <code className="bg-blue-100/60 dark:bg-blue-800/40 px-1 rounded">PROGRAM-SECTION</code> or <code className="bg-blue-100/60 dark:bg-blue-800/40 px-1 rounded">PROGRAM SECTION</code> (e.g., <code className="bg-blue-100/60 dark:bg-blue-800/40 px-1 rounded">BSIT-32A3</code> or <code className="bg-blue-100/60 dark:bg-blue-800/40 px-1 rounded">BSIT 32A3</code>)</li>
+              <li><strong>Subject code</strong> must match an existing subject — unknown codes will block the row.</li>
+              <li><strong>Faculty email</strong> must be an existing faculty/dean user assigned to that subject+section.</li>
+              <li><strong>Department code</strong> must match an existing department (e.g., <code className="bg-blue-100/60 dark:bg-blue-800/40 px-1 rounded">CCS</code>).</li>
+            </ul>
+          </div>
+
           <div
             onClick={() => fileRef.current?.click()}
             className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl bg-surface-dim/30 hover:bg-surface-dim/60 cursor-pointer transition-colors"

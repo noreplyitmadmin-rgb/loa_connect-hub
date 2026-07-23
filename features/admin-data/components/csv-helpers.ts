@@ -28,7 +28,9 @@ export function deriveCsvFlags(rows: CsvRow[], ctx: CsvFlagContext): CsvRowWithF
   const emailSet = new Set(ctx.facultyEmails)
 
   return rows.map((r) => {
-    const idx = r.section.indexOf("-")
+    const dashIdx = r.section.indexOf("-")
+    const spaceIdx = r.section.indexOf(" ")
+    const idx = dashIdx !== -1 ? dashIdx : spaceIdx
     const sectionProgram = idx === -1 ? "" : r.section.slice(0, idx).trim()
     const sectionName = idx === -1 ? r.section : r.section.slice(idx + 1).trim()
     return {

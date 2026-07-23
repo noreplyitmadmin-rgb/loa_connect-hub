@@ -313,6 +313,7 @@ function SectionsTab() {
   const [newCourseId, setNewCourseId] = useState("")
 
   const [currentUserDept, setCurrentUserDept] = useState("")
+  const [fixingNames, setFixingNames] = useState(false)
 
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -457,6 +458,19 @@ function SectionsTab() {
     return dept?.name ?? ""
   }
 
+  const handleFixNames = async () => {
+    setFixingNames(true); setError(""); setSuccess("")
+    try {
+      const res = await fetch("/api/admin/sections/fix-names", { method: "POST" })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || "Failed to fix section names")
+      setSuccess(body.fixed > 0 ? `Fixed ${body.fixed} section name(s).` : "No sections needed fixing.")
+      setTimeout(() => setSuccess(""), 3000)
+      fetchData(true)
+    } catch (err) { setError((err as Error).message) }
+    finally { setFixingNames(false) }
+  }
+
   return (
     <div className="space-y-6">
       {locked && <LockedTab endpoint={locked} />}
@@ -479,6 +493,22 @@ function SectionsTab() {
           </div>
         )}
       </div>
+
+      {data && data.some((s) => s.name.startsWith(s.program + " ") || s.name.startsWith(s.program + "-")) && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
+          <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+            Some sections have the program prefix in their name (e.g. BSIT-BSIT 11M1). Fix?
+          </p>
+          <button
+            type="button"
+            disabled={fixingNames}
+            onClick={handleFixNames}
+            className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-40 transition-colors"
+          >
+            {fixingNames ? "Fixing..." : "Fix Names"}
+          </button>
+        </div>
+      )}
 
       <div className="border border-default rounded-lg overflow-hidden">
         <button
