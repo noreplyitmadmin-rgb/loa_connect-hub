@@ -3,7 +3,7 @@ import type {
   AppointmentData, AppointmentAttendeeData, AppointmentTimeSlotData, AppointmentFileData,
   IAppointmentRepository,
 } from "@/lib/types"
-import { appointmentSelect, USER_BRIEF } from "@/lib/db/common"
+import { appointmentSelect, appointmentSelectHistory, USER_BRIEF } from "@/lib/db/common"
 import type { DbRecord } from "@/lib/db/common"
 import { logAuditEvent } from "@/lib/services/audit"
 
@@ -28,7 +28,7 @@ export const appointmentRepository: IAppointmentRepository = {
     const limit = Math.min(100, Math.max(1, pagination?.limit ?? DEFAULT_LIMIT))
     const { data, error, count } = await supabase
       .from("appointments")
-      .select(appointmentSelect, { count: "exact" })
+      .select(appointmentSelectHistory, { count: "exact" })
       .eq("studentId", studentId)
       .order("date", { ascending: true })
       .order("startTime", { ascending: true })

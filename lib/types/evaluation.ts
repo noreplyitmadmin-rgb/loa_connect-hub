@@ -371,7 +371,7 @@ export interface IEvaluationPeriodRepository {
 
 export interface ISubjectRepository {
   list(): Promise<SubjectData[]>
-  upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number }>
+  upsertMany(items: { code: string; name: string }[]): Promise<{ data: Map<string, SubjectData>; created: number; updated: number }>
   findByCode(code: string): Promise<SubjectData | null>
   findById(id: string): Promise<SubjectData | null>
   findByIds(ids: string[]): Promise<SubjectData[]>
@@ -431,6 +431,7 @@ export interface IRubricRepository {
 export interface IEvaluationRepository {
   findPending(evaluatorId: string, evaluationPeriodId: string): Promise<PendingEvaluationItem[]>
   findByEvaluator(evaluatorId: string, evaluationPeriodId?: string): Promise<EvaluationData[]>
+  findByEvaluatorBrief(evaluatorId: string): Promise<EvaluationData[]>
   findById(id: string): Promise<EvaluationData | null>
   findByComposite(evaluationPeriodId: string, evaluatorId: string, facultySubjectId: string): Promise<EvaluationData | null>
   create(evaluationPeriodId: string, evaluatorId: string, evaluateeId: string, facultySubjectId: string, source?: string | null): Promise<EvaluationData>

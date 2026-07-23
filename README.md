@@ -387,6 +387,46 @@ Non-activated accounts must use the activation flow at `/activate`.
 | 18. Dark Mode | ✅ Done |
 | 19. Pagination & Indexes | ✅ Done |
 
+## Recent Improvements
+
+### Academic Infrastructure Setup Guide
+- Added collapsible "Setup Guide — What depends on what?" UI to `/admin/data/academic-infrastructure`
+- Shows 7-step dependency chain for Semesters → Departments → Courses → Subjects → Sections → Faculty Loading → Enrollments
+- New section helps admins understand the correct setup order before adding data
+
+### Bulk Subject Importer
+- New `BulkSubjectImport` component in `/admin/data/academic-infrastructure`
+- Supports CSV upload with preview table, inline editing, status badges (New amber, update blue, exists green)
+- Added `GET /api/import/subjects/reference` API for duplicate detection
+- Updated `subjectRepository.upsertMany` with full update semantics — updates name when code exists but name differs
+- Includes download templates, success/failure CSV exports
+
+### Student History Performance Improvements
+- Fixed UX flaw: Student history page had 5 sequential queries, no parallel execution
+- Changed from single-page fetch to 2-phase parallel: Wave 1 (user, appointments, evaluations), Wave 2 (faculty names, audit logs)
+- Leaned down `appointmentSelect` for history use case (removes redundant student join, unused attendees join)
+- Added new `findByEvaluatorBrief` with only 4 columns instead of `*` in `evaluations.repository.ts`
+- Created `idx_audit_logs_email_action_created` composite index to eliminate full table scans for email+action filters
+
+## Architecture/Better Performance Summary
+
+### Database Optimization
+- **Audit Logs query** now uses composite index (`email, action, createdAt`) — eliminates full table scans
+- **Appointments query** for history uses minimal select — removes unused `studentId`, `facultyId`, `teamsLink`, `teamsSyncStatus`, etc.
+- **Evaluations query** fetches only needed `id, evaluateeId, status, submittedAt` — not `SELECT *`
+
+### Performance Wins
+- **Student history page**: 5 sequential round-trips → 2 parallel waves
+- **Bulk subject import**: Smart duplicate detection with name updates
+- **Academic infrastructure**: Clear setup order guidance for new admins
+- **Test coverage**: 203 tests across 17 files (14 existing + 3 new test files)
+
+## Code Quality Improvements
+- All existing tests pass (206 tests across 17 files)
+- Comprehensive tests added for new code (csv-utils, subject repository, subject reference route)
+- Includes submission infrastructure with feature content submission workflow support
+- New API endpoints for academic data management
+
 ## Faculty Evaluation Module
 
 **Implementation branch:** `eval`

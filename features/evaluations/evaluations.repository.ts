@@ -124,6 +124,17 @@ export const evaluationRepository: IEvaluationRepository = {
     return data as EvaluationData[]
   },
 
+  async findByEvaluatorBrief(evaluatorId) {
+    const { data, error } = await supabase
+      .from("evaluations")
+      .select("id, evaluateeId, status, submittedAt")
+      .eq("evaluatorId", evaluatorId)
+      .eq("isDisabled", false)
+      .order("createdAt", { ascending: false })
+    if (error) throw error
+    return data as EvaluationData[]
+  },
+
   async findById(id) {
     const { data, error } = await supabase.from("evaluations").select("*").eq("id", id).single()
     if (error) {

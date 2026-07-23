@@ -9,6 +9,7 @@ import LockedTab from "@/components/ui/LockedTab"
 import { SearchInput } from "./shared"
 import BulkStudentImport from "@/features/users/components/bulk-import/BulkStudentImport"
 import type { FacultyMapping, Enrollment } from "./types"
+import type { SemesterData } from "@/lib/types"
 
 export function EnrollmentsTab() {
   const [data, setData] = useState<Enrollment[] | null>(null)
@@ -42,8 +43,8 @@ export function EnrollmentsTab() {
 
   useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
-  const { data: periodsData } = useApiGet<{ periods: { id: string; isActive: boolean }[] }>("/api/evaluation-periods")
-  const activeSemesterId = useMemo(() => periodsData?.periods?.find((p) => p.isActive)?.id ?? "", [periodsData])
+  const { data: semestersData } = useApiGet<{ data: SemesterData[] }>("/api/semesters")
+  const activeSemesterId = useMemo(() => semestersData?.data?.find((s) => s.isActive)?.id ?? "", [semestersData])
 
   const { data: fsData } = useApiGet<{ data: FacultyMapping[] }>("/api/data/evaluation-mappings?type=faculty")
   const facultySubjects = fsData?.data ?? []
@@ -120,7 +121,7 @@ export function EnrollmentsTab() {
           {!activeSemesterId && (
             <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
               <span>⚠️</span>
-              <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
+              <span>No active semester. Set one as active before importing.</span>
             </div>
           )}
           <BulkStudentImport previewOnly semesterId={activeSemesterId || null} />
@@ -131,7 +132,7 @@ export function EnrollmentsTab() {
       {!activeSemesterId && (
         <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
           <span>⚠️</span>
-          <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
+          <span>No active semester. Set one as active before adding enrollments.</span>
         </div>
       )}
 
@@ -175,7 +176,7 @@ export function EnrollmentsTab() {
                   <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="e.g. juan@example.com" className="w-full text-sm bg-surface border border-strong rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400" required />
                 </div>
               </div>
-              <IosButton type="submit" loading={formSaving} variant="primary">Add Enrollment</IosButton>
+              <IosButton type="submit" loading={formSaving} disabled={!activeSemesterId} variant="primary">Add Enrollment</IosButton>
             </form>
           </div>
         )}

@@ -8,6 +8,10 @@ export async function getMyEvaluations(evaluatorId: string, evaluationPeriodId?:
   return evaluationRepository.findByEvaluator(evaluatorId, evaluationPeriodId)
 }
 
+export async function getMyEvaluationsBrief(evaluatorId: string) {
+  return evaluationRepository.findByEvaluatorBrief(evaluatorId)
+}
+
 export async function getEvaluation(id: string) {
   return evaluationRepository.findById(id)
 }

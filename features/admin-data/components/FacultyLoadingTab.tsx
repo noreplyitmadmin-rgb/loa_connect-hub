@@ -10,8 +10,9 @@ import LockedTab from "@/components/ui/LockedTab"
 import { SegmentedControl, SearchInput } from "./shared"
 import { EnrollmentsTab } from "./EnrollmentsTab"
 import { FacultySubjectDetail } from "./FacultySubjectDetail"
-import type { DepartmentData } from "@/lib/types"
+import type { DepartmentData, SemesterData } from "@/lib/types"
 import type { FacEnrollTab, FacViewTab, Subject, Section, FacultyMapping, Enrollment } from "./types"
+import { deriveCsvFlags, type CsvRow, type CsvRowWithFlags } from "./csv-helpers"
 
 export function FacultyLoadingTab() {
   const [facEnrollTab, setFacEnrollTab] = useState<FacEnrollTab>("faculty")
@@ -54,14 +55,6 @@ function FacultyTab() {
 
   // ── CSV Import state ──────────────────────────────────────
   const csvFileRef = useRef<HTMLInputElement>(null)
-  type CsvRow = { email: string; name: string; subjectCode: string; subjectName: string; section: string; departmentCode: string }
-  interface CsvRowWithFlags extends CsvRow {
-    isNewSubject: boolean
-    isNewSection: boolean
-    isNewTeacher: boolean
-    isInvalidDept: boolean
-    isExistingMapping: boolean
-  }
   const [csvRows, setCsvRows] = useState<CsvRowWithFlags[] | null>(null)
   const [csvImporting, setCsvImporting] = useState(false)
   const [csvImportResult, setCsvImportResult] = useState<{
@@ -75,6 +68,7 @@ function FacultyTab() {
   const [csvPreviewPage, setCsvPreviewPage] = useState(0)
   const [csvProblemFilter, setCsvProblemFilter] = useState(false)
   const [csvBlockedFilter, setCsvBlockedFilter] = useState(false)
+  const [csvInvalidDeptFilter, setCsvInvalidDeptFilter] = useState(false)
   const PREVIEW_PAGE_SIZE = 50
 
   const csvProblemRows = useMemo(() => {
@@ -94,6 +88,7 @@ function FacultyTab() {
 
   const csvVisibleRows = csvRows
     ? csvRows.filter((r) => {
+        if (csvInvalidDeptFilter) return r.isInvalidDept
         if (csvProblemFilter && csvBlockedFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept || r.isExistingMapping
         if (csvProblemFilter) return r.isNewSubject || r.isNewSection || r.isNewTeacher || r.isInvalidDept
         if (csvBlockedFilter) return r.isExistingMapping
@@ -123,8 +118,8 @@ function FacultyTab() {
 
   useEffect(() => { Promise.resolve().then(() => fetchData()) }, [fetchData])
 
-  const { data: periodsData } = useApiGet<{ periods: { id: string; isActive: boolean }[] }>("/api/evaluation-periods")
-  const activeSemesterId = useMemo(() => periodsData?.periods?.find((p) => p.isActive)?.id ?? "", [periodsData])
+  const { data: semestersData } = useApiGet<{ data: SemesterData[] }>("/api/semesters")
+  const activeSemesterId = useMemo(() => semestersData?.data?.find((s) => s.isActive)?.id ?? "", [semestersData])
 
   // Get current user info for department restriction
   useEffect(() => {
@@ -259,28 +254,6 @@ function FacultyTab() {
     return { rows }
   }
 
-  function deriveCsvFlags(rows: CsvRow[]): CsvRowWithFlags[] {
-    const existingKeys = new Set(
-      (data ?? []).map((m) => `${m.faculty.email}|${m.subject.code}|${m.section.program}-${m.section.name}`)
-    )
-    const validDeptCodes = new Set(departments.map((d) => d.code))
-    return rows.map((r) => {
-      const dashIdx = r.section.indexOf("-")
-      const spaceIdx = r.section.indexOf(" ")
-      const idx = dashIdx !== -1 ? dashIdx : spaceIdx
-      const sectionProgram = idx === -1 ? "" : r.section.slice(0, idx).trim()
-      const sectionName = idx === -1 ? r.section : r.section.slice(idx + 1).trim()
-      return {
-        ...r,
-        isNewSubject: !subjects.some((s) => s.code === r.subjectCode),
-        isNewSection: !sections.some((s) => s.name === sectionName && s.program === sectionProgram),
-        isNewTeacher: !faculties.some((f) => f.email === r.email),
-        isInvalidDept: !validDeptCodes.has(r.departmentCode),
-        isExistingMapping: existingKeys.has(`${r.email}|${r.subjectCode}|${r.section}`),
-      }
-    })
-  }
-
   const handleCsvFile = (file: File) => {
     setCsvImportResult(null)
     setCsvError("")
@@ -290,7 +263,13 @@ function FacultyTab() {
       const { rows, error } = parseFacultyCsv(text)
       if (error) { setCsvError(error); return }
       if (rows.length === 0) { setCsvError("No valid rows found"); return }
-      setCsvRows(deriveCsvFlags(rows))
+      setCsvRows(deriveCsvFlags(rows, {
+        existingMappings: data ?? [],
+        validDeptCodes: departments.map((d) => d.code),
+        subjectCodes: subjects.map((s) => s.code),
+        sectionPairs: sections.map((s) => ({ name: s.name, program: s.program })),
+        facultyEmails: faculties.map((f) => f.email),
+      }))
       setCsvPreviewPage(0)
     }
     reader.readAsText(file)
@@ -359,6 +338,7 @@ function FacultyTab() {
     setCsvPreviewPage(0)
     setCsvProblemFilter(false)
     setCsvBlockedFilter(false)
+    setCsvInvalidDeptFilter(false)
     setCsvError("")
     if (csvFileRef.current) csvFileRef.current.value = ""
   }
@@ -436,7 +416,7 @@ function FacultyTab() {
             {!activeSemesterId && (
               <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5">
                 <span>⚠️</span>
-                <span>No active semester — semesterId will be null, evaluations won&rsquo;t work.</span>
+                <span>No active semester. Set one as active before importing.</span>
               </div>
             )}
             <div className="space-y-4">
@@ -533,6 +513,19 @@ function FacultyTab() {
                           }`}
                         >
                           {csvProblemFilter ? "Show all rows" : `Show ${csvProblemRows.length} flagged only`}
+                        </button>
+                      )}
+                      {invalidDeptRows.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setCsvInvalidDeptFilter((p) => !p); setCsvPreviewPage(0) }}
+                          className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
+                            csvInvalidDeptFilter
+                              ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                              : "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
+                          }`}
+                        >
+                          {csvInvalidDeptFilter ? "Show all rows" : `Show ${invalidDeptRows.length} invalid dept only`}
                         </button>
                       )}
                     </div>
@@ -636,7 +629,7 @@ function FacultyTab() {
                 </div>
                 <div className="sticky bottom-0 pt-4 pb-1 bg-white dark:bg-surface-dim flex items-center gap-3">
                   <IosButton variant="gray" type="button" disabled={csvImporting} onClick={handleCsvReset} className="flex-1">Cancel</IosButton>
-                  <IosButton variant="primary" type="button" disabled={csvImporting || csvRows.length === 0 || blockedCsvRows.length > 0 || invalidDeptRows.length > 0} onClick={handleCsvImport} className={`flex-1 ${blockedCsvRows.length > 0 || invalidDeptRows.length > 0 ? "!bg-red-400 !text-white" : ""}`}>
+                  <IosButton variant="primary" type="button" disabled={!activeSemesterId || csvImporting || csvRows.length === 0 || blockedCsvRows.length > 0 || invalidDeptRows.length > 0} onClick={handleCsvImport} className={`flex-1 ${blockedCsvRows.length > 0 || invalidDeptRows.length > 0 ? "!bg-red-400 !text-white" : ""}`}>
                     {csvImporting ? "Importing..." : blockedCsvRows.length > 0 ? `${blockedCsvRows.length} Already loaded — Remove to import` : invalidDeptRows.length > 0 ? `${invalidDeptRows.length} Invalid dept code — Fix to import` : `Import ${csvRows.length} Row${csvRows.length !== 1 ? "s" : ""}`}
                   </IosButton>
                 </div>
@@ -714,7 +707,7 @@ function FacultyTab() {
           <form onSubmit={handleAdd} className="space-y-4 pt-3">
             {formError && <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded">{formError}</p>}
             {formSuccess && <p className="text-xs font-medium text-green-600 bg-green-50 p-2 rounded">{formSuccess}</p>}
-            {!activeSemesterId && <p className="text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded flex items-center gap-2"><span>⚠️</span> No active semester — semesterId will be null, evaluations will not work.</p>}
+            {!activeSemesterId && <p className="text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded flex items-center gap-2"><span>⚠️</span> No active semester. Set one as active before adding faculty load entries.</p>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-tertiary mb-1">Department</label>
@@ -769,7 +762,7 @@ function FacultyTab() {
                 </select>
               </div>
             </div>
-            <div className="pt-2"><IosButton type="submit" loading={formSaving} variant="primary">Create Faculty Load Entry</IosButton></div>
+            <div className="pt-2"><IosButton type="submit" loading={formSaving} disabled={!activeSemesterId} variant="primary">Create Faculty Load Entry</IosButton></div>
           </form>
         </div>
         )}
