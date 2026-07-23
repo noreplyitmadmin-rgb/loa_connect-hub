@@ -2,7 +2,9 @@ import { supabase } from "@/lib/supabase"
 import { userRepository, sectionRepository, subjectRepository, facultySubjectRepository, studentEnrollmentRepository } from "@/lib/repositories/factory"
 
 function parseSectionIdentifier(raw: string): { name: string; program: string } {
-  const idx = raw.indexOf("-")
+  const dashIdx = raw.indexOf("-")
+  const spaceIdx = raw.indexOf(" ")
+  const idx = dashIdx !== -1 ? dashIdx : spaceIdx
   if (idx === -1) {
     return { name: raw, program: "" }
   }
